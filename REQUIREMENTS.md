@@ -13,11 +13,11 @@ Re-read before every submission. Status: Slice 1 in progress.
 
 ## Deliverables
 - [x] `main.ts` (Node 22, stdlib only) — copies `game/` + `screenshots/` to `/output`, writes `/output/dossier.json` via `buildDossier` from `vendor/makefun-game.ts`. Must carry ≥1 authored line.
-- [ ] `serve.ts` — serves `game/` at localhost:8080.
-- [ ] `vendor/makefun-game.ts` — kit's copy, UNCHANGED (byte-for-byte).
-- [ ] `game/` — static files only, no build step, no network at runtime. `game/index.html` opens in desktop Chrome and plays offline.
-- [ ] `screenshots/` — 3–4 PNG/JPEG, first by name = cover, real renders of the game's own code, never edited/composited/borrowed.
-- [ ] `LICENSE` (MIT) + short `README.md` (how to run, controls, feature list).
+- [x] `serve.ts` — serves `game/` at localhost:8080.
+- [x] `vendor/makefun-game.ts` — kit's copy, UNCHANGED (byte-for-byte).
+- [x] `game/` — static files only, no build step, no network at runtime. `game/index.html` opens in desktop Chrome and plays offline.
+- [x] `screenshots/` — 3–4 PNG/JPEG, first by name = cover, real renders of the game's own code, never edited/composited/borrowed.
+- [x] `LICENSE` (MIT) + short `README.md` (how to run, controls, feature list).
 
 ## File layout
 - `game/index.html` — page shell, HUD DOM, menu screens, import map for three.
@@ -47,22 +47,22 @@ In order: (1) complete open world shown in screenshots; (2) depth/fun; (3) feel/
 - [ ] Run record (makefun-run.json) complete: harness, version, provider, model, effort declared/recorded by every top-level session.
 - [ ] No copied Rockstar/GTA content: own city, characters, vehicles, names, story, art, sounds. Nothing from any commercial game.
 
-## Slice 1 scope (this build — runnable, submittable)
-- [ ] Start menu: title/logo, tagline, hero look, New Game / Continue (disabled "No saved game yet" until a save exists) / Controls / Settings / Credits.
-- [ ] World: ground, roads (grid + coastal boulevard), buildings (varied heights, distinct districts), sky + low warm sun, long shadows, golden-hour palette.
-- [ ] Player on foot: human-shaped low-poly character, WASD move, sprint, third-person chase camera (mouse drag / pointer).
-- [ ] ONE drivable vehicle: acid lime #70E000 wedge supercar, believable handling (accel/brake/steer), enter/exit with E, camera follows car. A few parked/traffic cars to steal/drive.
-- [ ] HUD: speed, health, mission text, wanted stars (0 in Slice 1 is fine), cash, minimap (small top-down), on-screen controls help.
-- [ ] Pedestrians + a few ambient traffic cars (simple movement) if time allows — do NOT block Slice 1 on them.
-- [ ] Procedural/low-poly geometry only — NO external 3D models, NO network at runtime.
-- [ ] Save: a save slot (localStorage) so Continue unlocks; start screen + way to save.
+## Slice 1 scope (this build — runnable, submittable) — DONE 19 Nov, commit 8bf2914
+- [x] Start menu: title/logo, tagline, hero look, New Game / Continue (disabled "No saved game yet" until a save exists) / Controls / Settings / Credits.
+- [x] World: ground, roads (grid + coastal boulevard), buildings (varied heights, distinct districts), sky + low warm sun, long shadows, golden-hour palette.
+- [x] Player on foot: human-shaped low-poly character, WASD move, sprint, third-person chase camera (mouse drag / pointer).
+- [x] ONE drivable vehicle: acid lime #70E000 wedge supercar, believable handling (accel/brake/steer), enter/exit with E, camera follows car. A few parked/traffic cars to steal/drive.
+- [x] HUD: speed, health, mission text, wanted stars (0 in Slice 1 is fine), cash, minimap (small top-down), on-screen controls help.
+- [x] Pedestrians + a few ambient traffic cars (simple movement) if time allows — do NOT block Slice 1 on them.
+- [x] Procedural/low-poly geometry only — NO external 3D models, NO network at runtime.
+- [x] Save: a save slot (localStorage) so Continue unlocks; start screen + way to save.
 
 ## Quality bar (skill) — before reporting / submitting
-- [ ] Kit check 5/0 (`node cli/makefun.mjs check --kit . --repo <repo>`).
-- [ ] Headless browser test (Playwright): loads game, 0 console errors, 4 screenshots 1280×720 (menu, on foot, driving, chase/police if present), each viewed by the builder.
-- [ ] Scripted playthrough: boots, player moves, enters car, drives, exits — no soft locks. Exact pass count reported.
-- [ ] Fresh-clone sanity: runs from a clean copy (no absolute paths, no dev-only files).
-- [ ] Play 5 continuous minutes: no console errors, no soft locks, no stuck missions.
+- [x] Kit check 5/0 (`node cli/makefun.mjs check --kit . --repo <repo>`).
+- [x] Headless browser test (Playwright): loads game, 0 console errors, 4 screenshots 1280×720 (menu, on foot, driving, chase/police if present), each viewed by the builder.
+- [x] Scripted playthrough: boots, player moves, enters car, drives, exits — no soft locks. Exact pass count reported.
+- [x] Fresh-clone sanity: runs from a clean copy (no absolute paths, no dev-only files).
+- [x] Play 5 continuous minutes: no console errors, no soft locks, no stuck missions.
 - [ ] No submission without Xian's review + explicit "Gas submit".
 
 ## Disqualifiers (never)
