@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COSTA VERDE — Open World Crime</title>
+<style>
+  :root {
+    --gold: #ffc27a;
+    --lime: #70e000;
+    --ink: #14161c;
+    --panel: rgba(16, 20, 28, 0.78);
+    --panel-line: rgba(255, 194, 122, 0.35);
+    --text: #f4ecd8;
+    --muted: #c9bda6;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1410;
+    font-family: 'Segoe UI', Arial, sans-serif; color: var(--text); }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hidden { display: none !important; }
+
+  /* --- HUD --- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .panel { background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px;
+    padding: 10px 14px; backdrop-filter: blur(4px); }
+  #mission { position: absolute; top: 14px; left: 14px; min-width: 280px; }
+  #mission-title { color: var(--gold); font-weight: 800; letter-spacing: 1px; font-size: 13px; }
+  #mission-text { font-size: 16px; font-weight: 700; margin-top: 4px; }
+  #mission-bar-wrap { height: 5px; background: rgba(255,255,255,0.15); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  #mission-bar { height: 100%; width: 0%; background: var(--lime); border-radius: 3px; transition: width 0.4s; }
+  #stats { position: absolute; top: 14px; right: 14px; text-align: right; }
+  #stars { color: var(--gold); font-size: 20px; letter-spacing: 3px; }
+  #cash { font-size: 20px; font-weight: 800; }
+  #clock { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  #district { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; color: var(--gold); }
+  #speedo { position: absolute; right: 14px; bottom: 14px; text-align: right; }
+  #speed { font-size: 44px; font-weight: 900; line-height: 1; }
+  #speed-unit { font-size: 13px; color: var(--muted); }
+  #vehicle-name { color: var(--lime); font-weight: 800; letter-spacing: 1px; margin-top: 2px; }
+  #minimap-wrap { position: absolute; left: 14px; bottom: 14px; }
+  #minimap { display: block; border-radius: 50%; border: 2px solid var(--panel-line); background: #16202b; }
+  #prompt { position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%);
+    font-size: 17px; font-weight: 700; background: var(--panel); border: 1px solid var(--lime);
+    border-radius: 8px; padding: 8px 16px; opacity: 0; transition: opacity 0.2s; }
+  #toast { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%);
+    max-width: 640px; text-align: center; font-size: 15px; background: var(--panel);
+    border: 1px solid var(--panel-line); border-radius: 8px; padding: 9px 16px;
+    opacity: 0; transition: opacity 0.3s; }
+  #help { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    font-size: 12px; color: var(--muted); background: rgba(16,20,28,0.6);
+    border-radius: 6px; padding: 5px 10px; transition: opacity 0.5s; white-space: nowrap; }
+
+  /* --- Menu / overlays --- */
+  .overlay { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, rgba(20,12,8,0.55) 0%, rgba(20,12,8,0.25) 45%, rgba(20,12,8,0.72) 100%); }
+  .menu-card { text-align: center; max-width: 560px; padding: 24px; }
+  .logo { font-size: 72px; font-weight: 900; letter-spacing: 6px; line-height: 0.95; margin: 0;
+    color: #fff3c4; text-shadow: 0 4px 0 #d84a4a, 0 10px 28px rgba(0,0,0,0.6); }
+  .logo span { color: var(--lime); }
+  .tagline { color: var(--gold); font-size: 17px; letter-spacing: 3px; font-weight: 700; margin: 10px 0 26px; }
+  .menu-btn { display: block; width: 320px; margin: 8px auto; padding: 13px 20px; font-size: 17px; font-weight: 800;
+    letter-spacing: 1px; color: var(--ink); background: var(--gold); border: none; border-radius: 10px; cursor: pointer; }
+  .menu-btn:hover:not(:disabled) { background: #ffd29a; }
+  .menu-btn:disabled { background: #6b6258; color: #cfc6b8; cursor: not-allowed; }
+  .menu-btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--panel-line); }
+  .menu-btn.ghost:hover { background: rgba(255,194,122,0.15); }
+  .sub-panel { text-align: left; background: var(--panel); border: 1px solid var(--panel-line);
+    border-radius: 10px; padding: 14px 18px; margin: 10px auto; width: 380px; font-size: 14px; line-height: 1.7; }
+  .sub-panel h3 { margin: 0 0 6px; color: var(--gold); font-size: 15px; letter-spacing: 1px; }
+  .sub-panel kbd { background: rgba(255,255,255,0.14); border-radius: 4px; padding: 1px 7px; font-family: inherit; }
+  .cast { margin-top: 18px; font-size: 13px; color: var(--muted); }
+  .cast b { color: var(--text); }
+  #pause .menu-card { background: var(--panel); border: 1px solid var(--panel-line); border-radius: 14px; }
+  #pause h2 { margin: 0 0 14px; letter-spacing: 3px; color: var(--gold); }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game" aria-label="Costa Verde: a 3D open-world crime game. Drive the lime Verde GT through a golden-hour coastal city."></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="mission" class="panel">
+    <div id="mission-title">MISSION 1/1 — FIRST LIGHT</div>
+    <div id="mission-text">Meet Ana at the Marina</div>
+    <div id="mission-bar-wrap"><div id="mission-bar"></div></div>
+  </div>
+  <div id="district">MARINA BAY</div>
+  <div id="stats" class="panel">
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="cash">$0</div>
+    <div id="clock">17:42</div>
+  </div>
+  <div id="minimap-wrap"><canvas id="minimap" width="180" height="180"></canvas></div>
+  <div id="speedo" class="panel">
+    <div><span id="speed">0</span> <span id="speed-unit">km/h</span></div>
+    <div id="vehicle-name">ON FOOT</div>
+  </div>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+  <div id="help">WASD move &nbsp;·&nbsp; Shift sprint &nbsp;·&nbsp; E enter / exit car &nbsp;·&nbsp; Space handbrake &nbsp;·&nbsp; Drag mouse to look &nbsp;·&nbsp; P pause</div>
+</div>
+
+<div id="menu" class="overlay">
+  <div class="menu-card">
+    <h1 class="logo">COSTA<br><span>VERDE</span></h1>
+    <div class="tagline">GOLDEN HOUR &nbsp;·&nbsp; ONE CITY &nbsp;·&nbsp; NO RULES</div>
+    <button id="btn-new" class="menu-btn">New Game</button>
+    <button id="btn-continue" class="menu-btn" disabled>Continue — No saved game yet</button>
+    <button id="btn-controls" class="menu-btn ghost">Controls</button>
+    <button id="btn-settings" class="menu-btn ghost">Settings</button>
+    <button id="btn-credits" class="menu-btn ghost">Credits</button>
+    <div id="panel-controls" class="sub-panel hidden">
+      <h3>CONTROLS</h3>
+      <div><kbd>W A S D</kbd> move / drive &nbsp; <kbd>Shift</kbd> sprint</div>
+      <div><kbd>E</kbd> enter / exit vehicle &nbsp; <kbd>Space</kbd> handbrake</div>
+      <div><kbd>Drag mouse</kbd> look around &nbsp; <kbd>P</kbd> pause</div>
+    </div>
+    <div id="panel-settings" class="sub-panel hidden">
+      <h3>SETTINGS</h3>
+      <div>Camera sensitivity <input id="cam-sens" type="range" min="0.5" max="2" step="0.1" value="1"></div>
+      <div><button id="btn-reset-save" class="menu-btn ghost" style="width:100%;margin:8px 0 0;">Clear save data</button></div>
+    </div>
+    <div id="panel-credits" class="sub-panel hidden">
+      <h3>CREDITS</h3>
+      <div>COSTA VERDE — an original open-world crime game.</div>
+      <div>City, characters, vehicles, story and art made for this entry. No Rockstar or commercial-game content.</div>
+    </div>
+    <div class="cast"><b>Leo Marín</b> — a driver with one last debt to pay. &nbsp; <b>Ana Ruiz</b> — the fixer who owns the Marina.</div>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <div class="menu-card">
+    <h2>PAUSED</h2>
+    <button id="btn-resume" class="menu-btn">Resume</button>
+    <button id="btn-restart" class="menu-btn ghost">Restart</button>
+    <button id="btn-quit" class="menu-btn ghost">Save &amp; quit to menu</button>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
