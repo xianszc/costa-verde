@@ -82,7 +82,7 @@ function groundTexture() {
   g.fillRect(toPx(210), 0, px(44), S);
   g.fillStyle = '#b9a98c';
   g.fillRect(toPx(-HALF), toPx(-HALF), px(CFG.citySize), px(CFG.citySize));
-  g.fillStyle = '#3a3a40';
+  g.fillStyle = CFG.palette.asphalt;
   for (const x of ROAD_X) g.fillRect(toPx(x - CFG.roadWidth / 2), 0, px(CFG.roadWidth), S);
   for (const z of ROAD_Z) g.fillRect(0, toPx(z - CFG.roadWidth / 2), S, px(CFG.roadWidth));
   g.fillStyle = '#f2c14e';
@@ -167,7 +167,13 @@ export function buildWorld(THREE) {
   sun.shadow.camera.near = 50; sun.shadow.camera.far = 700;
   sun.shadow.bias = -0.0006;
   group.add(sun);
-  group.add(new THREE.HemisphereLight(CFG.sun.ambientSky, CFG.sun.ambientGround, CFG.sun.ambientIntensity));
+  const hemi = new THREE.HemisphereLight(CFG.sun.ambientSky, CFG.sun.ambientGround, CFG.sun.ambientIntensity);
+  group.add(hemi);
+  // Slice 4 fill: warm bounce from the east (the sun-back side), no
+  // shadows — the cheap fix for facades and roads reading black.
+  const fill = new THREE.DirectionalLight(CFG.sun.fillColor, CFG.sun.fillIntensity);
+  fill.position.set(-sunDir.x * 300, 120, -sunDir.z * 300);
+  group.add(fill);
   const scene = group; // alias for clarity below
 
   // --- ground ---------------------------------------------------------------
@@ -410,5 +416,5 @@ export function buildWorld(THREE) {
   colliders.push({ minX: -400, maxX: 400, minZ: -260, maxZ: -242 });
   colliders.push({ minX: -400, maxX: 400, minZ: 242, maxZ: 260 });
 
-  return { group, colliders, buildingCount, palmCount: palms.length, sunDir };
+  return { group, colliders, buildingCount, palmCount: palms.length, sunDir, sun, hemi, fill };
 }

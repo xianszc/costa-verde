@@ -80,7 +80,7 @@ export function createMissionSystem(w) {
       mark.position.y = 2.4;
       h.group.add(mark);
       w.scene.add(h.group);
-      sys.enemies.push({ h, mark, x, z, hp: ENEMIES.hp, shootCd: 1 + i * 0.4, state: 'alive', downUntil: 0, phase: i * 1.7 });
+      sys.enemies.push({ h, mark, x, z, hp: ENEMIES.hp, shootCd: 1 + i * 0.4, state: 'alive', downUntil: 0, phase: i * 1.7, strafeDir: 1, strafing: false, cycleT: 0.5 + i * 0.3 });
     }
   }
   function clearEnemies() {
@@ -139,6 +139,7 @@ export function createMissionSystem(w) {
     w.addRep(15);
     sys.missionCash += m.reward;
     w.sting('cash');
+    w.fade();
     clearEnemies();
     clearEscort();
     w.save();
@@ -162,6 +163,7 @@ export function createMissionSystem(w) {
     if (sys.status !== 'active') return;
     sys.failReason = reason;
     sys.status = 'failed';
+    w.fade();
     clearEnemies();
     clearEscort();
     w.hideBeacon();
@@ -298,13 +300,38 @@ export function createMissionSystem(w) {
         e.h.group.rotation.y = heading;
         animateWalk(e.h, e.phase, 0.8);
       } else {
-        e.h.group.rotation.y = Math.atan2(dx, dz);
-        animateWalk(e.h, e.phase, 0);
+        // Slice 4: guards reposition between shots instead of standing
+        // still — they strafe sideways for a second, then hold still to
+        // shoot. The hold phase is the player's window to hit them:
+        // constant strafing at 5 m was unhittable (the M5 playtest
+        // proved it — the heist could not be finished).
+        e.cycleT -= dt;
+        if (e.cycleT <= 0) {
+          e.strafing = !e.strafing;
+          e.cycleT = e.strafing ? 1.0 : 1.4;
+          if (e.strafing) e.strafeDir *= -1;
+        }
+        const heading = Math.atan2(dx, dz);
+        if (e.strafing) {
+          const perp = heading + Math.PI / 2;
+          const pos = { x: e.x, z: e.z };
+          pos.x += Math.sin(perp) * e.strafeDir * 1.1 * dt;
+          pos.z += Math.cos(perp) * e.strafeDir * 1.1 * dt;
+          resolveCircle(pos, 0.5, w.colliders);
+          e.x = pos.x; e.z = pos.z;
+          e.h.group.position.set(e.x, 0, e.z);
+          e.phase += dt * 3;
+          animateWalk(e.h, e.phase, 0.6);
+        } else {
+          animateWalk(e.h, e.phase, 0);
+        }
+        e.h.group.rotation.y = heading;
       }
       e.mark.rotation.y += dt * 2;
-      // Shoot: only on foot, in range, with line of sight. Guards hold
-      // fire while Leo is in a car (they take cover, not potshots).
-      if (!w.driving && dist < ENEMIES.shootRange) {
+      // Shoot: only on foot, in range, with line of sight — and only
+      // while holding still (the strafe phase is the guard moving, not
+      // shooting). Guards hold fire while Leo is in a car (they take cover, not potshots).
+      if (!w.driving && dist < ENEMIES.shootRange && !e.strafing) {
         e.shootCd -= dt;
         if (e.shootCd <= 0) {
           e.shootCd = ENEMIES.shootInterval;
@@ -345,6 +372,8 @@ export function createMissionSystem(w) {
     if (far > ESCORT.maxDist) {
       esc.farTimer += dt;
       if (esc.farTimer > 3 && esc.farTimer - dt <= 3) w.toast('TOO FAR — get back to the contact!', 4);
+      // Slice 4: a second, louder warning before the job actually fails.
+      if (esc.farTimer > 7 && esc.farTimer - dt <= 7) w.toast('The contact is slipping away — get back NOW!', 4);
       if (esc.farTimer > ESCORT.farTime) { fail('You lost the contact.'); return; }
     } else esc.farTimer = 0;
     if (esc.hp <= 0) { fail("The contact's car was destroyed."); return; }

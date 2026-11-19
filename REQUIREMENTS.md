@@ -28,6 +28,7 @@ Re-read before every submission. Status: Slice 1 in progress.
 - `game/src/police.js` — wanted heat, pursuit, helicopter, BUSTED logic.
 - `game/src/combat.js` — pistol hitscan, ammo, reload.
 - `game/src/audio.js` — procedural WebAudio: sirens, gunshots, stings.
+- `game/src/fx.js` — pooled particles (tire smoke, muzzle flash, hit sparks, cruiser smoke/fire) + skid marks (Slice 4).
 - `game/src/main.js` — loop, third-person camera, input, HUD, save, debug API.
 - `game/vendor/three.module.min.js` — vendored Three.js (minified, excluded from authorship count).
 - `main.ts`, `serve.ts`, `vendor/makefun-game.ts` at repo root.
@@ -59,6 +60,17 @@ In order: (1) complete open world shown in screenshots; (2) depth/fun; (3) feel/
 - [x] Pedestrians + a few ambient traffic cars (simple movement) if time allows — do NOT block Slice 1 on them.
 - [x] Procedural/low-poly geometry only — NO external 3D models, NO network at runtime.
 - [x] Save: a save slot (localStorage) so Continue unlocks; start screen + way to save.
+
+## Slice 4 scope (this build — polish: look + feel + performance) — DONE 19 Nov, commit TBD
+Recording: `01a1f460-7dd9-77bc-b769-0ac8e8af6d2d` (started before this session; seal after commit).
+- [x] Lighting fix FIRST: roads + sun-back building sides readable — hemisphere 0.68→1.05, brighter ambient ground, warm east fill light (no shadows), lighter asphalt #3a3a40→#52525c, sun 14°→17° / intensity 2.6→2.8. Golden hour ONLY — no day/night cycle, nothing darkens the scene. Verified by viewing the retaken screenshots: the road reads gray with visible lane markings, facades show window grids.
+- [x] Particles & screen effects: tire smoke/dust on drift + hard accel, skid marks, muzzle flash, hit sparks, smoke/fire on a disabled cruiser, damage vignette, speed lines + FOV kick at high speed, fade transitions on mission start/finish/BUSTED/WASTED. Pooled particles (600-particle pool, no per-frame allocation) + 48-quad skid pool.
+- [x] Audio: engine hum per vehicle (pitch follows speed), sirens that change with distance (volume + pitch), procedural radio with 3 stations + switch key (N), mute (M) still works. All WebAudio, no external files.
+- [x] Performance: frame-time check in the playtest — **482 ms/frame over 17 frames** while driving at speed on this machine (SwiftShader, no GPU; under the 800 ms fail line). No memory leaks (particles pooled; the lifetime spawn counter proves emitters fire without growth).
+- [x] Edge cases: pause (P) freezes EVERYTHING (gameTime, peds, traffic, beacons, clock — proven identical before/after 2.5 s paused); restart from pause/menu works; window resize keeps the game playable; lost focus auto-pauses.
+- [x] Slice 3 fixes (cheap only): M2 timer 150→120 s; M4 far-timer 8→10 s + a second warning toast at 7 s; guards reposition between shots — strafe 1 s, then HOLD STILL 1.4 s to shoot (the hold phase is the player's window). The first version (constant strafing) made the M5 heist unfinishable — the playtest proved it — so it was reworked to strafe/hold cycles and the heist passes again.
+- [x] Playtest: FULL REGRESSION **79/79 passed**, 0 console/page errors (61 Slice 1–3 + 1 strafe + 17 Slice 4). Kit check 5/0. Screenshots retaken: the road is readable in every shot; cover shows the chase (GT + 2 flanking cruisers + 3 stars + SPD panel + heli as AIR-1).
+- Fixes found by testing: (1) `const fx = makeFx(scene)` ran before `scene` was declared — boot ReferenceError; moved after scene creation. (2) `CFG.MISSIONS`/`CFG.ESCORT` don't exist (separate exports) — the playtest crashed reading them; exposed MISSIONS + ESCORT in the debug API. (3) Favicon 404 logged a console error — added a `data:,` favicon link.
 
 ## Slice 3 scope (this build — story + side content + progression) — DONE 19 Nov, commit TBD
 Recording: `01a1f445-fdf1-724f-a913-78ee1b80a965` (started before this session; seal after commit).

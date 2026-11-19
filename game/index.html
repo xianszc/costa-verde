@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<link rel="icon" href="data:,">
 <title>COSTA VERDE — Sunset Heist</title>
 <style>
   /* COSTA VERDE Slice 2 — layout: full-screen canvas, HUD panels in the
@@ -103,6 +104,22 @@
     position: fixed; left: 50%; top: 50%; z-index: 9; transform: translate(-50%, -50%);
     font-size: 26px; font-weight: 900; color: #ff3b30; opacity: 0; pointer-events: none;
     text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+  }
+  /* Slice 4 overlays: damage vignette, speed lines, black fade. All
+     pointer-events none so they never block input. */
+  #vignette {
+    position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 52%, rgba(255, 30, 20, 0.55) 100%);
+  }
+  #speedlines {
+    position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+    background: repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 6deg, rgba(255, 255, 255, 0.10) 6deg 7deg, transparent 7deg 14deg);
+    -webkit-mask-image: radial-gradient(circle at center, transparent 46%, black 78%);
+    mask-image: radial-gradient(circle at center, transparent 46%, black 78%);
+  }
+  #fade {
+    position: fixed; inset: 0; z-index: 18; pointer-events: none; opacity: 0;
+    background: #000; transition: opacity 0.55s ease;
   }
   #dmg-layer { position: fixed; inset: 0; z-index: 9; pointer-events: none; overflow: hidden; }
   .dmg-num {
@@ -213,10 +230,13 @@
 <div id="minimap-wrap" class="panel"><canvas id="minimap" width="180" height="180"></canvas></div>
 <div id="prompt"></div>
 <div id="toast"></div>
-<div id="help"><b>WASD</b> move · <b>Shift</b> run / nitro · <b>E</b> enter/exit car · <b>Click</b> shoot · <b>R</b> reload · <b>Space</b> handbrake · <b>G</b> garage · <b>P</b> pause · <b>M</b> mute · drag to look</div>
+<div id="help"><b>WASD</b> move · <b>Shift</b> run / nitro · <b>E</b> enter/exit car · <b>Click</b> shoot · <b>R</b> reload · <b>Space</b> handbrake · <b>N</b> radio · <b>G</b> garage · <b>P</b> pause · <b>M</b> mute · drag to look</div>
 <div id="crosshair"></div>
 <div id="hitmarker">✕</div>
 <div id="dmg-layer"></div>
+<div id="vignette"></div>
+<div id="speedlines"></div>
+<div id="fade"></div>
 
 <!-- Menu -->
 <div id="menu" class="overlay">
@@ -229,7 +249,7 @@
     <div id="panel-controls" class="subpanel hidden">
       <h3>CONTROLS</h3>
       WASD / arrows — move &amp; drive · Shift — run / nitro boost (GT) · E — enter / exit car, talk to Ana, pick up fares &amp; packages<br>
-      Click or F — shoot pistol · R — reload · Space — handbrake · G — garage (at the safehouse)<br>
+      Click or F — shoot pistol · R — reload · Space — handbrake · N — next radio station · G — garage (at the safehouse)<br>
       Mouse drag — look around · P / Esc — pause · M — mute sound
     </div>
     <button id="btn-settings" class="btn secondary">Settings</button>
@@ -245,7 +265,7 @@
       COSTA VERDE — an original game built for the Make GTA 6 bounty.<br>
       No Rockstar assets, no real brands. All code, art and audio are original.
     </div>
-    <div class="fineprint">Slice 3 — 5 story missions, taxi fares, courier deliveries, 10 hidden verde caches, reputation &amp; garage upgrades. Save: progress autosaves at mission steps and on pause.</div>
+    <div class="fineprint">Slice 4 — readable golden-hour light, tire smoke &amp; skid marks, muzzle flash &amp; sparks, engine hum &amp; radio, damage vignette &amp; speed lines. Save: progress autosaves at mission steps and on pause.</div>
   </div>
 </div>
 

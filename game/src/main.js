@@ -6,7 +6,7 @@
 // v1.1 kept: closer camera, dense city, busy streets, fixed timestep.
 
 import * as THREE from 'three';
-import { CFG, DISTRICTS, SLICE1, PARKED_CARS, MISSIONS, REP_LEVELS, REP_GAIN, UPGRADES } from './config.js';
+import { CFG, DISTRICTS, SLICE1, PARKED_CARS, MISSIONS, ESCORT, REP_LEVELS, REP_GAIN, UPGRADES } from './config.js';
 import { buildWorld } from './world.js';
 import { buildPlayer, randomPed, animateWalk, buildHumanoid } from './characters.js';
 import {
@@ -16,6 +16,7 @@ import {
 import { makeWanted, addHeat, updateWanted, makePolice } from './police.js';
 import { makePistol, startReload, updatePistol, firePistol } from './combat.js';
 import { makeAudio } from './audio.js';
+import { makeFx } from './fx.js';
 import { createMissionSystem } from './missions.js';
 import { createSideJobs } from './side.js';
 
@@ -64,6 +65,8 @@ const state = {
   shake: 0,
   fleeUntil: 0, // peds flee while gameTime < this
   hitmarkTimer: 0,
+  dmgFlash: 0, // Slice 4: damage vignette flash (decays in updateHUD)
+  skidCd: 0, // Slice 4: throttle for laying skid marks
   playerRamCd: 0, // cooldown between heat gains from ramming a cruiser
   dialogue: null, // { lines, idx, onDone } while a briefing is open
   staging: false, // true while a screenshot recipe stages a shot (no fare spawns)
@@ -98,8 +101,9 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(CFG.sun.fogColor, CFG.sun.fogNear, CFG.sun.fogFar);
 const camera = new THREE.PerspectiveCamera(CFG.camera.fov, innerWidth / innerHeight, 0.1, 2200);
 
-const { group: worldGroup, colliders, buildingCount, palmCount } = buildWorld(THREE);
+const { group: worldGroup, colliders, buildingCount, palmCount, sun: sunLight, hemi: hemiLight, fill: fillLight } = buildWorld(THREE);
 scene.add(worldGroup);
+const fx = makeFx(scene); // Slice 4 particles (needs the scene — must come after it)
 
 // --- player ------------------------------------------------------------------
 const player = buildPlayer();
@@ -172,6 +176,7 @@ const world = {
   toast,
   showDialogue,
   showFailed,
+  fade() { fadePulse(); }, // Slice 4: black fade on mission start/finish/fail
   moveBeacon,
   hideBeacon,
   moveSideBeacon,
@@ -376,6 +381,9 @@ const hud = {
   crosshair: $('crosshair'),
   hitmarker: $('hitmarker'),
   dmgLayer: $('dmg-layer'),
+  vignette: $('vignette'),
+  speedlines: $('speedlines'),
+  fadeEl: $('fade'),
   dialogue: $('dialogue'),
   dialogueSpeaker: $('dialogue-speaker'),
   dialogueText: $('dialogue-text'),
@@ -481,6 +489,15 @@ function repLevel() {
   return { ...lvl, next, progress: next ? state.rep - lvl.min : 0, need: next ? next.min - lvl.min : 0 };
 }
 
+// --- screen fade (Slice 4): a black pulse on mission start/finish, BUSTED
+// and WASTED — a cheap transition that makes the big moments land.
+let fadeTimer = null;
+function fadePulse() {
+  hud.fadeEl.style.opacity = '1';
+  if (fadeTimer) clearTimeout(fadeTimer);
+  fadeTimer = setTimeout(() => { hud.fadeEl.style.opacity = '0'; }, 90);
+}
+
 function updateHUD(dt) {
   // Mission panel: Slice 3 story missions (n/5) when the story system owns
   // the objective, otherwise the Slice 1 objective.
@@ -552,6 +569,15 @@ function updateHUD(dt) {
     state.hitmarkTimer -= dt;
     hud.hitmarker.style.opacity = state.hitmarkTimer > 0 ? '1' : '0';
   }
+  // Slice 4: damage vignette — flashes on a hit, lingers while low on health.
+  if (state.dmgFlash > 0) state.dmgFlash = Math.max(0, state.dmgFlash - dt * 1.6);
+  const lowHp = hpFrac < 0.35 ? 0.45 : 0;
+  hud.vignette.style.opacity = String(Math.max(state.dmgFlash * 0.7, lowHp));
+  // Slice 4: speed lines follow the car's speed (FOV kick lives in updateCamera).
+  const spdFrac = state.driving && drivingCar
+    ? Math.abs(drivingCar.car.speed) / drivingCar.car.spec.topSpeed : 0;
+  hud.speedlines.style.opacity = spdFrac > 0.65
+    ? String(((spdFrac - 0.65) / 0.35) * 0.4) : '0';
   // Police response panel (live list: callsign, distance, status).
   // Distance is measured to the car while driving, the player on foot.
   let html = '';
@@ -602,6 +628,13 @@ function updateCamera(dt, t) {
   }
   dist = state.camDist ?? (state.driving ? CFG.camera.driveDist : CFG.camera.footDist);
   pitch = state.camPitch;
+  // Slice 4: FOV kick at high speed (driving only) — the world rushes past.
+  const spdFrac = cur ? Math.abs(cur.speed) / cur.spec.topSpeed : 0;
+  const targetFov = CFG.camera.fov + clamp((spdFrac - 0.6) / 0.4, 0, 1) * 8;
+  if (Math.abs(camera.fov - targetFov) > 0.1) {
+    camera.fov = targetFov;
+    camera.updateProjectionMatrix();
+  }
   const cx = focus.x + Math.sin(state.camYaw) * Math.cos(pitch) * dist;
   const cz = focus.z + Math.cos(state.camYaw) * Math.cos(pitch) * dist;
   const cy = focus.y + Math.sin(pitch) * dist + 1.2;
@@ -794,6 +827,7 @@ function commitCrime(amount, what) {
 function damagePlayer(dmg) {
   if (state.mode !== 'playing') return;
   state.health = Math.max(0, state.health - dmg);
+  state.dmgFlash = 1; // Slice 4: red vignette flash
   if (state.health <= 0) triggerWasted();
 }
 function triggerBusted() {
@@ -803,6 +837,7 @@ function triggerBusted() {
   wanted.heat = 0; wanted.wanted = 0; wanted.bustTimer = 0;
   audio.setSiren(0);
   audio.sting('busted');
+  fadePulse();
   $('busted').classList.remove('hidden');
 }
 function triggerWasted() {
@@ -812,6 +847,7 @@ function triggerWasted() {
   wanted.heat = 0; wanted.wanted = 0; wanted.bustTimer = 0;
   audio.setSiren(0);
   audio.sting('wasted');
+  fadePulse();
   $('wasted').classList.remove('hidden');
 }
 function respawn() {
@@ -877,8 +913,10 @@ function shootPistol() {
   audio.gunshot();
   state.shake = Math.min(1, state.shake + 0.12);
   drawTracer(origin, res.point);
+  fx.muzzle(origin.x + dir.x * 0.6, origin.y, origin.z + dir.z * 0.6, dir);
   state.fleeUntil = state.gameTime + 4; // the shot scares the street
   if (!res.hit) return;
+  fx.sparks(res.point.x, res.point.y, res.point.z);
   state.hitmarkTimer = 0.35;
   spawnDamageNumber(res.point, `-${CFG.pistol.damage}`);
   if (res.hit.kind === 'police') {
@@ -974,6 +1012,9 @@ function refreshMenuButtons() {
 }
 function showMenu() {
   state.mode = 'menu';
+  audio.setEngine(0, false);
+  audio.setSiren(0);
+  audio.setRadio(0);
   menuEl.classList.remove('hidden');
   pauseEl.classList.add('hidden');
   refreshMenuButtons();
@@ -1040,6 +1081,15 @@ state.camSens = 1;
 
 // --- game step (fixed timestep) --------------------------------------------------
 function stepGame(dt) {
+  // Slice 4: pause freezes EVERYTHING — game time, peds, traffic, beacons,
+  // clock, audio. (Before this, the world kept moving behind the pause menu.)
+  if (state.mode === 'paused') {
+    audio.setEngine(0, false);
+    audio.setSiren(0);
+    audio.setRadio(0);
+    pressed.clear();
+    return;
+  }
   state.gameTime += dt;
   state.clockMin += dt * 0.12; // slow golden-hour drift
   if (state.userOrbit > 0) state.userOrbit -= dt;
@@ -1105,12 +1155,16 @@ function stepGame(dt) {
   // Dialogue (Slice 3): the game waits while a briefing is open.
   if (state.mode === 'dialogue') {
     if (pressed.has('KeyE') || pressed.has('Enter') || pressed.has('Space')) advanceDialogue();
+    audio.setEngine(0, false);
+    audio.setRadio(0);
     pressed.clear();
     return;
   }
   // Garage: Escape closes it.
   if (state.mode === 'garage') {
     if (pressed.has('Escape')) closeGarage();
+    audio.setEngine(0, false);
+    audio.setRadio(0);
     pressed.clear();
     return;
   }
@@ -1126,6 +1180,10 @@ function stepGame(dt) {
     audio.ensure();
     audio.setMuted(!audio.muted);
     $('btn-mute').textContent = audio.muted ? 'Unmute sound (M)' : 'Mute sound (M)';
+  }
+  if (pressed.has('KeyN')) {
+    audio.ensure();
+    toast(`Radio: ${audio.nextStation()}`, 3);
   }
   if (pressed.has('KeyR')) startReload(pistol, now);
   if (pressed.has('KeyF')) shootPistol();
@@ -1147,8 +1205,13 @@ function stepGame(dt) {
   };
   const nearestCop = police.update(dt, now, playerFocus, wanted, policeHooks);
   updateWanted(wanted, dt, now, nearestCop, police.units.length > 0);
-  // Siren volume follows the nearest cruiser.
-  audio.setSiren(wanted.wanted > 0 && nearestCop !== null ? clamp(1 - nearestCop / 120, 0.3, 1) : 0);
+  // Siren volume + pitch follow the nearest cruiser (Slice 4: distance).
+  audio.setSiren(wanted.wanted > 0 && nearestCop !== null ? clamp(1 - nearestCop / 120, 0.3, 1) : 0, nearestCop);
+  // Slice 4: particles — a disabled cruiser burns until it rejoins the chase.
+  for (const u of police.units) {
+    if (u.state === 'disabled') fx.cruiserSmoke(u.car.x, u.car.z, dt);
+  }
+  fx.update(dt);
 
   // Health regen once the heat is gone.
   if (wanted.wanted === 0 && state.health < state.maxHealth) {
@@ -1207,6 +1270,7 @@ function stepGame(dt) {
       hud.prompt.style.opacity = '1';
       if (pressed.has('KeyE')) {
         hud.prompt.style.opacity = '0';
+        fadePulse(); // Slice 4: mission start transition
         missions.startMission(missions.missionIdx);
       }
     } else if (sidePrompt) {
@@ -1269,6 +1333,22 @@ function stepGame(dt) {
     drivingCar.group.rotation.y = car.heading;
     const spin = (car.speed * dt) / 0.36;
     for (const w of drivingCar.wheels) w.rotation.x += spin;
+    // Slice 4: tire smoke + skid marks on drift / hard acceleration.
+    const fxF = Math.sin(car.heading), fzF = Math.cos(car.heading);
+    const lx = Math.cos(car.heading), lz = -Math.sin(car.heading);
+    const rx = car.x - fxF * 1.6, rz = car.z - fzF * 1.6;
+    const drifting = handbrake || (Math.abs(steer) > 0.5 && Math.abs(car.speed) > 15);
+    const hardAccel = throttle > 0 && Math.abs(car.speed) > 0.5 && Math.abs(car.speed) < 6;
+    if (drifting || hardAccel) {
+      fx.tireSmoke(rx + lx * 0.9, 0.3, rz + lz * 0.9, -fxF * car.speed * 0.3, -fzF * car.speed * 0.3);
+      fx.tireSmoke(rx - lx * 0.9, 0.3, rz - lz * 0.9, -fxF * car.speed * 0.3, -fzF * car.speed * 0.3);
+    }
+    state.skidCd = Math.max(0, state.skidCd - dt);
+    if (drifting && state.skidCd <= 0) {
+      state.skidCd = 0.12;
+      fx.skid(rx + lx * 0.9, rz + lz * 0.9, car.heading);
+      fx.skid(rx - lx * 0.9, rz - lz * 0.9, car.heading);
+    }
     state.speedKmh = Math.abs(car.speed) * 3.6;
     state.playerRamCd = Math.max(0, state.playerRamCd - dt);
 
@@ -1330,6 +1410,10 @@ function stepGame(dt) {
     }
   }
   updateHUD(dt);
+  // Slice 4: engine hum follows the car's speed; the radio plays while in play.
+  const engFrac = state.driving && drivingCar ? Math.abs(drivingCar.car.speed) / drivingCar.car.spec.topSpeed : 0;
+  audio.setEngine(engFrac, engFrac > 0.5);
+  audio.setRadio(1);
   pressed.clear(); // consume edge-triggered keys once per sub-step
 }
 
@@ -1360,6 +1444,17 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
+// Slice 4: losing focus auto-pauses (alt-tab, phone call, lock screen) so
+// the game never runs away while the player is not looking.
+function autoPause() {
+  if (state.mode !== 'playing') return;
+  state.mode = 'paused';
+  pauseEl.classList.remove('hidden');
+  saveGame();
+}
+addEventListener('blur', autoPause);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+
 // --- boot -----------------------------------------------------------------------
 refreshMenuButtons();
 showMenu();
@@ -1375,7 +1470,21 @@ window.__costa = {
   police,
   missions,
   side,
-  version: 'slice3',
+  CFG,
+  MISSIONS,
+  ESCORT,
+  audio,
+  fx,
+  version: 'slice4',
+  // Slice 4 lighting probe: live light intensities + asphalt colour, so the
+  // playtest can prove the road/facade fix actually landed in the scene.
+  lighting() {
+    return {
+      sun: sunLight.intensity, hemi: hemiLight.intensity, fill: fillLight.intensity,
+      asphalt: CFG.palette.asphalt,
+    };
+  },
+  fov() { return camera.fov; },
   get drivingCar() { return drivingCar; },
   get health() { return state.health; },
   get rep() { return state.rep; },

@@ -12,12 +12,18 @@ export const CFG = {
   // Golden hour: low sun in the west, warm light, long shadows to the east.
   sun: {
     azimuthDeg: 262, // almost due west, slightly south
-    elevationDeg: 14, // low sun
+    elevationDeg: 17, // Slice 4: a touch higher than 14 — more light on
+    // vertical faces, shorter shadows, still golden hour (never night).
     color: 0xffb066,
-    intensity: 2.6,
+    intensity: 2.8,
     ambientSky: 0x8fa3c7,
-    ambientGround: 0x5a4636,
-    ambientIntensity: 0.68,
+    ambientGround: 0x8a7a66, // Slice 4: brighter bounce — sun-back sides
+    // must not read black.
+    ambientIntensity: 1.05, // Slice 4: was 0.68 — the old value left roads
+    // and shadowed facades almost black in screenshots.
+    fillColor: 0xffd9b0, // Slice 4: warm bounce light from the east (the
+    // sun-back side), no shadows — a cheap fill so nothing is pure black.
+    fillIntensity: 0.5,
     fogColor: 0xf2a35e,
     fogNear: 180,
     fogFar: 620,
@@ -30,7 +36,8 @@ export const CFG = {
   },
   sea: { color: 0x2e7f8f, deepColor: 0x1d5a6e, shoreX: 236 },
   palette: {
-    asphalt: '#3a3a40',
+    asphalt: '#52525c', // Slice 4: was #3a3a40 — in shadow it read as a
+    // black slab; the road must stay readable at a glance.
     sidewalk: '#b9a98c',
     curb: '#8a7a5f',
     sand: '#e8cf9e',
@@ -202,7 +209,7 @@ export const MISSIONS = [
     ],
   },
   {
-    id: 'the-run', title: 'THE RUN', reward: 800, timeLimit: 150,
+    id: 'the-run', title: 'THE RUN', reward: 800, timeLimit: 120, // Slice 4: was 150 — too loose; the tension should come from the police, not the clock
     briefing: [
       { who: 'Ana', text: 'Leo. I need a package moved — no questions, no cops. Downtown drop, two minutes. The GT is fast enough.' },
       { who: 'Leo', text: 'Two minutes? You never ask for easy things.' },
@@ -297,8 +304,8 @@ export const ESCORT = {
     { x: -37, z: 111 },
     { x: 150, z: 111 },
   ],
-  maxDist: 45, // stray farther than this for 8 s and the job fails
-  farTime: 8,
+  maxDist: 45, // stray farther than this for 10 s and the job fails
+  farTime: 10, // Slice 4: was 8 — too sudden when a wrong turn costs 8 s
   foes: 2,
   foeHp: 60,
   foeSpeed: 20,
