@@ -16,22 +16,26 @@ export const CFG = {
     // vertical faces, shorter shadows, still golden hour (never night).
     color: 0xffb066,
     intensity: 2.8,
-    ambientSky: 0x8fa3c7,
+    ambientSky: 0x9a8fc7, // Round 5: lavender to match the purple-pink dusk sky
     ambientGround: 0x8a7a66, // Slice 4: brighter bounce — sun-back sides
     // must not read black.
     ambientIntensity: 1.05, // Slice 4: was 0.68 — the old value left roads
     // and shadowed facades almost black in screenshots.
     fillColor: 0xffd9b0, // Slice 4: warm bounce light from the east (the
     // sun-back side), no shadows — a cheap fill so nothing is pure black.
-    fillIntensity: 0.5,
-    fogColor: 0xf2a35e,
+    fillIntensity: 0.65, // Round 5: was 0.5 — east-facing facades still
+    // read too dark in the inspection shots.
+    fogColor: 0xdd7a8f, // Round 5: pinkish dusk haze to match the new sky
     fogNear: 180,
     fogFar: 620,
   },
   sky: {
-    top: '#3d5a8f',
-    mid: '#e8906b',
-    low: '#ffc27a',
+    // Round 5 neon dusk (reference atmosphere): purple zenith, pink mid,
+    // warm orange horizon. Still golden hour — the horizon stays bright,
+    // the zenith is a mid purple, never black.
+    top: '#4a3670',
+    mid: '#d96a9e',
+    low: '#ffb066',
     sunDisc: '#fff3c4',
   },
   sea: { color: 0x2e7f8f, deepColor: 0x1d5a6e, shoreX: 236 },
@@ -339,7 +343,7 @@ export const SIDE = {
   cache: {
     pay: 100,
     spots: [
-      { x: 178, z: -30 }, { x: 196, z: 60 }, { x: -150, z: 140 }, { x: -80, z: -90 },
+      { x: 178, z: -30 }, { x: 196, z: 60 }, { x: -150, z: 140 }, { x: 60, z: 150 },
       { x: -40, z: 90 }, { x: 120, z: 120 }, { x: 185, z: -150 }, { x: -185, z: 0 },
       { x: 0, z: 185 }, { x: 60, z: -150 },
     ],

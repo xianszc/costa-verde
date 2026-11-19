@@ -57,6 +57,7 @@ export function makePolice(scene, colliders) {
   const mgr = {
     units: [], // { group, wheels, lightL, lightR, car, callsign, hp, state, ramCd, shootCd, disabledUntil, stuckAt, lastX, lastZ, status }
     heli: null,
+    heliHold: null, // Round 5 debug: fixed heli position for cover shots
     nextCallsign: 1,
     spawnCd: 0,
     flashT: 0,
@@ -148,8 +149,12 @@ export function makePolice(scene, colliders) {
       h.tailRotor.rotation.x += dt * 30;
       // Hold station ahead of the car (spotlighting the road ahead, visible
       // in the chase camera's frame) or just off the player on foot.
-      let tx, tz;
-      if (player.driving) {
+      let tx, tz, ty = CFG.heli.height;
+      if (mgr.heliHold) {
+        // Round 5 debug: the cover recipe pins the heli to a fixed spot in
+        // the frame instead of letting it follow the car.
+        tx = mgr.heliHold.x; tz = mgr.heliHold.z; ty = mgr.heliHold.y;
+      } else if (player.driving) {
         tx = player.carX + Math.sin(player.carHeading) * 35;
         tz = player.carZ + Math.cos(player.carHeading) * 35;
       } else {
@@ -163,7 +168,7 @@ export function makePolice(scene, colliders) {
       } else {
         h.group.position.x += (tx - h.group.position.x) * Math.min(1, (CFG.heli.speed / 60) * dt * 3);
         h.group.position.z += (tz - h.group.position.z) * Math.min(1, (CFG.heli.speed / 60) * dt * 3);
-        h.group.position.y += (CFG.heli.height - h.group.position.y) * Math.min(1, 2 * dt);
+        h.group.position.y += (ty - h.group.position.y) * Math.min(1, 2 * dt);
         h.cone.material.opacity = 0.08 + Math.sin(now * 6) * 0.03;
       }
     }
@@ -280,5 +285,9 @@ export function makePolice(scene, colliders) {
     if (mgr.heli) { scene.remove(mgr.heli.group); mgr.heli = null; }
   }
 
-  return { units: mgr.units, get heli() { return mgr.heli; }, update, damageUnit, clearAll, spawnUnit };
+  return {
+    units: mgr.units, get heli() { return mgr.heli; }, update, damageUnit, clearAll, spawnUnit,
+    holdHeli(x, y, z) { mgr.heliHold = { x, y, z }; },
+    releaseHeli() { mgr.heliHold = null; },
+  };
 }

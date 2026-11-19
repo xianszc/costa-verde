@@ -57,6 +57,7 @@ const state = {
   camYaw: Math.PI,
   camPitch: CFG.camera.pitch,
   camDist: null, // override for staged shots (null = CFG distance)
+  freeCam: null, // Round 5 debug: {x,y,z,tx,ty,tz} — fixed camera for inspection/cover shots
   dragging: false,
   lastX: 0, lastY: 0,
   userOrbit: 0, // seconds since the user last dragged (auto-align pauses)
@@ -101,7 +102,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(CFG.sun.fogColor, CFG.sun.fogNear, CFG.sun.fogFar);
 const camera = new THREE.PerspectiveCamera(CFG.camera.fov, innerWidth / innerHeight, 0.1, 2200);
 
-const { group: worldGroup, colliders, buildingCount, palmCount, sun: sunLight, hemi: hemiLight, fill: fillLight } = buildWorld(THREE);
+const { group: worldGroup, colliders, buildingCount, palmCount, sun: sunLight, hemi: hemiLight, fill: fillLight, layout: cityLayout } = buildWorld(THREE);
 scene.add(worldGroup);
 const fx = makeFx(scene); // Slice 4 particles (needs the scene — must come after it)
 
@@ -606,6 +607,14 @@ function updateHUD(dt) {
 const camTarget = new THREE.Vector3();
 const camPos = new THREE.Vector3();
 function updateCamera(dt, t) {
+  // Round 5 debug: a free camera for inspection / cover shots. When set,
+  // the camera sits exactly there (no follow, no lerp) — used only by the
+  // screenshot drivers, never by gameplay.
+  if (state.freeCam) {
+    camera.position.set(state.freeCam.x, state.freeCam.y, state.freeCam.z);
+    camera.lookAt(state.freeCam.tx, state.freeCam.ty, state.freeCam.tz);
+    return;
+  }
   let tx, tz, ty, dist, pitch;
   if (state.mode === 'menu') {
     // Slow orbit around the city centre behind the menu.
@@ -1475,7 +1484,14 @@ window.__costa = {
   ESCORT,
   audio,
   fx,
+  layout: cityLayout,
   version: 'slice4',
+  // Round 5 debug: fixed camera for inspection / cover shots (gameplay
+  // keeps using the follow camera; freeCam only affects the render loop).
+  freeCam(x, y, z, tx, ty, tz) { state.freeCam = { x, y, z, tx, ty, tz }; },
+  clearCam() { state.freeCam = null; },
+  holdHeli(x, y, z) { police.holdHeli(x, y, z); },
+  releaseHeli() { police.releaseHeli(); },
   // Slice 4 lighting probe: live light intensities + asphalt colour, so the
   // playtest can prove the road/facade fix actually landed in the scene.
   lighting() {
@@ -1489,6 +1505,14 @@ window.__costa = {
   get health() { return state.health; },
   get rep() { return state.rep; },
   teleport(x, z) { state.player.x = x; state.player.z = z; player.group.position.set(x, 0, z); },
+  // Round 5 debug: place the PARKED hero GT (its group only syncs from
+  // heroCar while it is the driven car, so setting heroCar.x/z alone
+  // leaves a parked GT at its spawn — this moves the group too).
+  placeHeroCar(x, z, heading = 0) {
+    heroCar.x = x; heroCar.z = z; heroCar.heading = heading; heroCar.speed = 0;
+    heroEntry.group.position.set(x, 0, z);
+    heroEntry.group.rotation.y = heading;
+  },
   enterCar() { drivingCar = heroEntry; state.driving = true; player.group.visible = false; },
   exitCar() { state.driving = false; drivingCar = null; player.group.visible = true; },
   driveTo(x, z) {
