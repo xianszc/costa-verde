@@ -107,8 +107,10 @@ export const CFG = {
   },
   police: {
     // Pursuit car: slightly slower than the GT at low heat, faster as the
-    // heat rises so escaping a 5-star chase is genuinely hard.
-    topSpeed: 40,
+    // heat rises so escaping a 5-star chase is genuinely hard. Slice 3:
+    // 43 (was 40) — at 1 star the cruiser is 44.5 vs the GT's 46, so
+    // flooring it is no longer a free escape; distance still loses them.
+    topSpeed: 43,
     topSpeedPerStar: 1.5,
     accel: 24,
     brake: 36,
@@ -181,3 +183,158 @@ export const PARKED_CARS = [
   { spec: 'van', x: 43.5, z: 118, heading: Math.PI / 2 },
   { spec: 'cruiser', x: -105.5, z: -30, heading: Math.PI / 2 },
 ];
+
+// --- Story missions (Slice 3) -------------------------------------------------
+// The arc: Ana is an ex-SPD detective using Leo to expose the ledger that
+// proves who really runs Costa Verde. Every job pays; every job costs.
+// Missions are data: the manager in missions.js reads these, nothing about
+// a mission's flow is hard-coded into the render loop.
+// Mission 0 (FIRST LIGHT) keeps the Slice 1 flow in main.js; missions 1–4
+// start at Ana (the mission giver) — finish one, return to her for the next.
+// A step with `target` completes when the player (or their car) enters the
+// radius; a `clear` step completes when every spawned enemy is down.
+export const MISSIONS = [
+  {
+    id: 'first-light', title: 'FIRST LIGHT', reward: 500,
+    steps: [
+      { id: 'meet', text: 'Meet Ana at the Marina', target: { x: 178, z: -18 }, radius: 6 },
+      { id: 'drive', text: 'Take the Verde GT for a spin', target: null, radius: 0 },
+    ],
+  },
+  {
+    id: 'the-run', title: 'THE RUN', reward: 800, timeLimit: 150,
+    briefing: [
+      { who: 'Ana', text: 'Leo. I need a package moved — no questions, no cops. Downtown drop, two minutes. The GT is fast enough.' },
+      { who: 'Leo', text: 'Two minutes? You never ask for easy things.' },
+      { who: 'Ana', text: "That's why I asked you." },
+    ],
+    steps: [
+      { id: 'deliver', text: 'Deliver the package to the Downtown drop', target: { x: 37, z: 111 }, radius: 8 },
+    ],
+    next: 'Return to Ana for the next job.',
+  },
+  {
+    id: 'loud-and-clear', title: 'LOUD AND CLEAR', reward: 1200,
+    briefing: [
+      { who: 'Ana', text: "Maro's crew hit my stash in Old Town. My informant's name is in that box — and so is his." },
+      { who: 'Leo', text: 'So I go in loud?' },
+      { who: 'Ana', text: 'Loud is the only language they speak.' },
+    ],
+    steps: [
+      { id: 'go', text: 'Reach the Old Town warehouse', target: { x: -111, z: -148 }, radius: 10 },
+      { id: 'clear', text: 'Clear the crew — take out the guards', clear: true, center: { x: -111, z: -148 } },
+      { id: 'grab', text: "Grab the informant's package", target: { x: -111, z: -148 }, radius: 5 },
+    ],
+    next: 'Return to Ana for the next job.',
+  },
+  {
+    id: 'the-escort', title: 'THE ESCORT', reward: 1500,
+    briefing: [
+      { who: 'Ana', text: "My contact is driving in from Old Town. Two of Maro's cars are hunting him." },
+      { who: 'Leo', text: "And I'm the shield." },
+      { who: 'Ana', text: "Keep him alive, Leo. He's the only one who knows where the money went." },
+    ],
+    steps: [
+      { id: 'meet', text: 'Meet the contact at Palms Row', target: { x: 111, z: 148 }, radius: 8 },
+      { id: 'escort', text: 'Escort the contact to the safehouse — stay close', escort: true },
+    ],
+    next: 'Return to Ana for the next job.',
+  },
+  {
+    id: 'the-verde-heist', title: 'THE VERDE HEIST', reward: 3000,
+    briefing: [
+      { who: 'Ana', text: 'The truth, Leo. The Verde Bank vault holds the ledger that proves who really runs this city.' },
+      { who: 'Leo', text: 'A bank job. With four stars waiting outside.' },
+      { who: 'Ana', text: 'You wanted to know what I really want from you. This. All of it.' },
+      { who: 'Leo', text: "Then let's finish it." },
+    ],
+    steps: [
+      { id: 'bank', text: 'Reach the Verde Bank — Downtown', target: { x: -37, z: 100 }, radius: 8 },
+      { id: 'clear', text: 'Clear the bank guards', clear: true, center: { x: -37, z: 100 } },
+      { id: 'grab', text: 'Grab the evidence locker', target: { x: -37, z: 100 }, radius: 5 },
+      { id: 'escape', text: 'Escape — 4 stars! Reach the Marina drop', target: { x: 178, z: -18 }, radius: 8, heat: 4 },
+    ],
+    next: 'Story complete — the city is yours.',
+  },
+];
+
+// Reputation: rep rises with completed jobs (+15 mission, +5 side job,
+// +2 cache). Higher standing = cheaper garage parts.
+export const REP_LEVELS = [
+  { name: 'OUTSIDER', min: 0, discount: 0 },
+  { name: 'KNOWN', min: 30, discount: 0 },
+  { name: 'RESPECTED', min: 80, discount: 0.2 },
+  { name: 'RUNS THE BLOCK', min: 150, discount: 0.4 },
+];
+export const REP_GAIN = { mission: 15, sideJob: 5, cache: 2 };
+
+// Garage upgrades (bought with cash at the safehouse, key G on foot).
+export const UPGRADES = {
+  armour: { name: 'Body Armour', desc: '+50 max health', price: 800 },
+  nitro: { name: 'Nitro Kit', desc: 'Hold Shift while driving the GT for a boost', price: 1200 },
+  engine: { name: 'Verde GT Engine Tune', desc: '+8 m/s top speed for the GT', price: 1500 },
+};
+
+// Armed enemies (Slice 3 shootouts): 3 pistol hits to drop one (75 hp).
+export const ENEMIES = {
+  hp: 75,
+  count: 4,
+  shootInterval: 1.5,
+  shootRange: 34,
+  hitChance: 0.35,
+  damage: 6,
+};
+
+// Escort job (M4): the contact's car, its route, and the hunters.
+export const ESCORT = {
+  hp: 100,
+  speed: 13,
+  color: 0x2e7f8f,
+  start: { x: 111, z: 148 },
+  waypoints: [
+    { x: 111, z: -111 },
+    { x: -37, z: -111 },
+    { x: -37, z: 111 },
+    { x: 150, z: 111 },
+  ],
+  maxDist: 45, // stray farther than this for 8 s and the job fails
+  farTime: 8,
+  foes: 2,
+  foeHp: 60,
+  foeSpeed: 20,
+  foeRamDamage: 10,
+  playerRamDamage: 20, // ramming a hunter at speed hurts it
+};
+
+// Side jobs (Slice 3): fares, courier deliveries, hidden caches.
+export const SIDE = {
+  fare: {
+    cooldownSec: 20, // after a fare ends before the next one can appear
+    timeLimit: 90,
+    basePay: 100, perMetre: 1, maxPay: 300,
+    pickups: [
+      { x: 179.5, z: -80 }, { x: 105.5, z: 40 }, { x: -30.5, z: -80 },
+      { x: 43.5, z: 100 }, { x: -105.5, z: -40 }, { x: 190.5, z: 60 },
+    ],
+  },
+  delivery: {
+    cooldownSec: 20,
+    timeLimit: 75,
+    pay: 150,
+    pickups: [
+      { x: -111, z: -148 }, // Old Town warehouse
+      { x: 178, z: -100 }, // Marina depot — kept clear of the parked taxi at (179.5,-60) so E still enters the car there
+    ],
+    dests: [
+      { x: 37, z: 111 }, { x: -37, z: 100 }, { x: 111, z: 148 }, { x: -185, z: 0 },
+    ],
+  },
+  cache: {
+    pay: 100,
+    spots: [
+      { x: 178, z: -30 }, { x: 196, z: 60 }, { x: -150, z: 140 }, { x: -80, z: -90 },
+      { x: -40, z: 90 }, { x: 120, z: 120 }, { x: 185, z: -150 }, { x: -185, z: 0 },
+      { x: 0, z: 185 }, { x: 60, z: -150 },
+    ],
+  },
+};

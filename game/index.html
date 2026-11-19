@@ -22,8 +22,14 @@
   #mission { top: 14px; left: 14px; width: 300px; }
   #mission-title { font-size: 13px; font-weight: 800; letter-spacing: 0.06em; color: #ffd23f; }
   #mission-text { font-size: 13px; line-height: 1.45; margin-top: 4px; color: #e8e6de; }
+  #mission-next { font-size: 11px; line-height: 1.4; margin-top: 5px; color: #9fd6ff; }
+  #mission-timer { font-size: 15px; font-weight: 800; margin-top: 5px; color: #ff9a3d; font-variant-numeric: tabular-nums; }
   #mission-track { height: 5px; background: rgba(255, 255, 255, 0.16); border-radius: 3px; margin-top: 8px; overflow: hidden; }
   #mission-bar { height: 100%; width: 0%; background: #70e000; border-radius: 3px; }
+  #escort-wrap { margin-top: 8px; }
+  #escort-label { font-size: 10px; letter-spacing: 0.1em; color: #9fd6ff; }
+  #escort-track { height: 6px; background: rgba(255, 255, 255, 0.16); border-radius: 3px; margin-top: 3px; overflow: hidden; }
+  #escort-bar { height: 100%; width: 100%; background: #2e7f8f; border-radius: 3px; }
 
   /* Police response list — appears only while the SPD is after you. */
   #police { top: 176px; left: 14px; width: 300px; border-color: rgba(255, 59, 48, 0.45); }
@@ -33,6 +39,8 @@
   #stats { top: 14px; right: 14px; text-align: right; min-width: 168px; }
   #stars { font-size: 22px; letter-spacing: 3px; color: #ffd23f; line-height: 1; }
   #cash { font-size: 20px; font-weight: 800; color: #70e000; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #rep { font-size: 12px; color: #9fd6ff; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  #caches { font-size: 12px; color: #bfff6a; margin-top: 2px; font-variant-numeric: tabular-nums; }
   #clock { font-size: 14px; color: #c9d4de; margin-top: 2px; font-variant-numeric: tabular-nums; }
   #health-wrap { margin-top: 8px; }
   #health-label { font-size: 10px; letter-spacing: 0.1em; color: #c9d4de; }
@@ -44,6 +52,20 @@
   #speed-unit { font-size: 12px; color: #c9d4de; }
   #vehicle-name { font-size: 13px; font-weight: 700; color: #70e000; letter-spacing: 0.05em; }
   #weapon { font-size: 12px; color: #ffd23f; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  #nitro-wrap { margin-top: 6px; }
+  #nitro-label { font-size: 10px; letter-spacing: 0.1em; color: #ff9a3d; text-align: right; }
+  #nitro-track { height: 6px; background: rgba(255, 255, 255, 0.16); border-radius: 3px; margin-top: 3px; overflow: hidden; }
+  #nitro-bar { height: 100%; width: 100%; background: #ff9a3d; border-radius: 3px; }
+
+  /* Dialogue box (Slice 3 story briefings) — bottom centre, above the help. */
+  #dialogue {
+    position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 15;
+    width: min(620px, 92vw); background: rgba(12, 20, 28, 0.92);
+    border: 1px solid rgba(255, 210, 63, 0.55); border-radius: 12px; padding: 14px 18px;
+  }
+  #dialogue-speaker { font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: #ffd23f; }
+  #dialogue-text { font-size: 15px; line-height: 1.5; margin-top: 5px; color: #f2f0e9; }
+  #dialogue-hint { font-size: 11px; color: #8fa0ae; margin-top: 8px; text-align: right; }
 
   #district { bottom: 14px; left: 14px; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; }
   #minimap-wrap { bottom: 58px; left: 14px; width: 180px; height: 180px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.25); padding: 0; overflow: hidden; }
@@ -123,7 +145,24 @@
   .fineprint { font-size: 11px; color: #8fa0ae; margin-top: 14px; line-height: 1.5; }
   #busted .card h1 { color: #4aa3ff; }
   #wasted .card h1 { color: #ff3b30; }
+  #story-complete .card h1 { color: #70e000; }
   .big-emoji { font-size: 52px; line-height: 1; margin-bottom: 6px; }
+
+  /* Garage shop (Slice 3) — one row per upgrade. */
+  .shop-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    text-align: left; padding: 10px 12px; margin: 8px 0;
+    background: rgba(255, 255, 255, 0.06); border-radius: 10px;
+  }
+  .shop-row .shop-info { font-size: 13px; line-height: 1.45; }
+  .shop-row .shop-info b { color: #ffd23f; }
+  .shop-row .shop-info .shop-desc { color: #c9d4de; font-size: 12px; }
+  .shop-row .btn { width: auto; margin: 0; padding: 8px 14px; font-size: 14px; white-space: nowrap; }
+  .shop-row.owned { opacity: 0.55; }
+  .shop-row.owned .btn { background: rgba(255, 255, 255, 0.12); color: #bfff6a; }
+  #garage-cash { font-size: 15px; font-weight: 800; color: #70e000; margin-bottom: 6px; }
+  .stat-line { font-size: 14px; line-height: 1.7; color: #e8e6de; text-align: left; margin: 10px 0; }
+  .stat-line b { color: #ffd23f; }
 </style>
 </head>
 <body>
@@ -131,9 +170,15 @@
 
 <!-- HUD -->
 <div id="mission" class="panel">
-  <div id="mission-title">MISSION 1/1 — MEET ANA</div>
-  <div id="mission-text">Find Ana at the Marina.</div>
+  <div id="mission-title">MISSION 1/5 — FIRST LIGHT</div>
+  <div id="mission-text">Meet Ana at the Marina.</div>
+  <div id="mission-next"></div>
+  <div id="mission-timer" class="hidden"></div>
   <div id="mission-track"><div id="mission-bar"></div></div>
+  <div id="escort-wrap" class="hidden">
+    <div id="escort-label">CONTACT CAR</div>
+    <div id="escort-track"><div id="escort-bar"></div></div>
+  </div>
 </div>
 <div id="police" class="panel hidden">
   <h3>🚨 SPD RESPONSE</h3>
@@ -142,6 +187,8 @@
 <div id="stats" class="panel">
   <div id="stars">☆☆☆☆☆</div>
   <div id="cash">$0</div>
+  <div id="rep">REP · OUTSIDER</div>
+  <div id="caches">◆ CACHES 0/10</div>
   <div id="clock">17:42</div>
   <div id="health-wrap">
     <div id="health-label">HEALTH</div>
@@ -152,12 +199,21 @@
   <div><span id="speed">0</span> <span id="speed-unit">km/h</span></div>
   <div id="vehicle-name">ON FOOT</div>
   <div id="weapon">PISTOL · 12</div>
+  <div id="nitro-wrap" class="hidden">
+    <div id="nitro-label">NITRO — HOLD SHIFT</div>
+    <div id="nitro-track"><div id="nitro-bar"></div></div>
+  </div>
+</div>
+<div id="dialogue" class="hidden">
+  <div id="dialogue-speaker">ANA</div>
+  <div id="dialogue-text"></div>
+  <div id="dialogue-hint">E / click — Continue ▸</div>
 </div>
 <div id="district" class="panel">MARINA BAY</div>
 <div id="minimap-wrap" class="panel"><canvas id="minimap" width="180" height="180"></canvas></div>
 <div id="prompt"></div>
 <div id="toast"></div>
-<div id="help"><b>WASD</b> move · <b>Shift</b> run · <b>E</b> enter/exit car · <b>Click</b> shoot · <b>R</b> reload · <b>Space</b> handbrake · <b>P</b> pause · <b>M</b> mute · drag to look</div>
+<div id="help"><b>WASD</b> move · <b>Shift</b> run / nitro · <b>E</b> enter/exit car · <b>Click</b> shoot · <b>R</b> reload · <b>Space</b> handbrake · <b>G</b> garage · <b>P</b> pause · <b>M</b> mute · drag to look</div>
 <div id="crosshair"></div>
 <div id="hitmarker">✕</div>
 <div id="dmg-layer"></div>
@@ -172,8 +228,8 @@
     <button id="btn-controls" class="btn secondary">Controls</button>
     <div id="panel-controls" class="subpanel hidden">
       <h3>CONTROLS</h3>
-      WASD / arrows — move &amp; drive · Shift — run · E — enter / exit car<br>
-      Click or F — shoot pistol · R — reload · Space — handbrake<br>
+      WASD / arrows — move &amp; drive · Shift — run / nitro boost (GT) · E — enter / exit car, talk to Ana, pick up fares &amp; packages<br>
+      Click or F — shoot pistol · R — reload · Space — handbrake · G — garage (at the safehouse)<br>
       Mouse drag — look around · P / Esc — pause · M — mute sound
     </div>
     <button id="btn-settings" class="btn secondary">Settings</button>
@@ -189,7 +245,7 @@
       COSTA VERDE — an original game built for the Make GTA 6 bounty.<br>
       No Rockstar assets, no real brands. All code, art and audio are original.
     </div>
-    <div class="fineprint">Slice 2 — wanted + police, stealable taxi / van / cruiser, pistol &amp; health. Save: progress autosaves at mission steps and on pause.</div>
+    <div class="fineprint">Slice 3 — 5 story missions, taxi fares, courier deliveries, 10 hidden verde caches, reputation &amp; garage upgrades. Save: progress autosaves at mission steps and on pause.</div>
   </div>
 </div>
 
@@ -221,6 +277,38 @@
     <h1>WASTED</h1>
     <div class="tagline">You went down. The paramedics patch you up at the safehouse — the city is still yours.</div>
     <button id="btn-respawn-wasted" class="btn danger">Respawn at the safehouse</button>
+  </div>
+</div>
+
+<!-- Garage (Slice 3) — buy upgrades with cash at the safehouse. -->
+<div id="garage" class="overlay hidden">
+  <div class="card">
+    <h2>SAFEHOUSE GARAGE</h2>
+    <div id="garage-cash">$0</div>
+    <div class="tagline">Spend what the jobs paid for. Standing cuts the price — Respected saves 20%, Runs the Block saves 40%.</div>
+    <div id="shop-list"></div>
+    <button id="btn-garage-close" class="btn secondary">Back to the street</button>
+  </div>
+</div>
+
+<!-- Mission failed (Slice 3) -->
+<div id="mission-failed" class="overlay hidden">
+  <div class="card">
+    <div class="big-emoji">✖</div>
+    <h1 style="color:#ff9a3d">MISSION FAILED</h1>
+    <div class="tagline" id="failed-reason">The job is blown.</div>
+    <button id="btn-retry-mission" class="btn">Retry the mission</button>
+  </div>
+</div>
+
+<!-- Story complete (Slice 3 finale) -->
+<div id="story-complete" class="overlay hidden">
+  <div class="card">
+    <div class="big-emoji">🌇</div>
+    <h1>THE VERDE HEIST</h1>
+    <div class="tagline">The ledger is ours — and so is the city, Leo. You did it.</div>
+    <div class="stat-line" id="story-stats"></div>
+    <button id="btn-story-continue" class="btn">Keep playing — free roam</button>
   </div>
 </div>
 

@@ -10,6 +10,24 @@ name on it. Take it. Then take the city.
 
 ## What you do
 
+- **Run the story.** Five missions for Ana Ruiz, and a payoff: Ana is an
+  ex-SPD detective, and the Verde Bank vault holds the ledger that proves
+  who really runs Costa Verde. **First Light** (meet Ana, take the GT),
+  **The Run** (a 150-second delivery across Downtown), **Loud and Clear**
+  (a warehouse shootout in Old Town), **The Escort** (keep a contact's car
+  alive while Maro's hunters ram it), **The Verde Heist** (clear the bank
+  guards, grab the evidence locker, escape at 4 stars). Every mission has a
+  briefing, an objective marker, a reward — and a way to fail. Talk to Ana
+  at the Marina to start the next job.
+- **Work the side jobs.** Taxi fares (pick up a passenger, drop them off
+  before the clock runs out), courier deliveries (grab a crate, deliver it),
+  and 10 hidden green **verde caches** around the city. All repeatable, all
+  pay cash and reputation.
+- **Build a name.** Reputation rises with every job: Outsider → Known →
+  Respected → Runs the Block. Higher standing cuts garage prices. Spend the
+  cash at the **safehouse garage** (G on foot): body armour (+50 max health),
+  a nitro kit (hold Shift in the GT for a boost), a Verde GT engine tune
+  (+8 m/s top speed). The safehouse saves your game and heals you.
 - **Drive the Verde GT** through four districts — Marina Bay, Old Town,
   Downtown, Palms Row — past the sea, the beach and the palm-lined boulevard.
 - **Steal cars.** Taxi cabs, delivery vans and SPD police cruisers are all
@@ -22,9 +40,9 @@ name on it. Take it. Then take the city.
   the heat fades. Get caught on foot and it's **BUSTED** — a fine, then back on
   the street.
 - **Fight back.** A pistol (click or F to shoot, R to reload) with a 12-round
-  magazine. Four hits disable a cruiser for a while. You have a health bar —
-  cop rams and bullets hurt, but you heal once the heat is gone. Go down and
-  it's **WASTED** — you wake up at the safehouse.
+  magazine. Four hits disable a cruiser for a while; three hits drop a guard.
+  You have a health bar — cop rams and bullets hurt, but you heal once the
+  heat is gone. Go down and it's **WASTED** — you wake up at the safehouse.
 - **Live in the city.** 18 cars of traffic that yield to you, 32 pedestrians
   who flee when a crime happens nearby, a minimap with police blips, a waypoint
   to your objective, a save that follows you.
@@ -34,11 +52,12 @@ name on it. Take it. Then take the city.
 | Key | Action |
 | --- | --- |
 | WASD / arrows | Move / drive |
-| Shift | Run |
-| E | Enter / exit car |
+| Shift | Run / nitro boost (GT, with the nitro kit) |
+| E | Enter / exit car, talk to Ana, pick up fares & packages |
 | Click / F | Shoot pistol |
 | R | Reload |
 | Space | Handbrake |
+| G | Safehouse garage (on foot) |
 | Mouse drag | Look around |
 | P / Esc | Pause |
 | M | Mute sound |
@@ -56,7 +75,10 @@ vendored in `game/vendor/`. `main.ts` copies `game/` + `screenshots/` to
 ## Layout
 
 - `game/index.html` — page, HUD, menu, BUSTED / WASTED screens
-- `game/src/main.js` — game loop, camera, input, HUD, save, crimes, combat
+- `game/src/main.js` — game loop, camera, input, HUD, save, crimes, combat, dialogue, garage
+- `game/src/missions.js` — story missions 1–5: briefings, stages, guards, escort job, heist finale
+- `game/src/side.js` — side jobs: taxi fares, courier deliveries, hidden caches
+- `game/src/world.js` — the city: districts, buildings, sea, sky, palms
 - `game/src/world.js` — the city: districts, buildings, sea, sky, palms
 - `game/src/characters.js` — Leo, Ana, pedestrians
 - `game/src/vehicles.js` — cars, vans, cruisers, helicopter, traffic

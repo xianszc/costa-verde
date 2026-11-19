@@ -1,11 +1,12 @@
-// COSTA VERDE Slice 2 — main: loop, third-person camera, input, HUD, menu,
-// save, Slice 1 objective, pedestrians, traffic, wanted + police, combat.
-// Slice 2 (core loop): wanted stars 0–5, police pursuit + helicopter,
-// BUSTED / WASTED, stealable taxi / van / cruiser, pistol + health.
+// COSTA VERDE Slice 3 — main: loop, third-person camera, input, HUD, menu,
+// save, Slice 1 objective, pedestrians, traffic, wanted + police, combat,
+// story missions 2–5, side jobs (fares, deliveries, caches), reputation,
+// garage upgrades, dialogue, nitro.
+// Slice 3 (content): 5-mission story arc, side activities, progression.
 // v1.1 kept: closer camera, dense city, busy streets, fixed timestep.
 
 import * as THREE from 'three';
-import { CFG, DISTRICTS, SLICE1, PARKED_CARS } from './config.js';
+import { CFG, DISTRICTS, SLICE1, PARKED_CARS, MISSIONS, REP_LEVELS, REP_GAIN, UPGRADES } from './config.js';
 import { buildWorld } from './world.js';
 import { buildPlayer, randomPed, animateWalk, buildHumanoid } from './characters.js';
 import {
@@ -15,6 +16,8 @@ import {
 import { makeWanted, addHeat, updateWanted, makePolice } from './police.js';
 import { makePistol, startReload, updatePistol, firePistol } from './combat.js';
 import { makeAudio } from './audio.js';
+import { createMissionSystem } from './missions.js';
+import { createSideJobs } from './side.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -36,13 +39,17 @@ function mulberry32(seed) {
 
 // --- state ------------------------------------------------------------------
 const state = {
-  mode: 'menu', // menu | playing | paused | busted | wasted
+  mode: 'menu', // menu | playing | paused | busted | wasted | dialogue | garage | failed | story
   driving: false,
   step: 0,
   cash: 0,
+  rep: 0, // reputation points (Slice 3 progression)
   clockMin: 17 * 60 + 42, // golden hour, 17:42
   speedKmh: 0,
   health: CFG.player.maxHealth,
+  maxHealth: CFG.player.maxHealth, // armour upgrade raises it to 150
+  nitro: 1, // nitro meter 0..1 (Slice 3 garage upgrade)
+  upgrades: { armour: false, nitro: false, engine: false },
   gameTime: 0, // seconds of game time (fixed-step clock, drives police/pistol)
   player: { x: SLICE1.heroSpawn.x, z: SLICE1.heroSpawn.z, heading: SLICE1.heroSpawn.heading, speed: 0 },
   walkPhase: 0,
@@ -57,6 +64,9 @@ const state = {
   shake: 0,
   fleeUntil: 0, // peds flee while gameTime < this
   hitmarkTimer: 0,
+  playerRamCd: 0, // cooldown between heat gains from ramming a cruiser
+  dialogue: null, // { lines, idx, onDone } while a briefing is open
+  staging: false, // true while a screenshot recipe stages a shot (no fare spawns)
 };
 
 const wanted = makeWanted();
@@ -147,6 +157,47 @@ const policeHooks = {
   },
 };
 
+// --- Slice 3 systems: story missions + side jobs -----------------------------
+// The world interface the two modules get: everything they need from
+// main.js, nothing more. (All of these are function declarations below, so
+// hoisting makes them available here.)
+const world = {
+  scene, colliders,
+  get player() { return state.player; },
+  get driving() { return state.driving; },
+  get drivingCar() { return drivingCar; },
+  get gameTime() { return state.gameTime; },
+  get rep() { return state.rep; },
+  get staging() { return state.staging; },
+  toast,
+  showDialogue,
+  showFailed,
+  moveBeacon,
+  hideBeacon,
+  moveSideBeacon,
+  hideSideBeacon,
+  addHeat(n) { addHeat(wanted, n, state.gameTime); },
+  clearHeat() {
+    wanted.heat = 0; wanted.wanted = 0; wanted.bustTimer = 0;
+    police.clearAll();
+    audio.setSiren(0);
+  },
+  damagePlayer,
+  sting(kind) { audio.sting(kind); },
+  drawTracer,
+  spawnDamageNumber,
+  addCash(n) { state.cash += n; },
+  addRep(n) { state.rep += n; },
+  save: saveGame,
+  teleportPlayer(x, z) {
+    state.player.x = x; state.player.z = z;
+    player.group.position.set(x, 0, z);
+  },
+  onStoryComplete,
+};
+const missions = createMissionSystem(world);
+const side = createSideJobs(world);
+
 // --- Ana (Slice 1 objective NPC) --------------------------------------------
 const ana = buildHumanoid({ shirt: 0x2e7f8f, pants: 0xe8e4da, skin: 0xf0c8a0, hair: 0x4a3220 });
 ana.group.position.set(SLICE1.anaSpawn.x, 0, SLICE1.anaSpawn.z);
@@ -174,6 +225,58 @@ ring.position.y = 0.15;
 beacon.add(beam, diamond, ring);
 beacon.position.set(SLICE1.anaSpawn.x, 0, SLICE1.anaSpawn.z);
 scene.add(beacon);
+
+// Second beacon (Slice 3, amber) — the active side-job target (fare drop,
+// delivery drop). The story beacon stays green; amber means side money.
+const sideBeacon = new THREE.Group();
+const sideBeam = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.7, 0.7, 22, 12, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0xf2c14e, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }),
+);
+sideBeam.position.y = 11;
+const sideDiamond = new THREE.Mesh(
+  new THREE.OctahedronGeometry(0.9),
+  new THREE.MeshBasicMaterial({ color: 0xf2c14e }),
+);
+sideDiamond.position.y = 5;
+const sideRing = new THREE.Mesh(
+  new THREE.RingGeometry(1.8, 2.5, 32),
+  new THREE.MeshBasicMaterial({ color: 0xf2c14e, transparent: true, opacity: 0.8, side: THREE.DoubleSide }),
+);
+sideRing.rotation.x = -Math.PI / 2;
+sideRing.position.y = 0.15;
+sideBeacon.add(sideBeam, sideDiamond, sideRing);
+sideBeacon.visible = false;
+scene.add(sideBeacon);
+
+// Beacon control (Slice 3): the story beacon follows the active mission
+// (Ana while a job waits, the objective while one runs); the amber beacon
+// follows the active side job. Called every sub-step from stepGame.
+function moveBeacon(x, z) {
+  beacon.visible = true;
+  beacon.position.set(x, 0, z);
+}
+function hideBeacon() { beacon.visible = false; }
+function moveSideBeacon(x, z) {
+  sideBeacon.visible = true;
+  sideBeacon.position.set(x, 0, z);
+}
+function hideSideBeacon() { sideBeacon.visible = false; }
+function updateBeacons() {
+  // Story beacon.
+  let t = null;
+  if (missions.missionIdx === 0 && missions.status === 'none') {
+    t = state.step === 0 ? SLICE1.anaSpawn : null;
+  } else {
+    t = missions.beaconTarget();
+  }
+  if (t) moveBeacon(t.x, t.z);
+  else hideBeacon();
+  // Side beacon.
+  const st = side.sideTarget();
+  if (st) moveSideBeacon(st.x, st.z);
+  else hideSideBeacon();
+}
 
 // --- traffic (18 cars, all roads incl. the boulevard, mixed cars + vans) -----
 const traffic = [];
@@ -246,14 +349,22 @@ function drawCopTracer(fromX, fromZ) {
 const hud = {
   missionTitle: $('mission-title'),
   missionText: $('mission-text'),
+  missionNext: $('mission-next'),
+  missionTimer: $('mission-timer'),
   missionBar: $('mission-bar'),
+  escortWrap: $('escort-wrap'),
+  escortBar: $('escort-bar'),
   stars: $('stars'),
   cash: $('cash'),
+  rep: $('rep'),
+  caches: $('caches'),
   clock: $('clock'),
   speed: $('speed'),
   speedUnit: $('speed-unit'),
   vehicle: $('vehicle-name'),
   weapon: $('weapon'),
+  nitroWrap: $('nitro-wrap'),
+  nitroBar: $('nitro-bar'),
   healthBar: $('health-bar'),
   prompt: $('prompt'),
   toast: $('toast'),
@@ -265,6 +376,9 @@ const hud = {
   crosshair: $('crosshair'),
   hitmarker: $('hitmarker'),
   dmgLayer: $('dmg-layer'),
+  dialogue: $('dialogue'),
+  dialogueSpeaker: $('dialogue-speaker'),
+  dialogueText: $('dialogue-text'),
 };
 const mmCtx = hud.minimap.getContext('2d');
 let toastTimer = 0;
@@ -311,10 +425,25 @@ function drawMinimap() {
     mmCtx.beginPath(); mmCtx.moveTo(px(x), 0); mmCtx.lineTo(px(x), S); mmCtx.stroke();
     mmCtx.beginPath(); mmCtx.moveTo(0, px(x)); mmCtx.lineTo(S, px(x)); mmCtx.stroke();
   }
-  // Objective.
-  if (state.step === 0) {
+  // Objective (Slice 3): the story beacon's green dot on the minimap.
+  const objTarget = missions.missionIdx === 0 && missions.status === 'none'
+    ? (state.step === 0 ? SLICE1.anaSpawn : null)
+    : missions.beaconTarget();
+  if (objTarget) {
     mmCtx.fillStyle = '#70e000';
-    mmCtx.beginPath(); mmCtx.arc(px(SLICE1.anaSpawn.x), px(SLICE1.anaSpawn.z), 6, 0, 7); mmCtx.fill();
+    mmCtx.beginPath(); mmCtx.arc(px(objTarget.x), px(objTarget.z), 6, 0, 7); mmCtx.fill();
+  }
+  // Side-job target (amber).
+  const st = side.sideTarget();
+  if (st) {
+    mmCtx.fillStyle = '#f2c14e';
+    mmCtx.beginPath(); mmCtx.arc(px(st.x), px(st.z), 5, 0, 7); mmCtx.fill();
+  }
+  // Mission + side-job dots (enemies red, escort teal, hunters orange,
+  // fares amber, crates yellow, nearby caches green).
+  for (const d of [...missions.minimapDots(), ...side.minimapDots()]) {
+    mmCtx.fillStyle = d.color;
+    mmCtx.beginPath(); mmCtx.arc(px(d.x), px(d.z), d.r, 0, 7); mmCtx.fill();
   }
   // Police blips (red) + heli (amber).
   for (const u of police.units) {
@@ -339,16 +468,60 @@ function drawMinimap() {
   mmCtx.restore();
 }
 
+function fmtTimer(sec) {
+  const s = Math.max(0, Math.ceil(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+// Reputation level for the current rep total (Slice 3 progression).
+function repLevel() {
+  let lvl = REP_LEVELS[0];
+  for (const l of REP_LEVELS) if (state.rep >= l.min) lvl = l;
+  const idx = REP_LEVELS.indexOf(lvl);
+  const next = REP_LEVELS[idx + 1] || null;
+  return { ...lvl, next, progress: next ? state.rep - lvl.min : 0, need: next ? next.min - lvl.min : 0 };
+}
+
 function updateHUD(dt) {
-  const step = SLICE1.steps[state.step];
-  hud.missionTitle.textContent = `MISSION 1/1 — ${SLICE1.title}`;
-  hud.missionText.textContent = step ? step.text : '';
-  hud.missionBar.style.width = `${(state.step / (SLICE1.steps.length - 1)) * 100}%`;
+  // Mission panel: Slice 3 story missions (n/5) when the story system owns
+  // the objective, otherwise the Slice 1 objective.
+  const obj = missions.currentObjective();
+  if (obj) {
+    hud.missionTitle.textContent = `MISSION ${obj.num}/${obj.total} — ${obj.title}`;
+    hud.missionText.textContent = obj.text;
+    hud.missionBar.style.width = `${obj.progress * 100}%`;
+    hud.missionNext.textContent = obj.next ? `NEXT: ${obj.next}` : '';
+    if (obj.timer > 0) {
+      hud.missionTimer.classList.remove('hidden');
+      hud.missionTimer.textContent = `⏱ ${fmtTimer(obj.timer)}`;
+    } else {
+      hud.missionTimer.classList.add('hidden');
+    }
+    if (obj.escortHp >= 0) {
+      hud.escortWrap.classList.remove('hidden');
+      hud.escortBar.style.width = `${clamp(obj.escortHp, 0, 100)}%`;
+      hud.escortBar.style.background = obj.escortHp > 50 ? '#2e7f8f' : obj.escortHp > 25 ? '#f2c14e' : '#ff3b30';
+    } else {
+      hud.escortWrap.classList.add('hidden');
+    }
+  } else {
+    const step = SLICE1.steps[state.step];
+    hud.missionTitle.textContent = `MISSION 1/5 — ${SLICE1.title}`;
+    hud.missionText.textContent = step ? step.text : '';
+    hud.missionBar.style.width = `${(state.step / (SLICE1.steps.length - 1)) * 100}%`;
+    hud.missionNext.textContent = state.step === 0 ? 'NEXT: Take the GT for a spin.' : 'NEXT: Ana will have more work for you.';
+    hud.missionTimer.classList.add('hidden');
+    hud.escortWrap.classList.add('hidden');
+  }
   hud.stars.textContent = '★'.repeat(wanted.wanted) + '☆'.repeat(CFG.wanted.maxStars - wanted.wanted);
   hud.cash.textContent = `$${state.cash.toLocaleString('en-US')}`;
+  const rl = repLevel();
+  hud.rep.textContent = rl.next
+    ? `REP · ${rl.name} ${rl.progress}/${rl.need}`
+    : `REP · ${rl.name} — MAX`;
+  hud.caches.textContent = `◆ CACHES ${side.cachesFound}/${side.cachesTotal}`;
   hud.clock.textContent = fmtClock(state.clockMin);
   // Health bar (green -> red as it drops).
-  const hpFrac = clamp(state.health / CFG.player.maxHealth, 0, 1);
+  const hpFrac = clamp(state.health / state.maxHealth, 0, 1);
   hud.healthBar.style.width = `${hpFrac * 100}%`;
   hud.healthBar.style.background = hpFrac > 0.5 ? '#70e000' : hpFrac > 0.25 ? '#f2c14e' : '#ff3b30';
   // District + minimap follow the car while driving, the player on foot.
@@ -359,6 +532,13 @@ function updateHUD(dt) {
     hud.speedUnit.textContent = 'km/h';
     hud.vehicle.textContent = drivingCar.name;
     hud.weapon.style.opacity = '0';
+    // Nitro meter (Slice 3 garage upgrade, GT only).
+    if (state.upgrades.nitro && drivingCar === heroEntry) {
+      hud.nitroWrap.classList.remove('hidden');
+      hud.nitroBar.style.width = `${clamp(state.nitro, 0, 1) * 100}%`;
+    } else {
+      hud.nitroWrap.classList.add('hidden');
+    }
   } else {
     hud.speed.textContent = state.player.speed > 0.5 ? String(Math.round(state.player.speed * 3.6)) : '0';
     hud.speedUnit.textContent = 'km/h';
@@ -474,10 +654,136 @@ function completeSlice1() {
   if (state.step !== 1) return;
   state.step = 2;
   state.cash += 500;
-  toast('Slice 1 complete — free roam. The city is yours, Leo.', 6);
+  toast('Slice 1 complete — free roam. Ana has more work for you at the Marina.', 6);
+  audio.sting('cash');
+  // Slice 3: the next story mission waits at Ana (the mission giver).
+  missions.makeAvailable(1);
+  saveGame();
+}
+
+// --- dialogue (Slice 3 story briefings) ----------------------------------------
+// A briefing pauses the game (mode 'dialogue') and shows one line at a
+// time with the speaker's name. E / Enter / Space / click advances.
+function showDialogue(lines, onDone) {
+  state.dialogue = { lines, idx: 0, onDone };
+  state.mode = 'dialogue';
+  renderDialogueLine();
+  hud.dialogue.classList.remove('hidden');
+}
+function renderDialogueLine() {
+  const d = state.dialogue;
+  if (!d) return;
+  const line = d.lines[d.idx];
+  hud.dialogueSpeaker.textContent = line.who.toUpperCase();
+  hud.dialogueText.textContent = line.text;
+  $('dialogue-hint').textContent = d.idx < d.lines.length - 1
+    ? 'E / click — Continue ▸'
+    : 'E / click — Begin ▸';
+}
+function advanceDialogue() {
+  const d = state.dialogue;
+  if (!d) return;
+  d.idx++;
+  if (d.idx >= d.lines.length) {
+    state.dialogue = null;
+    hud.dialogue.classList.add('hidden');
+    state.mode = 'playing';
+    if (d.onDone) d.onDone();
+  } else {
+    renderDialogueLine();
+  }
+}
+function skipDialogue() {
+  while (state.dialogue) advanceDialogue();
+}
+$('dialogue').addEventListener('click', advanceDialogue);
+
+// --- mission failed (Slice 3) ----------------------------------------------------
+function showFailed(reason) {
+  state.mode = 'failed';
+  $('failed-reason').textContent = reason;
+  $('mission-failed').classList.remove('hidden');
+}
+function retryMission() {
+  $('mission-failed').classList.add('hidden');
+  state.mode = 'playing';
+  missions.retry();
+}
+$('btn-retry-mission').addEventListener('click', retryMission);
+
+// --- story complete (Slice 3 finale) ----------------------------------------------
+function onStoryComplete(stats) {
+  state.mode = 'story';
+  $('story-stats').innerHTML =
+    `<b>Missions:</b> ${stats.missions}/5 complete &nbsp;·&nbsp; <b>Story earnings:</b> $${stats.cash.toLocaleString('en-US')}<br>` +
+    `<b>Reputation:</b> ${repLevel().name} &nbsp;·&nbsp; <b>Caches:</b> ${side.cachesFound}/${side.cachesTotal}<br>` +
+    `<b>Cash on hand:</b> $${state.cash.toLocaleString('en-US')}`;
+  $('story-complete').classList.remove('hidden');
   audio.sting('cash');
   saveGame();
 }
+$('btn-story-continue').addEventListener('click', () => {
+  $('story-complete').classList.add('hidden');
+  state.mode = 'playing';
+});
+
+// --- garage (Slice 3 upgrades) ------------------------------------------------------
+function garagePrice(key) {
+  const lvl = repLevel();
+  return Math.round(UPGRADES[key].price * (1 - lvl.discount));
+}
+function renderShop() {
+  $('garage-cash').textContent = `$${state.cash.toLocaleString('en-US')} — standing ${repLevel().name}`;
+  const list = $('shop-list');
+  list.innerHTML = '';
+  for (const key of Object.keys(UPGRADES)) {
+    const u = UPGRADES[key];
+    const owned = state.upgrades[key];
+    const price = garagePrice(key);
+    const row = document.createElement('div');
+    row.className = 'shop-row' + (owned ? ' owned' : '');
+    row.innerHTML = `<div class="shop-info"><b>${u.name}</b> — $${price}<br><span class="shop-desc">${u.desc}</span></div>`;
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = owned ? 'OWNED' : 'Buy';
+    btn.disabled = owned;
+    btn.addEventListener('click', () => buyUpgrade(key));
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
+}
+function buyUpgrade(key) {
+  if (state.upgrades[key]) return false;
+  const price = garagePrice(key);
+  if (state.cash < price) {
+    toast(`Not enough cash — ${UPGRADES[key].name} costs $${price}.`, 4);
+    return false;
+  }
+  state.cash -= price;
+  state.upgrades[key] = true;
+  applyUpgrades();
+  audio.sting('cash');
+  toast(`${UPGRADES[key].name} installed.`, 4);
+  renderShop();
+  saveGame();
+  return true;
+}
+function applyUpgrades() {
+  state.maxHealth = CFG.player.maxHealth + (state.upgrades.armour ? 50 : 0);
+  state.health = Math.min(state.health, state.maxHealth);
+  heroCar.spec.topSpeed = CFG.vehicles.verdeGT.topSpeed + (state.upgrades.engine ? 8 : 0);
+}
+function openGarage() {
+  if (state.mode !== 'playing' || state.driving) return;
+  state.mode = 'garage';
+  renderShop();
+  $('garage').classList.remove('hidden');
+}
+function closeGarage() {
+  $('garage').classList.add('hidden');
+  if (state.mode === 'garage') state.mode = 'playing';
+}
+$('btn-garage-close').addEventListener('click', closeGarage);
 
 // --- crimes, health, BUSTED / WASTED -------------------------------------------
 function commitCrime(amount, what) {
@@ -511,7 +817,7 @@ function triggerWasted() {
 function respawn() {
   const fine = Math.min(CFG.wanted.bustFine, state.cash);
   state.cash -= fine;
-  state.health = CFG.player.maxHealth;
+  state.health = state.maxHealth;
   state.player.x = CFG.safehouse.x;
   state.player.z = CFG.safehouse.z;
   state.player.heading = Math.PI / 2;
@@ -525,15 +831,30 @@ function respawn() {
   state.mode = 'playing';
   toast(fine > 0 ? `Back on the street — the cops took $${fine}.` : 'Back on the street.', 5);
   saveGame();
+  // Slice 3: going down during a mission blows the job.
+  missions.onPlayerDown();
 }
 
 // --- pistol ----------------------------------------------------------------------
 function shootPistol() {
   if (state.mode !== 'playing' || state.driving) return;
   updatePistol(pistol, state.gameTime);
-  const origin = camera.position;
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
+  // Aim: the crosshair marks a point 30 m out along the camera ray; the
+  // shot goes from Leo's shoulder toward that point, clamped to a sane
+  // height band. (Slice 2 fired straight from the camera — with the chase
+  // camera looking down at Leo, the ray hit the ground metres ahead and
+  // distant targets could never be hit. This is what makes the Slice 3
+  // shootouts playable.)
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  const aim = {
+    x: camera.position.x + camDir.x * 30,
+    y: clamp(camera.position.y + camDir.y * 30, 0.5, 3.5),
+    z: camera.position.z + camDir.z * 30,
+  };
+  const origin = { x: state.player.x, y: 1.4, z: state.player.z };
+  const dl = Math.hypot(aim.x - origin.x, aim.y - origin.y, aim.z - origin.z) || 1;
+  const dir = { x: (aim.x - origin.x) / dl, y: (aim.y - origin.y) / dl, z: (aim.z - origin.z) / dl };
   const targets = [];
   for (const u of police.units) {
     targets.push({ x: u.car.x, y: 1.0, z: u.car.z, r: 2.4, kind: 'police', ref: u });
@@ -545,14 +866,17 @@ function shootPistol() {
     if (p.downUntil > state.gameTime) continue;
     targets.push({ x: p.x, y: 1.1, z: p.z, r: 0.8, kind: 'ped', ref: p });
   }
-  const res = firePistol(pistol, state.gameTime, { x: origin.x, y: origin.y, z: origin.z }, { x: dir.x, y: dir.y, z: dir.z }, targets);
+  // Slice 3 shootout targets: guards and hunter cars (no heat for these —
+  // they are criminals, not the SPD).
+  for (const t of missions.getShootTargets()) targets.push(t);
+  const res = firePistol(pistol, state.gameTime, origin, dir, targets);
   if (!res.fired) {
     if (res.empty) { toast('Out of ammo — press R to reload.', 3); }
     return;
   }
   audio.gunshot();
   state.shake = Math.min(1, state.shake + 0.12);
-  drawTracer({ x: origin.x, y: origin.y, z: origin.z }, res.point);
+  drawTracer(origin, res.point);
   state.fleeUntil = state.gameTime + 4; // the shot scares the street
   if (!res.hit) return;
   state.hitmarkTimer = 0.35;
@@ -567,6 +891,12 @@ function shootPistol() {
     p.downUntil = state.gameTime + 3;
     p.h.group.rotation.x = -Math.PI / 2; // knocked down
     commitCrime(CFG.wanted.shootCivilian, null);
+  } else if (res.hit.kind === 'enemy') {
+    const down = missions.onEnemyHit(res.hit.ref, CFG.pistol.damage, state.gameTime);
+    if (down) toast('Guard down.', 2);
+  } else if (res.hit.kind === 'foeCar') {
+    const disabled = missions.onFoeHit(res.hit.ref, CFG.pistol.damage);
+    if (disabled) toast('Hunter disabled!', 3);
   }
 }
 
@@ -583,15 +913,26 @@ function spawnDamageNumber(point, text) {
 }
 
 // --- save ----------------------------------------------------------------------
+// Slice 3: the save covers mission progress, cash, rep, caches, upgrades and
+// story completion — not just the Slice 1 step. Old saves (cash/step/x/z
+// only) still load: every new field defaults.
 function saveGame() {
   try {
     localStorage.setItem(CFG.saveKey, JSON.stringify({
       cash: state.cash, step: state.step,
+      missionIdx: missions.missionIdx,
+      storyComplete: missions.storyComplete,
+      rep: state.rep,
+      cachesTaken: cachesTakenIds(),
+      upgrades: { ...state.upgrades },
       x: state.player.x, z: state.player.z,
     }));
     state.saved = true;
     refreshMenuButtons();
   } catch { /* storage unavailable — game still plays */ }
+}
+function cachesTakenIds() {
+  return side.takenCacheIds();
 }
 function loadGame() {
   try {
@@ -600,8 +941,13 @@ function loadGame() {
     const s = JSON.parse(raw);
     state.cash = s.cash || 0;
     state.step = s.step || 0;
+    state.rep = s.rep || 0;
+    state.upgrades = { armour: false, nitro: false, engine: false, ...(s.upgrades || {}) };
     state.player.x = s.x ?? SLICE1.heroSpawn.x;
     state.player.z = s.z ?? SLICE1.heroSpawn.z;
+    applyUpgrades();
+    side.restore(s.cachesTaken || []);
+    missions.restore(s.missionIdx || 0, !!s.storyComplete);
     return true;
   } catch { return false; }
 }
@@ -609,7 +955,13 @@ function clearSave() {
   try { localStorage.removeItem(CFG.saveKey); } catch { /* ignore */ }
   state.saved = false;
   state.cash = 0; state.step = 0;
+  state.rep = 0;
+  state.upgrades = { armour: false, nitro: false, engine: false };
+  state.maxHealth = CFG.player.maxHealth;
+  heroCar.spec.topSpeed = CFG.vehicles.verdeGT.topSpeed;
   state.player.x = SLICE1.heroSpawn.x; state.player.z = SLICE1.heroSpawn.z;
+  missions.reset();
+  side.reset();
   refreshMenuButtons();
 }
 
@@ -630,9 +982,23 @@ function startGame(fresh) {
   audio.ensure();
   if (fresh) {
     state.cash = 0; state.step = 0;
-    state.health = CFG.player.maxHealth;
+    state.rep = 0;
+    state.upgrades = { armour: false, nitro: false, engine: false };
+    state.maxHealth = CFG.player.maxHealth;
+    state.nitro = 1;
+    heroCar.spec.topSpeed = CFG.vehicles.verdeGT.topSpeed;
+    state.health = state.maxHealth;
     wanted.heat = 0; wanted.wanted = 0; wanted.bustTimer = 0;
     police.clearAll();
+    missions.reset();
+    side.reset();
+    hideSideBeacon();
+    state.dialogue = null;
+    hud.dialogue.classList.add('hidden');
+    $('garage').classList.add('hidden');
+    $('mission-failed').classList.add('hidden');
+    $('story-complete').classList.add('hidden');
+    state.staging = false; // a real game, not a staged shot
     state.player.x = SLICE1.heroSpawn.x; state.player.z = SLICE1.heroSpawn.z;
     state.player.heading = SLICE1.heroSpawn.heading;
     heroCar.x = SLICE1.carSpawn.x; heroCar.z = SLICE1.carSpawn.z;
@@ -725,11 +1091,28 @@ function stepGame(dt) {
   diamond.position.y = 6 + Math.sin(performance.now() * 0.002) * 0.5;
   diamond.rotation.y += dt * 1.5;
   beam.material.opacity = 0.18 + Math.sin(performance.now() * 0.003) * 0.06;
+  sideDiamond.position.y = 5 + Math.sin(performance.now() * 0.0025) * 0.4;
+  sideDiamond.rotation.y += dt * 1.5;
+  // Story + side-job beacons follow the active objectives.
+  updateBeacons();
 
   // Tracer fade.
   if (tracerLife > 0) {
     tracerLife -= dt;
     tracerMat.opacity = Math.max(0, tracerLife / 0.09) * 0.9;
+  }
+
+  // Dialogue (Slice 3): the game waits while a briefing is open.
+  if (state.mode === 'dialogue') {
+    if (pressed.has('KeyE') || pressed.has('Enter') || pressed.has('Space')) advanceDialogue();
+    pressed.clear();
+    return;
+  }
+  // Garage: Escape closes it.
+  if (state.mode === 'garage') {
+    if (pressed.has('Escape')) closeGarage();
+    pressed.clear();
+    return;
   }
 
   if (state.mode !== 'playing') { pressed.clear(); return; }
@@ -746,7 +1129,12 @@ function stepGame(dt) {
   }
   if (pressed.has('KeyR')) startReload(pistol, now);
   if (pressed.has('KeyF')) shootPistol();
+  if (pressed.has('KeyG')) openGarage();
   updatePistol(pistol, now);
+
+  // --- Slice 3 systems -----------------------------------------------------------
+  missions.update(dt, now);
+  side.update(dt, now);
 
   // --- police + wanted ---------------------------------------------------------
   const playerFocus = {
@@ -763,8 +1151,8 @@ function stepGame(dt) {
   audio.setSiren(wanted.wanted > 0 && nearestCop !== null ? clamp(1 - nearestCop / 120, 0.3, 1) : 0);
 
   // Health regen once the heat is gone.
-  if (wanted.wanted === 0 && state.health < CFG.player.maxHealth) {
-    state.health = Math.min(CFG.player.maxHealth, state.health + CFG.player.regenPerSec * dt);
+  if (wanted.wanted === 0 && state.health < state.maxHealth) {
+    state.health = Math.min(state.maxHealth, state.health + CFG.player.regenPerSec * dt);
   }
 
   // BUSTED: on foot, nearly still, a cop stopped beside you.
@@ -805,13 +1193,29 @@ function stepGame(dt) {
     player.group.rotation.y = state.player.heading;
     animateWalk(player, state.walkPhase, clamp(state.player.speed / CFG.player.runSpeed, 0, 1));
 
-    // Near a driveable? Show the prompt / enter on E.
+    // Interaction priority on foot (Slice 3): Ana (mission giver) first,
+    // then side jobs (grab a package), then entering a car.
+    const anaDist = Math.hypot(state.player.x - SLICE1.anaSpawn.x, state.player.z - SLICE1.anaSpawn.z);
+    const sidePrompt = side.promptText();
     let near = null, nearD = 1e9;
     for (const e of driveables) {
       const d = Math.hypot(state.player.x - e.car.x, state.player.z - e.car.z);
       if (d < nearD) { nearD = d; near = e; }
     }
-    if (near && nearD < 3.2) {
+    if (missions.status === 'available' && anaDist < 4) {
+      hud.prompt.textContent = 'Press E — Talk to Ana';
+      hud.prompt.style.opacity = '1';
+      if (pressed.has('KeyE')) {
+        hud.prompt.style.opacity = '0';
+        missions.startMission(missions.missionIdx);
+      }
+    } else if (sidePrompt) {
+      hud.prompt.textContent = sidePrompt;
+      hud.prompt.style.opacity = '1';
+      if (pressed.has('KeyE')) {
+        if (side.tryInteract()) hud.prompt.style.opacity = '0';
+      }
+    } else if (near && nearD < 3.2) {
       hud.prompt.textContent = `Press E — Enter the ${near.name}`;
       hud.prompt.style.opacity = '1';
       if (pressed.has('KeyE')) {
@@ -829,6 +1233,9 @@ function stepGame(dt) {
         }
         if (near === heroEntry) completeSlice1();
       }
+    } else if (Math.hypot(state.player.x - CFG.safehouse.x, state.player.z - CFG.safehouse.z) < 15) {
+      hud.prompt.textContent = 'Press G — Safehouse garage';
+      hud.prompt.style.opacity = '1';
     } else {
       hud.prompt.style.opacity = '0';
     }
@@ -841,12 +1248,29 @@ function stepGame(dt) {
       + (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0);
     const handbrake = keys.has('Space');
     const car = drivingCar.car;
+    // Nitro (Slice 3 garage upgrade, GT only): hold Shift while driving
+    // and the GT gets +12 m/s top speed while the meter lasts.
+    const boosting = state.upgrades.nitro && drivingCar === heroEntry
+      && (keys.has('ShiftLeft') || keys.has('ShiftRight')) && state.nitro > 0.02 && throttle > 0;
+    // The boost is a temporary override of the GT's own spec — other cars'
+    // specs are never touched (they are shared CFG objects). Capture the
+    // base first: car.spec IS heroCar.spec while driving the GT, so reading
+    // it after the override would return the boosted value.
+    const baseTop = heroCar.spec.topSpeed;
+    if (boosting) {
+      car.spec.topSpeed = baseTop + 12;
+      state.nitro = Math.max(0, state.nitro - dt * 0.35);
+    } else {
+      state.nitro = Math.min(1, state.nitro + dt * 0.08);
+    }
     updateCar(car, { throttle, steer, handbrake }, dt, colliders);
+    if (boosting) car.spec.topSpeed = baseTop; // restore
     drivingCar.group.position.set(car.x, 0, car.z);
     drivingCar.group.rotation.y = car.heading;
     const spin = (car.speed * dt) / 0.36;
     for (const w of drivingCar.wheels) w.rotation.x += spin;
     state.speedKmh = Math.abs(car.speed) * 3.6;
+    state.playerRamCd = Math.max(0, state.playerRamCd - dt);
 
     // Running over a pedestrian is a crime (and the ped goes down).
     for (const p of peds) {
@@ -858,19 +1282,51 @@ function stepGame(dt) {
         commitCrime(CFG.wanted.hitPed, 'You hit a pedestrian — witnesses called the SPD.');
       }
     }
+    // Slice 3 fix: ramming a police cruiser with your car adds heat.
+    if (state.playerRamCd <= 0) {
+      for (const u of police.units) {
+        const d = Math.hypot(u.car.x - car.x, u.car.z - car.z);
+        if (d < 3.4 && Math.abs(car.speed) > 8) {
+          state.playerRamCd = 2;
+          commitCrime(CFG.wanted.ramPolice, 'You rammed a cruiser — the SPD saw that.');
+          break;
+        }
+      }
+    }
+    // Ramming a hunter car (M4 escort) at speed hurts it.
+    for (const f of missions.foes) {
+      if (f.state !== 'active') continue;
+      const d = Math.hypot(f.car.x - car.x, f.car.z - car.z);
+      if (d < 3.5 && Math.abs(car.speed) > 10) {
+        if (missions.onPlayerRamFoe(f, now)) toast('Hunter disabled!', 3);
+      }
+    }
+    // Side-job prompt while driving (pick up a fare / grab a package).
+    const drivePrompt = side.promptText();
+    if (drivePrompt) {
+      hud.prompt.textContent = drivePrompt;
+      hud.prompt.style.opacity = '1';
+    } else {
+      hud.prompt.style.opacity = '0';
+    }
     if (pressed.has('KeyE')) {
-      // Exit beside the car; it stays parked where it stops.
-      const side = { x: Math.cos(car.heading), z: -Math.sin(car.heading) };
-      state.player.x = car.x + side.x * 2.2;
-      state.player.z = car.z + side.z * 2.2;
-      state.player.heading = car.heading;
-      state.driving = false;
-      drivingCar.parked = true;
-      parkCollider(drivingCar);
-      drivingCar = null;
-      player.group.visible = true;
-      player.group.position.set(state.player.x, 0, state.player.z);
-      toast('On foot. The car waits for you.', 3);
+      // Side jobs first (pick up a fare), then exit the car.
+      if (side.tryInteract()) {
+        hud.prompt.style.opacity = '0';
+      } else {
+        // Exit beside the car; it stays parked where it stops.
+        const sideVec = { x: Math.cos(car.heading), z: -Math.sin(car.heading) };
+        state.player.x = car.x + sideVec.x * 2.2;
+        state.player.z = car.z + sideVec.z * 2.2;
+        state.player.heading = car.heading;
+        state.driving = false;
+        drivingCar.parked = true;
+        parkCollider(drivingCar);
+        drivingCar = null;
+        player.group.visible = true;
+        player.group.position.set(state.player.x, 0, state.player.z);
+        toast('On foot. The car waits for you.', 3);
+      }
     }
   }
   updateHUD(dt);
@@ -917,18 +1373,52 @@ window.__costa = {
   wanted,
   pistol,
   police,
-  version: 'slice2',
+  missions,
+  side,
+  version: 'slice3',
   get drivingCar() { return drivingCar; },
   get health() { return state.health; },
+  get rep() { return state.rep; },
   teleport(x, z) { state.player.x = x; state.player.z = z; player.group.position.set(x, 0, z); },
   enterCar() { drivingCar = heroEntry; state.driving = true; player.group.visible = false; },
   exitCar() { state.driving = false; drivingCar = null; player.group.visible = true; },
+  driveTo(x, z) {
+    if (!drivingCar) return false;
+    drivingCar.car.x = x; drivingCar.car.z = z;
+    drivingCar.group.position.set(x, 0, z);
+    return true;
+  },
   setStep(n) { state.step = n; },
   start(fresh = true) { startGame(fresh); },
   addHeat(n) { addHeat(wanted, n, state.gameTime); },
   damage(n) { damagePlayer(n); },
-  heal() { state.health = CFG.player.maxHealth; },
+  heal() { state.health = state.maxHealth; },
   shoot() { shootPistol(); },
+  giveCash(n) { state.cash += n; },
+  // Aim the crosshair at a world point: swing the camera behind Leo so the
+  // line camera -> Leo -> target is straight (the pistol ray goes from
+  // Leo's shoulder toward the crosshair point). The camera is snapped, not
+  // lerped, so the next shot aims true even at ~3 FPS (SwiftShader).
+  aimAt(x, y, z) {
+    const dx = x - state.player.x, dz = z - state.player.z;
+    state.camYaw = Math.atan2(-dx, -dz);
+    state.camPitch = 0.24;
+    state.userOrbit = 999; // hold the angle
+    const dist = state.camDist ?? CFG.camera.footDist;
+    camera.position.set(
+      state.player.x + Math.sin(state.camYaw) * Math.cos(state.camPitch) * dist,
+      1.6 + Math.sin(state.camPitch) * dist + 1.2,
+      state.player.z + Math.cos(state.camYaw) * Math.cos(state.camPitch) * dist,
+    );
+    camera.lookAt(state.player.x, 1.6, state.player.z);
+  },
+  advanceDialogue() { advanceDialogue(); },
+  skipDialogue() { skipDialogue(); },
+  retryMission() { retryMission(); },
+  openGarage() { openGarage(); },
+  closeGarage() { closeGarage(); },
+  buyUpgrade(key) { return buyUpgrade(key); },
+  repLevel() { return repLevel(); },
   // Stage extras near the hero car for a shot (traffic + peds on the street).
   stageStreet() {
     const spots = [
@@ -988,6 +1478,7 @@ window.__costa = {
     // traffic + peds on the street, red blips on the minimap.
     cover() {
       startGame(true);
+      state.staging = true; // no fare spawns while the shot is staged
       drivingCar = heroEntry; state.driving = true; player.group.visible = false;
       // Cruise at 12 m/s: the flanking cruisers hold formation for the shot
       // (the 4-city recipe) instead of falling behind the GT.
@@ -1001,9 +1492,11 @@ window.__costa = {
       addHeat(wanted, 3.01, state.gameTime);
       window.__costa.stageChaseUnits(6, 2);
       window.__costa.stageStreet();
+      hud.toast.style.opacity = '0'; toastTimer = 0; // clean frame, no toast
     },
     driving() {
       startGame(true);
+      state.staging = true; // no fare spawns while the shot is staged
       drivingCar = heroEntry; state.driving = true; player.group.visible = false;
       state.camDist = null; state.userOrbit = 0;
       heroCar.x = 185; heroCar.z = 40; heroCar.heading = Math.PI; heroCar.speed = 22;
@@ -1026,5 +1519,24 @@ window.__costa = {
       }
     },
     onfoot() { startGame(true); state.camDist = null; state.userOrbit = 0; state.player.x = 40; state.player.z = -60; state.player.heading = Math.PI * 0.7; state.camYaw = state.player.heading + Math.PI; },
+    // MISSION (Slice 3): LOUD AND CLEAR, clear stage — Leo on the Old Town
+    // road facing the warehouse, 4 guards with red markers ahead, the
+    // green beacon on the warehouse, Ana's briefing open as a dialogue box.
+    // The dialogue pauses the game, so the frame holds still for the shot.
+    mission() {
+      startGame(true);
+      state.staging = true; // no fare spawns while the shot is staged
+      missions.debugStage(2, 1);
+      state.camDist = 8; state.userOrbit = 999; // hold the angle
+      state.player.x = -111; state.player.z = -126;
+      state.player.heading = Math.PI; // face north, toward the warehouse
+      state.camYaw = 0; // camera south of Leo, looking north at the guards
+      player.group.position.set(state.player.x, 0, state.player.z);
+      player.group.rotation.y = state.player.heading;
+      // The HUD freezes in dialogue mode (updateHUD only runs while
+      // playing), so refresh it once here or the panel would still say
+      // FIRST LIGHT instead of LOUD AND CLEAR.
+      updateHUD(0);
+    },
   },
 };
