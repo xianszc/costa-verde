@@ -1,12 +1,16 @@
-// COSTA VERDE — characters: human-shaped low-poly people (player + pedestrians).
-// Built from boxes/capsules with pivoted limbs so they walk like people, not
-// boxes. No external models. Exports buildHumanoid(opts) and animateWalk().
+// COSTA VERDE v1.1 — characters: human-shaped low-poly people (player +
+// pedestrians). Built from boxes/capsules with pivoted limbs so they walk
+// like people, not boxes. No external models.
+// v1.1: more ped variety — slight height variation, occasional straw hats,
+// wider shirt/pants palette — so a crowded sidewalk reads as a crowd.
+// Exports buildHumanoid(opts) and animateWalk().
 
 import * as THREE from 'three';
 
 const SKINS = [0xe8b88a, 0xc98d64, 0x8a5a3a, 0xf0c8a0];
-const SHIRTS = [0xe8e4da, 0x4a7fd8, 0xd84a4a, 0x3aa88f, 0xf2c14e, 0x7a4ad8, 0x2e7f8f];
-const PANTS = [0x2b2d42, 0x3a3a40, 0x5a4636, 0x26374e];
+const SHIRTS = [0xe8e4da, 0x4a7fd8, 0xd84a4a, 0x3aa88f, 0xf2c14e, 0x7a4ad8, 0x2e7f8f, 0xc94a7a, 0x8a8a8a, 0x3a7a4a];
+const PANTS = [0x2b2d42, 0x3a3a40, 0x5a4636, 0x26374e, 0x6a3a2a, 0x1d5a6e];
+const HATS = [0xe8cf9e, 0x8a5a3a, 0x2b2d42, 0xd84a4a];
 
 function box(w, h, d, color, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(
@@ -19,12 +23,14 @@ function box(w, h, d, color, x = 0, y = 0, z = 0) {
 }
 
 // Build one person. opts: shirt, pants, skin, hair color, hat ('straw'|null),
-// glasses (bool). Returns { group, legL, legR, armL, armR, head, height }.
+// glasses (bool), scale (height variation, default 1).
+// Returns { group, legL, legR, armL, armR, head, height }.
 export function buildHumanoid(opts = {}) {
   const shirt = opts.shirt ?? 0xe8604a; // coral-orange default (the player)
   const pants = opts.pants ?? 0x2b2d42;
   const skin = opts.skin ?? SKINS[0];
   const hair = opts.hair ?? 0x2a2018;
+  const scale = opts.scale ?? 1;
   const group = new THREE.Group();
 
   // Legs: pivot groups at the hips so the swing reads as walking.
@@ -68,14 +74,15 @@ export function buildHumanoid(opts = {}) {
     head.add(box(0.34, 0.02, 0.02, 0xd8a24a, 0, 0.07, 0.19)); // gold bar
   }
   if (opts.hat === 'straw') {
+    const hatColor = opts.hatColor ?? 0xe8cf9e;
     const brim = new THREE.Mesh(
       new THREE.CylinderGeometry(0.34, 0.34, 0.04, 16),
-      new THREE.MeshLambertMaterial({ color: 0xe8cf9e }),
+      new THREE.MeshLambertMaterial({ color: hatColor }),
     );
     brim.position.y = 0.16;
     const top = new THREE.Mesh(
       new THREE.CylinderGeometry(0.19, 0.21, 0.16, 16),
-      new THREE.MeshLambertMaterial({ color: 0xe8cf9e }),
+      new THREE.MeshLambertMaterial({ color: hatColor }),
     );
     top.position.y = 0.25;
     const band = new THREE.Mesh(
@@ -87,7 +94,8 @@ export function buildHumanoid(opts = {}) {
   }
   group.add(head);
 
-  return { group, legL, legR, armL, armR, head, height: 1.95 };
+  group.scale.setScalar(scale);
+  return { group, legL, legR, armL, armR, head, height: 1.95 * scale };
 }
 
 // Walk cycle: phase advances with distance; amount 0 = idle, 1 = full stride.
@@ -107,6 +115,9 @@ export function randomPed(rnd) {
     pants: PANTS[Math.floor(rnd() * PANTS.length)],
     skin: SKINS[Math.floor(rnd() * SKINS.length)],
     hair: [0x2a2018, 0x4a3220, 0x111111, 0x8a6a4a][Math.floor(rnd() * 4)],
+    hat: rnd() < 0.25 ? 'straw' : null,
+    hatColor: HATS[Math.floor(rnd() * HATS.length)],
+    scale: 0.92 + rnd() * 0.16, // 0.92–1.08 — a crowd is not one height
   });
 }
 

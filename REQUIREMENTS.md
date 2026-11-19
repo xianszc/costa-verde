@@ -57,6 +57,16 @@ In order: (1) complete open world shown in screenshots; (2) depth/fun; (3) feel/
 - [x] Procedural/low-poly geometry only — NO external 3D models, NO network at runtime.
 - [x] Save: a save slot (localStorage) so Continue unlocks; start screen + way to save.
 
+## v1.1 revision (Xian's review of the 4 screenshots, 19 Nov)
+Xian: (1) density gedung kurang rapat dan kurang detail; (2) shoot pengambilan gambar lebih dekat, adegan lebih dramatis; (3) tambahkan NPC dan lalu lalang mobil yang ramai.
+- [x] Density: every block split 2x2 lots (4 buildings/block, 2.5 m gaps, street walls 1.5 m from road) — ~100 buildings (was ~60); Downtown CBD towers 48–72 m; shared unit-box geometry + material cache keep it cheap.
+- [x] Detail: 5 wall shades, window repeat scaled to building size, mid ledge bands, balconies, rooftop clutter (AC, water tank, antenna, neon signs), 10 storefront sign texts, awnings on all districts.
+- [x] Camera: closer + lower + wider — drive 11→8 m, on foot 7.5→5.5 m, pitch 0.32→0.24, FOV 62→68 (config-driven).
+- [x] Busier streets: traffic 7→18 cars (all roads incl. boulevard, mixed wedge cars + vans), peds 12→32 (biased to Marina/boulevard, varied height/hats/colors), 8 parked cars at curbs.
+- [x] Shots retaken with closer, staged framing: cover = GT close on boulevard with traffic + peds + beacon + Ana; marina = Leo facing Ana + beacon; city = Old Town street canyon.
+- [x] Spawns moved ONTO road x=37 (curb side) — the dense blocks now fill the old (6,8) spawn point; playtest enter step teleports beside the car's current spot.
+- [x] Playtest 16/16, kit check 5/0, 0 console/page errors (re-run after the revision).
+
 ## Quality bar (skill) — before reporting / submitting
 - [x] Kit check 5/0 (`node cli/makefun.mjs check --kit . --repo <repo>`).
 - [x] Headless browser test (Playwright): loads game, 0 console errors, 4 screenshots 1280×720 (menu, on foot, driving, chase/police if present), each viewed by the builder.

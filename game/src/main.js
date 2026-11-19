@@ -1,11 +1,15 @@
-// COSTA VERDE — main: loop, third-person camera, input, HUD, menu, save,
+// COSTA VERDE v1.1 — main: loop, third-person camera, input, HUD, menu, save,
 // Slice 1 objective, pedestrians, traffic, debug API (window.__costa).
+// v1.1 (Xian): CLOSER camera (drive 8 m, on foot 5.5 m, lower pitch, wider
+// FOV) so the hero fills the frame and the city looms; BUSIER streets
+// (18 traffic cars incl. the boulevard, mixed cars + vans, 32 pedestrians
+// biased to the Marina/boulevard, 8 parked cars at curbs).
 
 import * as THREE from 'three';
 import { CFG, DISTRICTS, SLICE1 } from './config.js';
 import { buildWorld } from './world.js';
 import { buildPlayer, randomPed, animateWalk } from './characters.js';
-import { buildCar, makeCarState, updateCar, resolveCircle, makeTrafficCar, updateTraffic } from './vehicles.js';
+import { buildCar, buildVan, makeCarState, updateCar, resolveCircle, makeTrafficCar, updateTraffic } from './vehicles.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -36,7 +40,7 @@ const state = {
   player: { x: SLICE1.heroSpawn.x, z: SLICE1.heroSpawn.z, heading: SLICE1.heroSpawn.heading, speed: 0 },
   walkPhase: 0,
   camYaw: Math.PI, // behind the player (player faces +Z at heading PI/2... see below)
-  camPitch: 0.32,
+  camPitch: CFG.camera.pitch,
   dragging: false,
   lastX: 0, lastY: 0,
   userOrbit: 0, // seconds since the user last dragged (auto-align pauses)
@@ -67,7 +71,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(CFG.sun.fogColor, CFG.sun.fogNear, CFG.sun.fogFar);
-const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 2200);
+const camera = new THREE.PerspectiveCamera(CFG.camera.fov, innerWidth / innerHeight, 0.1, 2200);
 
 const { group: worldGroup, colliders, buildingCount, palmCount } = buildWorld(THREE);
 scene.add(worldGroup);
@@ -113,27 +117,67 @@ beacon.add(beam, diamond, ring);
 beacon.position.set(SLICE1.anaSpawn.x, 0, SLICE1.anaSpawn.z);
 scene.add(beacon);
 
-// --- traffic + pedestrians ----------------------------------------------------
+// --- traffic (18 cars, all roads incl. the boulevard, mixed cars + vans) -----
 const traffic = [];
 {
-  const spots = [
-    [0, -185, 0], [0, -37, Math.PI], [0, 111, 0], [0, 37, Math.PI],
-    [-185, 0, Math.PI / 2], [111, 0, -Math.PI / 2], [37, 0, Math.PI / 2],
-  ];
   const rnd = mulberry32(77);
+  const roadLines = [-185, -111, -37, 37, 111, 185];
   for (let i = 0; i < CFG.traffic.count; i++) {
-    const [x, z, h] = spots[i % spots.length];
-    const t = makeTrafficCar(x, z + (rnd() - 0.5) * 8, h, CFG.traffic.colors[i % CFG.traffic.colors.length]);
+    const vertical = rnd() < 0.55;
+    const line = roadLines[Math.floor(rnd() * roadLines.length)];
+    const along = -190 + rnd() * 380;
+    const dir = rnd() < 0.5 ? 1 : -1;
+    let x, z, h;
+    if (vertical) {
+      x = line + (dir > 0 ? -3.2 : 3.2); // right-hand lane
+      z = along;
+      h = dir > 0 ? 0 : Math.PI;
+    } else {
+      z = line + (dir > 0 ? -3.2 : 3.2);
+      x = along;
+      h = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+    }
+    const kind = rnd() < 0.3 ? 'van' : 'car';
+    const color = CFG.traffic.colors[i % CFG.traffic.colors.length];
+    const t = makeTrafficCar(x, z, h, color, kind);
     scene.add(t.group);
     traffic.push(t);
   }
 }
+
+// --- parked cars at curbs (static street life) --------------------------------
+{
+  const spots = [
+    [179.5, -60, 0], [190.5, 20, Math.PI], [179.5, 90, 0], [190.5, -140, Math.PI],
+    [-105.5, -30, Math.PI / 2], [-30.5, -105.5, 0], [105.5, 30, -Math.PI / 2], [43.5, 118, Math.PI / 2],
+  ];
+  const rnd = mulberry32(4242);
+  for (let i = 0; i < spots.length; i++) {
+    const [x, z, h] = spots[i];
+    const kind = rnd() < 0.25 ? 'van' : 'car';
+    const built = kind === 'van' ? buildVan(CFG.traffic.colors[(i + 3) % CFG.traffic.colors.length]) : buildCar(CFG.traffic.colors[(i + 3) % CFG.traffic.colors.length]);
+    built.group.position.set(x, 0, z);
+    built.group.rotation.y = h;
+    scene.add(built.group);
+    colliders.push({ minX: x - 1.2, maxX: x + 1.2, minZ: z - 2.4, maxZ: z + 2.4 });
+  }
+}
+
+// --- pedestrians (32 — crowded sidewalks, biased to Marina / boulevard) --------
 const peds = [];
 {
   const rnd = mulberry32(1234);
   for (let i = 0; i < CFG.peds.count; i++) {
     const h = randomPed(rnd);
-    const x = -180 + rnd() * 360, z = -180 + rnd() * 360;
+    // Half spawn near the Marina / boulevard corridor (where the action is),
+    // the rest anywhere in the city.
+    let x, z;
+    if (rnd() < 0.5) {
+      x = 140 + rnd() * 60; // 140..200 (Marina + boulevard)
+      z = -120 + rnd() * 220; // -120..100
+    } else {
+      x = -180 + rnd() * 360; z = -180 + rnd() * 360;
+    }
     h.group.position.set(x, 0, z);
     scene.add(h.group);
     peds.push({ h, x, z, tx: x, tz: z, heading: rnd() * Math.PI * 2, phase: rnd() * 6, speed: 1.4 + rnd() * 0.8 });
@@ -250,7 +294,7 @@ function updateHUD(dt) {
   drawMinimap();
 }
 
-// --- camera -------------------------------------------------------------------
+// --- camera (v1.1: closer + lower + wider FOV = dramatic) -----------------------
 const camTarget = new THREE.Vector3();
 const camPos = new THREE.Vector3();
 function updateCamera(dt, t) {
@@ -273,7 +317,7 @@ function updateCamera(dt, t) {
     const behind = focus.heading + Math.PI;
     state.camYaw = lerpAngle(state.camYaw, behind, 1 - Math.pow(0.02, dt));
   }
-  dist = state.driving ? 11 : 7.5;
+  dist = state.driving ? CFG.camera.driveDist : CFG.camera.footDist;
   pitch = state.camPitch;
   const cx = focus.x + Math.sin(state.camYaw) * Math.cos(pitch) * dist;
   const cz = focus.z + Math.cos(state.camYaw) * Math.cos(pitch) * dist;
@@ -402,8 +446,14 @@ function stepGame(dt) {
     const dx = p.tx - p.x, dz = p.tz - p.z;
     const d = Math.hypot(dx, dz);
     if (d < 1.5) {
-      p.tx = -180 + Math.random() * 360;
-      p.tz = -180 + Math.random() * 360;
+      // New waypoint: half the time stay near the Marina / boulevard crowd.
+      if (Math.random() < 0.5) {
+        p.tx = 140 + Math.random() * 60;
+        p.tz = -120 + Math.random() * 220;
+      } else {
+        p.tx = -180 + Math.random() * 360;
+        p.tz = -180 + Math.random() * 360;
+      }
       continue;
     }
     const target = Math.atan2(dx, dz);
@@ -545,12 +595,35 @@ requestAnimationFrame(frame);
 window.__costa = {
   state,
   heroCar,
-  version: 'slice1',
+  version: 'slice1-v1.1',
   teleport(x, z) { state.player.x = x; state.player.z = z; player.group.position.set(x, 0, z); },
   enterCar() { state.driving = true; player.group.visible = false; },
   exitCar() { state.driving = false; player.group.visible = true; },
   setStep(n) { state.step = n; },
   start(fresh = true) { startGame(fresh); },
+  // Stage extras near the hero car for a shot (traffic + peds on the street).
+  stageStreet() {
+    // Pull 3 traffic cars onto the boulevard ahead/behind the hero car.
+    const spots = [
+      { x: 181.8, z: heroCar.z - 26, h: Math.PI },
+      { x: 188.2, z: heroCar.z + 18, h: 0 },
+      { x: 181.8, z: heroCar.z + 42, h: Math.PI },
+    ];
+    for (let i = 0; i < 3 && i < traffic.length; i++) {
+      const t = traffic[i];
+      t.car.x = spots[i].x; t.car.z = spots[i].z; t.car.heading = spots[i].h;
+      t.group.position.set(spots[i].x, 0, spots[i].z);
+      t.group.rotation.y = spots[i].h;
+    }
+    // Pull 4 pedestrians onto the boulevard road edge beside the hero car
+    // (x ~179.5 is ON road x=185 — never inside the dense block behind it).
+    for (let i = 0; i < 4 && i < peds.length; i++) {
+      const p = peds[i];
+      p.x = 179.5 + (i % 2) * 1.5; p.z = heroCar.z - 12 + i * 8;
+      p.tx = p.x; p.tz = p.z + 30;
+      p.h.group.position.set(p.x, 0, p.z);
+    }
+  },
   shots: {
     menu() {
       // Clean menu state: stop the car, show the title over the orbiting city.
@@ -558,17 +631,36 @@ window.__costa = {
       state.player.x = SLICE1.heroSpawn.x; state.player.z = SLICE1.heroSpawn.z;
       showMenu(); state.camYaw = Math.PI * 0.9;
     },
-    onfoot() { startGame(true); state.player.x = 40; state.player.z = -60; state.player.heading = Math.PI * 0.7; state.camYaw = state.player.heading + Math.PI; },
+    // COVER (v1.1): hero GT close on the coastal boulevard, dense Marina
+    // buildings + beacon + Ana ahead, traffic + peds staged on the street.
+    cover() {
+      startGame(true);
+      state.driving = true; player.group.visible = false;
+      heroCar.x = 185; heroCar.z = 55; heroCar.heading = Math.PI; heroCar.speed = 16;
+      state.camYaw = heroCar.heading + Math.PI;
+      window.__costa.stageStreet();
+    },
     driving() {
       startGame(true);
       state.driving = true; player.group.visible = false;
       heroCar.x = 185; heroCar.z = 40; heroCar.heading = Math.PI; heroCar.speed = 22;
       state.camYaw = heroCar.heading + Math.PI;
     },
+    // Marina on foot: Leo on the boulevard facing Ana + the beacon (clear
+    // line of sight down road x=185 — no building between Leo and Ana),
+    // peds staged on the boulevard edge beside him.
     marina() {
       startGame(true);
-      state.player.x = 150; state.player.z = -30; state.player.heading = Math.PI * 0.6;
+      state.player.x = 185; state.player.z = 8;
+      state.player.heading = Math.atan2(178 - 185, -18 - 8);
       state.camYaw = state.player.heading + Math.PI;
+      for (let i = 0; i < 4 && i < peds.length; i++) {
+        const p = peds[i];
+        p.x = 180 + (i % 2) * 2; p.z = -8 + i * 6;
+        p.tx = p.x; p.tz = p.z + 20;
+        p.h.group.position.set(p.x, 0, p.z);
+      }
     },
+    onfoot() { startGame(true); state.player.x = 40; state.player.z = -60; state.player.heading = Math.PI * 0.7; state.camYaw = state.player.heading + Math.PI; },
   },
 };

@@ -1,6 +1,7 @@
-// COSTA VERDE — vehicles: low-poly wedge cars + arcade driving + collision.
-// The hero car is an acid-lime wedge supercar; traffic uses the same builder
-// with different colours. Collision is circle-vs-AABB, shared with the player.
+// COSTA VERDE v1.1 — vehicles: low-poly wedge cars + a boxy van variant,
+// arcade driving + collision. The hero car is an acid-lime wedge supercar;
+// traffic mixes wedge cars and vans in many colours so busy streets read.
+// Collision is circle-vs-AABB, shared with the player.
 
 import * as THREE from 'three';
 import { CFG } from './config.js';
@@ -45,6 +46,23 @@ function box(w, h, d, mat, x = 0, y = 0, z = 0) {
   return m;
 }
 
+function addWheels(group, wheelGeo, wheelMat, hubMat) {
+  const wheels = [];
+  for (const [wx, wz] of [[-0.85, 1.35], [0.85, 1.35], [-0.85, -1.35], [0.85, -1.35]]) {
+    const w = new THREE.Group();
+    const tyre = new THREE.Mesh(wheelGeo, wheelMat);
+    tyre.rotation.z = Math.PI / 2;
+    tyre.castShadow = true;
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.32, 10), hubMat);
+    hub.rotation.z = Math.PI / 2;
+    w.add(tyre, hub);
+    w.position.set(wx, 0.36, wz);
+    group.add(w);
+    wheels.push(w);
+  }
+  return wheels;
+}
+
 // Build a wedge car. Returns { group, wheels[] } (wheels spin with speed).
 export function buildCar(color, opts = {}) {
   const group = new THREE.Group();
@@ -77,23 +95,47 @@ export function buildCar(color, opts = {}) {
     // Lime accent stripe down the centre.
     group.add(box(0.3, 0.03, 4.0, lambert(0x2b2d42), 0, 0.75, 0));
   }
-  // Wheels: cylinders with the axis across the car.
-  const wheels = [];
-  const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.3, 14);
-  const wheelMat = lambert(0x141416);
-  const hubMat = lambert(0xb8bcc2);
-  for (const [wx, wz] of [[-0.85, 1.35], [0.85, 1.35], [-0.85, -1.35], [0.85, -1.35]]) {
-    const w = new THREE.Group();
-    const tyre = new THREE.Mesh(wheelGeo, wheelMat);
-    tyre.rotation.z = Math.PI / 2;
-    tyre.castShadow = true;
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.32, 10), hubMat);
-    hub.rotation.z = Math.PI / 2;
-    w.add(tyre, hub);
-    w.position.set(wx, 0.36, wz);
-    group.add(w);
-    wheels.push(w);
+  const wheels = addWheels(
+    group,
+    new THREE.CylinderGeometry(0.36, 0.36, 0.3, 14),
+    lambert(0x141416),
+    lambert(0xb8bcc2),
+  );
+  return { group, wheels };
+}
+
+// Build a boxy delivery van / taxi-van — a second traffic silhouette so the
+// street does not read as one repeated car. Same footprint as a car.
+export function buildVan(color, opts = {}) {
+  const group = new THREE.Group();
+  const body = lambert(color);
+  const glass = lambert(0x1c2836);
+  const dark = lambert(0x1a1a1e);
+  // Tall boxy cargo body + cab nose.
+  group.add(box(1.9, 1.1, 3.4, body, 0, 0.85, -0.4));
+  group.add(box(1.85, 0.55, 1.0, body, 0, 0.55, 1.6));
+  const shield = box(1.6, 0.5, 0.08, glass, 0, 0.95, 1.15);
+  shield.rotation.x = -0.3;
+  group.add(shield);
+  // Side windows.
+  group.add(box(0.06, 0.4, 1.4, glass, -0.96, 1.15, -0.4));
+  group.add(box(0.06, 0.4, 1.4, glass, 0.96, 1.15, -0.4));
+  // Roof sign (taxi / delivery) when requested.
+  if (opts.taxi) {
+    group.add(box(0.7, 0.18, 0.3, lambert(0xf2c14e, 0xf2c14e, 0.8), 0, 1.5, 0.4));
   }
+  // Headlights + taillights.
+  group.add(box(0.4, 0.14, 0.06, lambert(0xfff6c8, 0xffe9a0, 1.6), -0.6, 0.5, 2.12));
+  group.add(box(0.4, 0.14, 0.06, lambert(0xfff6c8, 0xffe9a0, 1.6), 0.6, 0.5, 2.12));
+  group.add(box(0.4, 0.12, 0.06, lambert(0x7a1010, 0xd81f1f, 1.4), -0.6, 0.55, -2.12));
+  group.add(box(0.4, 0.12, 0.06, lambert(0x7a1010, 0xd81f1f, 1.4), 0.6, 0.55, -2.12));
+  group.add(box(1.9, 0.08, 0.4, dark, 0, 0.32, -2.1)); // rear bumper
+  const wheels = addWheels(
+    group,
+    new THREE.CylinderGeometry(0.38, 0.38, 0.3, 14),
+    lambert(0x141416),
+    lambert(0x8a8a8a),
+  );
   return { group, wheels };
 }
 
@@ -131,8 +173,10 @@ export function updateCar(car, input, dt, colliders) {
 }
 
 // Simple traffic: drive straight along one road, wrap at the city edge.
-export function makeTrafficCar(x, z, heading, color) {
-  const { group, wheels } = buildCar(color);
+// kind: 'car' | 'van' — mixed silhouettes so the street reads busy.
+export function makeTrafficCar(x, z, heading, color, kind = 'car') {
+  const built = kind === 'van' ? buildVan(color, { taxi: color === 0xf2c14e }) : buildCar(color);
+  const { group, wheels } = built;
   group.position.set(x, 0, z);
   group.rotation.y = heading;
   return {
