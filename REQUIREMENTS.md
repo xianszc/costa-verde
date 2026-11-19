@@ -9,7 +9,7 @@ Re-read before every submission. Status: Slice 1 in progress.
 - Prizes (100 places): 1st $500, 2nd $250, 3rd $150, 4th–10th $38, 11th–25th $10, 26th–50th $6, 51st–100th $4.
 - Submission limits: max **5/day, 10 total** per entrant. Final entry = most recent submission with a receipt before the deadline. Resubmission allowed until the deadline.
 - Repo: https://github.com/xianszc/costa-verde (public). Anchor root `05bd0af` (drand round 34097115, NEVER rewrite). LICENSE MIT `1ce2913`.
-- Recording for this build: `01a1f3fb-cb92-7623-be66-eb4a4d35795e` (sealed recordings only; no transcript upload).
+- Recording for this build: `01a1f41f-1149-7349-9017-29fa3b974742` (sealed recordings only; no transcript upload). Slice 1's recording `01a1f3fb` FAILED to seal — `main.ts`, `serve.ts`, `game/index.html`, `README.md` have no sealed authorship yet and MUST be fully rewritten under `01a1f41f` (done in Slice 2).
 
 ## Deliverables
 - [x] `main.ts` (Node 22, stdlib only) — copies `game/` + `screenshots/` to `/output`, writes `/output/dossier.json` via `buildDossier` from `vendor/makefun-game.ts`. Must carry ≥1 authored line.
@@ -25,6 +25,9 @@ Re-read before every submission. Status: Slice 1 in progress.
 - `game/src/world.js` — deterministic city gen (grid + coastal boulevard, districts, collision, palms, billboards, storefronts).
 - `game/src/characters.js` — human-shaped low-poly player + pedestrians (procedural, no external models).
 - `game/src/vehicles.js` — cars (hero lime wedge supercar + traffic/parked), handling, enter/exit.
+- `game/src/police.js` — wanted heat, pursuit, helicopter, BUSTED logic.
+- `game/src/combat.js` — pistol hitscan, ammo, reload.
+- `game/src/audio.js` — procedural WebAudio: sirens, gunshots, stings.
 - `game/src/main.js` — loop, third-person camera, input, HUD, save, debug API.
 - `game/vendor/three.module.min.js` — vendored Three.js (minified, excluded from authorship count).
 - `main.ts`, `serve.ts`, `vendor/makefun-game.ts` at repo root.
@@ -56,6 +59,17 @@ In order: (1) complete open world shown in screenshots; (2) depth/fun; (3) feel/
 - [x] Pedestrians + a few ambient traffic cars (simple movement) if time allows — do NOT block Slice 1 on them.
 - [x] Procedural/low-poly geometry only — NO external 3D models, NO network at runtime.
 - [x] Save: a save slot (localStorage) so Continue unlocks; start screen + way to save.
+
+## Slice 2 scope (this build — the core GTA loop) — IN PROGRESS 19 Nov
+- [x] Wanted + police: stars 0–5 (steal car / hit ped / ram police / shoot cop); patrol cars pursue, ram, stop beside the player on foot → BUSTED (fine $100, respawn at safehouse); wanted decays when out of sight; heli + spotlight at 3 stars; sirens (WebAudio), red/blue light bars, police HUD list (callsign · distance · status).
+- [x] More vehicles, all stealable, different handling: taxi (slow, sturdy), van (slow, heavy), police cruiser (fast, sharp); E works for all; HUD shows the vehicle name.
+- [x] Combat: pistol (click/F to shoot, R reload, 12-round mag), health bar, damage from rams/shots (forgiving), WASTED → respawn at safehouse; hit marker + damage numbers + tracer.
+- [x] Traffic + peds: density kept (18 traffic, 32 peds); traffic yields when the player's car is close ahead; peds flee on crime/gunfire, go down when hit.
+- [x] Minimap/waypoint: waypoint to the objective + red police blips + amber heli blip; stars always visible.
+- [x] Authorship: `main.ts`, `serve.ts`, `game/index.html`, `README.md` FULLY REWRITTEN under recording `01a1f41f` (Slice 1's authorship was unsealed).
+- [x] Playtest (extended, incl. Slice 2 checks) **30/30**, kit check **5/0**, 0 console/page errors.
+- [x] Screenshots retaken: COVER = police chase (lime GT + 2 cruisers with light bars + 3 stars + SPD panel + red minimap blips; heli in the panel as AIR-1); menu clean; on foot = Leo + taxi + beacon; city = GT + flanking cruiser.
+- Fixes found by testing (19 Nov, all in `police.js` unless noted): (1) wanted decayed before the first cruiser arrived — decay now waits until cops are on the street, with star hysteresis (a star drops only 0.5 heat below it) and grace 3.0 s; (2) pursuit steered straight at the player through buildings — spawn now uses the nearest road line (≤53 m, inside the 60 m seen radius) + progress-based re-route (1.5 s, <100 m only, so an earned escape is never cheated); (3) cruisers orbited at full speed instead of ramming — pursuit speed now scales with distance; (4) distances/ram/nearest were measured to the stale on-foot position while driving — all now use the car; heli holds station 35 m ahead of the car. Known gap (not wired): ramming a police car with the player's car does not itself add heat (only stealing / hitting peds / shooting does).
 
 ## v1.1 revision (Xian's review of the 4 screenshots, 19 Nov)
 Xian: (1) density gedung kurang rapat dan kurang detail; (2) shoot pengambilan gambar lebih dekat, adegan lebih dramatis; (3) tambahkan NPC dan lalu lalang mobil yang ramai.

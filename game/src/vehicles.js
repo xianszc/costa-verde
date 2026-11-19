@@ -1,6 +1,7 @@
-// COSTA VERDE v1.1 — vehicles: low-poly wedge cars + a boxy van variant,
-// arcade driving + collision. The hero car is an acid-lime wedge supercar;
-// traffic mixes wedge cars and vans in many colours so busy streets read.
+// COSTA VERDE Slice 2 — vehicles: low-poly wedge cars, a boxy van, a police
+// cruiser with a flashing light bar, arcade driving + collision. The hero car
+// is an acid-lime wedge supercar; traffic mixes wedge cars and vans; Slice 2
+// adds stealable parked cars (taxi, van, cruiser) with their own handling.
 // Collision is circle-vs-AABB, shared with the player.
 
 import * as THREE from 'three';
@@ -139,6 +140,100 @@ export function buildVan(color, opts = {}) {
   return { group, wheels };
 }
 
+// Build a police cruiser: black body, white doors, "SPD" presence via the
+// light bar. Returns { group, wheels, lightL, lightR } — the two light-bar
+// lenses flash red/blue in turn (their emissive intensity is animated by
+// the police manager). A white door band keeps it readable at a glance.
+export function buildPoliceCruiser() {
+  const built = buildCar(0x14161c);
+  const { group } = built;
+  const white = lambert(0xf2f0e8);
+  const dark = lambert(0x1a1a1e);
+  // White doors on both flanks.
+  group.add(box(0.06, 0.42, 2.0, white, -0.96, 0.62, -0.2));
+  group.add(box(0.06, 0.42, 2.0, white, 0.96, 0.62, -0.2));
+  // Push bar on the nose.
+  group.add(box(1.7, 0.16, 0.12, dark, 0, 0.45, 2.2));
+  group.add(box(0.12, 0.3, 0.1, dark, -0.7, 0.55, 2.2));
+  group.add(box(0.12, 0.3, 0.1, dark, 0.7, 0.55, 2.2));
+  // Light bar: red lens left, blue lens right, on a dark base.
+  group.add(box(1.2, 0.1, 0.34, dark, 0, 1.24, -0.2));
+  const lightL = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.16, 0.3),
+    new THREE.MeshLambertMaterial({ color: 0x7a1010, emissive: 0xff2020, emissiveIntensity: 2.2 }),
+  );
+  lightL.position.set(-0.32, 1.34, -0.2);
+  const lightR = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.16, 0.3),
+    new THREE.MeshLambertMaterial({ color: 0x102a7a, emissive: 0x2060ff, emissiveIntensity: 0.25 }),
+  );
+  lightR.position.set(0.32, 1.34, -0.2);
+  group.add(lightL, lightR);
+  return { ...built, lightL, lightR };
+}
+
+// Build a helicopter: body, tail, main rotor + tail rotor, belly spotlight
+// cone. The rotor spins in the police manager; the cone points straight down
+// at the player when the heli is on station.
+export function buildHeli() {
+  const group = new THREE.Group();
+  const body = lambert(0x1a1a1e);
+  const white = lambert(0xf2f0e8);
+  // Cabin + nose.
+  group.add(box(2.0, 1.5, 3.2, body, 0, 0, 0));
+  group.add(box(1.7, 1.0, 1.2, lambert(0x1c2836), 0, 0.1, 1.9));
+  // White belly stripe + tail boom.
+  group.add(box(2.02, 0.4, 3.0, white, 0, -0.55, 0));
+  group.add(box(0.5, 0.5, 4.2, body, 0, 0.25, -3.4));
+  // Tail fin + tail rotor.
+  group.add(box(0.14, 1.3, 0.9, body, 0, 0.7, -5.3));
+  const tailRotor = new THREE.Group();
+  const tr1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.2, 0.12), lambert(0x333333));
+  const tr2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 2.2), lambert(0x333333));
+  tailRotor.add(tr1, tr2);
+  tailRotor.position.set(0.32, 0.7, -5.3);
+  group.add(tailRotor);
+  // Main rotor (spins around Y).
+  const rotor = new THREE.Group();
+  const bladeGeo = new THREE.BoxGeometry(9.5, 0.08, 0.5);
+  const bladeMat = lambert(0x222222);
+  const b1 = new THREE.Mesh(bladeGeo, bladeMat);
+  const b2 = new THREE.Mesh(bladeGeo, bladeMat);
+  b2.rotation.y = Math.PI / 2;
+  rotor.add(b1, b2);
+  rotor.position.y = 1.05;
+  group.add(rotor);
+  // Skids.
+  group.add(box(0.12, 0.12, 3.0, lambert(0x333333), -0.9, -0.95, 0));
+  group.add(box(0.12, 0.12, 3.0, lambert(0x333333), 0.9, -0.95, 0));
+  // Spotlight cone (translucent, points down; the manager aims the heli).
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(6, 40, 16, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0.10, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  cone.position.y = -21;
+  cone.rotation.x = Math.PI; // apex up at the heli, base down at the street
+  group.add(cone);
+  return { group, rotor, tailRotor, cone };
+}
+
+// Build any vehicle spec from CFG.vehicles into a drivable entity.
+// Returns { group, wheels, car, spec, name, lightL?, lightR? }.
+export function buildDriveable(specKey) {
+  const spec = CFG.vehicles[specKey];
+  let built;
+  if (spec.kind === 'van') built = buildVan(spec.color, { taxi: !!spec.taxi });
+  else if (spec.kind === 'cruiser') built = buildPoliceCruiser();
+  else built = buildCar(spec.color, { hero: specKey === 'verdeGT' });
+  return {
+    ...built,
+    car: makeCarState(0, 0, 0, spec),
+    spec,
+    name: spec.name,
+    specKey,
+  };
+}
+
 // Arcade car state.
 export function makeCarState(x, z, heading, spec) {
   return { x, z, heading, speed: 0, spec };
@@ -186,12 +281,25 @@ export function makeTrafficCar(x, z, heading, color, kind = 'car') {
     }),
     axis: Math.abs(Math.sin(heading)) > 0.7 ? 'x' : 'z',
     dir: Math.sin(heading) >= 0 ? 1 : -1,
+    baseSpeed: CFG.traffic.speed,
   };
 }
 
-export function updateTraffic(t, dt) {
+// Traffic yields: a car stops when the player's car is close ahead of it
+// (a simple give-way so chases read — traffic parts around the action).
+export function updateTraffic(t, dt, playerCar) {
   const c = t.car;
-  c.speed = CFG.traffic.speed;
+  let target = t.baseSpeed;
+  if (playerCar) {
+    const dx = playerCar.x - c.x, dz = playerCar.z - c.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 12) {
+      // Only yield if the player is roughly ahead of the traffic car.
+      const fx = Math.sin(c.heading), fz = Math.cos(c.heading);
+      if (dx * fx + dz * fz > 0) target = 0;
+    }
+  }
+  c.speed += (target - c.speed) * Math.min(1, 2.5 * dt);
   c.x += Math.sin(c.heading) * c.speed * dt;
   c.z += Math.cos(c.heading) * c.speed * dt;
   const lim = 205;

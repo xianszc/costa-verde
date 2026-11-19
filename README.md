@@ -6,49 +6,67 @@ make.fun bounty **gta6-01** ("Make GTA 6", $1,666 USDC).
 Costa Verde is a sunny coastal city at golden hour. You are **Leo Marín**, a
 driver with one last debt to pay. **Ana Ruiz**, the fixer who owns the Marina,
 has a job for you — and a lime-green wedge supercar, the Verde GT, with your
-name on it.
+name on it. Take it. Then take the city.
 
-## How to run
+## What you do
 
-```sh
-node serve.ts
-# open http://localhost:8080
-```
-
-No build step, no network: the game is plain static files under `game/`
-(Three.js is vendored at `game/vendor/three.module.min.js`).
+- **Drive the Verde GT** through four districts — Marina Bay, Old Town,
+  Downtown, Palms Row — past the sea, the beach and the palm-lined boulevard.
+- **Steal cars.** Taxi cabs, delivery vans and SPD police cruisers are all
+  parked around the city, each with its own feel: the taxi is slow and sturdy,
+  the van is heavy, the cruiser is fast and sharp. Stealing one raises your
+  wanted level.
+- **Lose the cops.** Wanted stars (0–5) rise when you steal, hit a pedestrian
+  or ram a cruiser. SPD patrol cars chase, ram and try to stop you; at 3 stars
+  a helicopter joins with a spotlight. Break line of sight and get away, and
+  the heat fades. Get caught on foot and it's **BUSTED** — a fine, then back on
+  the street.
+- **Fight back.** A pistol (click or F to shoot, R to reload) with a 12-round
+  magazine. Four hits disable a cruiser for a while. You have a health bar —
+  cop rams and bullets hurt, but you heal once the heat is gone. Go down and
+  it's **WASTED** — you wake up at the safehouse.
+- **Live in the city.** 18 cars of traffic that yield to you, 32 pedestrians
+  who flee when a crime happens nearby, a minimap with police blips, a waypoint
+  to your objective, a save that follows you.
 
 ## Controls
 
-- **W A S D** — move / drive
-- **Shift** — sprint (on foot)
-- **E** — enter / exit vehicle
-- **Space** — handbrake (while driving)
-- **Drag mouse** — look around (third-person camera)
-- **P** — pause (saves the game)
+| Key | Action |
+| --- | --- |
+| WASD / arrows | Move / drive |
+| Shift | Run |
+| E | Enter / exit car |
+| Click / F | Shoot pistol |
+| R | Reload |
+| Space | Handbrake |
+| Mouse drag | Look around |
+| P / Esc | Pause |
+| M | Mute sound |
 
-## Slice 1 (this build)
+## Run it
 
-- Start menu (New Game / Continue / Controls / Settings / Credits)
-- Golden-hour coastal city: grid + coastal boulevard, distinct districts
-  (Marina Bay, Old Town, Downtown, Palms Row), palms, billboards, storefronts
-- Third-person on-foot movement with a human-shaped low-poly character
-- One drivable vehicle — the acid-lime Verde GT — with arcade handling,
-  enter/exit, plus ambient traffic and pedestrians
-- HUD: mission panel, wanted stars, cash, clock, speed, minimap, district name
-- First objective: meet Ana at the Marina, then take the GT for a spin
-- Save / Continue via localStorage
+```sh
+node serve.ts        # http://localhost:8080
+```
+
+No build step, no network at runtime: static files under `game/`, Three.js
+vendored in `game/vendor/`. `main.ts` copies `game/` + `screenshots/` to
+`/output` and writes `dossier.json` (the judge's summary).
 
 ## Layout
 
-- `game/index.html` — page shell, HUD, menus
-- `game/src/config.js` — palette, districts, vehicles, tuning (data-driven)
-- `game/src/world.js` — city generation (ground, buildings, palms, sea, sky)
-- `game/src/characters.js` — human-shaped low-poly people + walk cycle
-- `game/src/vehicles.js` — wedge cars + arcade driving + collision
-- `game/src/main.js` — loop, camera, input, HUD, menu, save, objectives
-- `main.ts` — entry program (copies `game/` + `screenshots/` to `/output`)
-- `REQUIREMENTS.md` — the checklist this build is measured against
+- `game/index.html` — page, HUD, menu, BUSTED / WASTED screens
+- `game/src/main.js` — game loop, camera, input, HUD, save, crimes, combat
+- `game/src/world.js` — the city: districts, buildings, sea, sky, palms
+- `game/src/characters.js` — Leo, Ana, pedestrians
+- `game/src/vehicles.js` — cars, vans, cruisers, helicopter, traffic
+- `game/src/police.js` — wanted level, pursuit, helicopter, BUSTED logic
+- `game/src/combat.js` — pistol hitscan, ammo, reload
+- `game/src/audio.js` — procedural WebAudio: sirens, gunshots, stings
+- `game/src/config.js` — tuning: vehicles, wanted, police, pistol
+- `main.ts` / `serve.ts` — entry program / local dev server
 
-Original work only: own city, characters, vehicles, names, story and art.
-Nothing from Rockstar Games' Grand Theft Auto series or any other commercial game.
+## Originality
+
+COSTA VERDE is an original game. No Rockstar or GTA VI assets, no real brands,
+no copied competitor content. All code, art and audio are original work.

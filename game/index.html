@@ -1,148 +1,232 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>COSTA VERDE — Open World Crime</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>COSTA VERDE — Sunset Heist</title>
 <style>
-  :root {
-    --gold: #ffc27a;
-    --lime: #70e000;
-    --ink: #14161c;
-    --panel: rgba(16, 20, 28, 0.78);
-    --panel-line: rgba(255, 194, 122, 0.35);
-    --text: #f4ecd8;
-    --muted: #c9bda6;
-  }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1410;
-    font-family: 'Segoe UI', Arial, sans-serif; color: var(--text); }
+  /* COSTA VERDE Slice 2 — layout: full-screen canvas, HUD panels in the
+     corners, menu / pause / BUSTED / WASTED as centered overlays. */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #101c26; }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: #f2f0e9; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .hidden { display: none !important; }
 
-  /* --- HUD --- */
-  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
-  .panel { background: var(--panel); border: 1px solid var(--panel-line); border-radius: 10px;
-    padding: 10px 14px; backdrop-filter: blur(4px); }
-  #mission { position: absolute; top: 14px; left: 14px; min-width: 280px; }
-  #mission-title { color: var(--gold); font-weight: 800; letter-spacing: 1px; font-size: 13px; }
-  #mission-text { font-size: 16px; font-weight: 700; margin-top: 4px; }
-  #mission-bar-wrap { height: 5px; background: rgba(255,255,255,0.15); border-radius: 3px; margin-top: 8px; overflow: hidden; }
-  #mission-bar { height: 100%; width: 0%; background: var(--lime); border-radius: 3px; transition: width 0.4s; }
-  #stats { position: absolute; top: 14px; right: 14px; text-align: right; }
-  #stars { color: var(--gold); font-size: 20px; letter-spacing: 3px; }
-  #cash { font-size: 20px; font-weight: 800; }
-  #clock { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  #district { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-    font-size: 13px; font-weight: 700; letter-spacing: 2px; color: var(--gold); }
-  #speedo { position: absolute; right: 14px; bottom: 14px; text-align: right; }
-  #speed { font-size: 44px; font-weight: 900; line-height: 1; }
-  #speed-unit { font-size: 13px; color: var(--muted); }
-  #vehicle-name { color: var(--lime); font-weight: 800; letter-spacing: 1px; margin-top: 2px; }
-  #minimap-wrap { position: absolute; left: 14px; bottom: 14px; }
-  #minimap { display: block; border-radius: 50%; border: 2px solid var(--panel-line); background: #16202b; }
-  #prompt { position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%);
-    font-size: 17px; font-weight: 700; background: var(--panel); border: 1px solid var(--lime);
-    border-radius: 8px; padding: 8px 16px; opacity: 0; transition: opacity 0.2s; }
-  #toast { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%);
-    max-width: 640px; text-align: center; font-size: 15px; background: var(--panel);
-    border: 1px solid var(--panel-line); border-radius: 8px; padding: 9px 16px;
-    opacity: 0; transition: opacity 0.3s; }
-  #help { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
-    font-size: 12px; color: var(--muted); background: rgba(16,20,28,0.6);
-    border-radius: 6px; padding: 5px 10px; transition: opacity 0.5s; white-space: nowrap; }
+  /* ---- HUD panels ---- */
+  .panel {
+    position: fixed; z-index: 10; background: rgba(12, 20, 28, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 10px;
+    padding: 10px 12px; backdrop-filter: blur(4px);
+  }
+  #mission { top: 14px; left: 14px; width: 300px; }
+  #mission-title { font-size: 13px; font-weight: 800; letter-spacing: 0.06em; color: #ffd23f; }
+  #mission-text { font-size: 13px; line-height: 1.45; margin-top: 4px; color: #e8e6de; }
+  #mission-track { height: 5px; background: rgba(255, 255, 255, 0.16); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  #mission-bar { height: 100%; width: 0%; background: #70e000; border-radius: 3px; }
 
-  /* --- Menu / overlays --- */
-  .overlay { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(180deg, rgba(20,12,8,0.55) 0%, rgba(20,12,8,0.25) 45%, rgba(20,12,8,0.72) 100%); }
-  .menu-card { text-align: center; max-width: 560px; padding: 24px; }
-  .logo { font-size: 72px; font-weight: 900; letter-spacing: 6px; line-height: 0.95; margin: 0;
-    color: #fff3c4; text-shadow: 0 4px 0 #d84a4a, 0 10px 28px rgba(0,0,0,0.6); }
-  .logo span { color: var(--lime); }
-  .tagline { color: var(--gold); font-size: 17px; letter-spacing: 3px; font-weight: 700; margin: 10px 0 26px; }
-  .menu-btn { display: block; width: 320px; margin: 8px auto; padding: 13px 20px; font-size: 17px; font-weight: 800;
-    letter-spacing: 1px; color: var(--ink); background: var(--gold); border: none; border-radius: 10px; cursor: pointer; }
-  .menu-btn:hover:not(:disabled) { background: #ffd29a; }
-  .menu-btn:disabled { background: #6b6258; color: #cfc6b8; cursor: not-allowed; }
-  .menu-btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--panel-line); }
-  .menu-btn.ghost:hover { background: rgba(255,194,122,0.15); }
-  .sub-panel { text-align: left; background: var(--panel); border: 1px solid var(--panel-line);
-    border-radius: 10px; padding: 14px 18px; margin: 10px auto; width: 380px; font-size: 14px; line-height: 1.7; }
-  .sub-panel h3 { margin: 0 0 6px; color: var(--gold); font-size: 15px; letter-spacing: 1px; }
-  .sub-panel kbd { background: rgba(255,255,255,0.14); border-radius: 4px; padding: 1px 7px; font-family: inherit; }
-  .cast { margin-top: 18px; font-size: 13px; color: var(--muted); }
-  .cast b { color: var(--text); }
-  #pause .menu-card { background: var(--panel); border: 1px solid var(--panel-line); border-radius: 14px; }
-  #pause h2 { margin: 0 0 14px; letter-spacing: 3px; color: var(--gold); }
+  /* Police response list — appears only while the SPD is after you. */
+  #police { top: 176px; left: 14px; width: 300px; border-color: rgba(255, 59, 48, 0.45); }
+  #police h3 { font-size: 12px; letter-spacing: 0.08em; color: #ff6b61; margin-bottom: 4px; }
+  #police-list { font-size: 12px; line-height: 1.6; color: #ffd7d4; font-variant-numeric: tabular-nums; }
+
+  #stats { top: 14px; right: 14px; text-align: right; min-width: 168px; }
+  #stars { font-size: 22px; letter-spacing: 3px; color: #ffd23f; line-height: 1; }
+  #cash { font-size: 20px; font-weight: 800; color: #70e000; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #clock { font-size: 14px; color: #c9d4de; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  #health-wrap { margin-top: 8px; }
+  #health-label { font-size: 10px; letter-spacing: 0.1em; color: #c9d4de; }
+  #health-track { height: 7px; background: rgba(255, 255, 255, 0.16); border-radius: 4px; margin-top: 3px; overflow: hidden; }
+  #health-bar { height: 100%; width: 100%; background: #70e000; border-radius: 4px; transition: width 0.2s; }
+
+  #speedo { bottom: 14px; right: 14px; text-align: right; padding: 8px 14px; }
+  #speed { font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  #speed-unit { font-size: 12px; color: #c9d4de; }
+  #vehicle-name { font-size: 13px; font-weight: 700; color: #70e000; letter-spacing: 0.05em; }
+  #weapon { font-size: 12px; color: #ffd23f; margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+  #district { bottom: 14px; left: 14px; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; }
+  #minimap-wrap { bottom: 58px; left: 14px; width: 180px; height: 180px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.25); padding: 0; overflow: hidden; }
+  #minimap { width: 100%; height: 100%; display: block; }
+
+  #prompt {
+    position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); z-index: 10;
+    background: rgba(12, 20, 28, 0.85); border: 1px solid #70e000; border-radius: 8px;
+    padding: 8px 16px; font-size: 15px; font-weight: 700; opacity: 0; transition: opacity 0.15s;
+  }
+  #toast {
+    position: fixed; left: 50%; top: 76px; transform: translateX(-50%); z-index: 10;
+    background: rgba(12, 20, 28, 0.85); border: 1px solid rgba(255, 210, 63, 0.6); border-radius: 8px;
+    padding: 9px 18px; font-size: 14px; max-width: 640px; text-align: center;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  #help {
+    position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 10;
+    font-size: 12px; color: #d7dee6; background: rgba(12, 20, 28, 0.6);
+    padding: 6px 12px; border-radius: 8px; transition: opacity 0.5s; white-space: nowrap;
+  }
+  #help b { color: #ffd23f; }
+
+  /* Crosshair + hit marker (on foot, in play). */
+  #crosshair {
+    position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; z-index: 9;
+    transform: translate(-50%, -50%); opacity: 0; pointer-events: none;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: rgba(255, 255, 255, 0.9);
+  }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
+  #hitmarker {
+    position: fixed; left: 50%; top: 50%; z-index: 9; transform: translate(-50%, -50%);
+    font-size: 26px; font-weight: 900; color: #ff3b30; opacity: 0; pointer-events: none;
+    text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+  }
+  #dmg-layer { position: fixed; inset: 0; z-index: 9; pointer-events: none; overflow: hidden; }
+  .dmg-num {
+    position: absolute; transform: translate(-50%, -50%);
+    font-size: 18px; font-weight: 800; color: #ffd23f;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    animation: dmgFloat 0.9s ease-out forwards;
+  }
+  @keyframes dmgFloat {
+    from { opacity: 1; margin-top: 0; }
+    to { opacity: 0; margin-top: -44px; }
+  }
+
+  /* ---- overlays (menu / pause / BUSTED / WASTED) ---- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, rgba(10, 18, 26, 0.55), rgba(10, 18, 26, 0.82));
+  }
+  .card {
+    width: min(560px, 92vw); max-height: 92vh; overflow-y: auto;
+    background: rgba(14, 24, 33, 0.92); border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 16px; padding: 28px 30px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+  .card h1 { font-size: 44px; letter-spacing: 0.06em; color: #70e000; line-height: 1.05; }
+  .card h1 .sun { color: #ffb347; }
+  .card h2 { font-size: 20px; color: #ffd23f; margin-bottom: 8px; }
+  .tagline { font-size: 14px; color: #c9d4de; margin: 10px 0 18px; line-height: 1.5; }
+  .btn {
+    display: block; width: 100%; margin: 8px 0; padding: 12px 16px;
+    font-size: 16px; font-weight: 700; color: #10202b; background: #70e000;
+    border: none; border-radius: 10px; cursor: pointer;
+  }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.secondary { background: rgba(255, 255, 255, 0.12); color: #f2f0e9; border: 1px solid rgba(255, 255, 255, 0.2); }
+  .btn:disabled { opacity: 0.45; cursor: default; }
+  .btn.danger { background: #ff3b30; color: #fff; }
+  .subpanel { text-align: left; font-size: 13px; line-height: 1.6; color: #d7dee6; margin: 10px 0; padding: 12px; background: rgba(255, 255, 255, 0.06); border-radius: 10px; }
+  .subpanel h3 { font-size: 13px; color: #ffd23f; margin-bottom: 4px; }
+  .fineprint { font-size: 11px; color: #8fa0ae; margin-top: 14px; line-height: 1.5; }
+  #busted .card h1 { color: #4aa3ff; }
+  #wasted .card h1 { color: #ff3b30; }
+  .big-emoji { font-size: 52px; line-height: 1; margin-bottom: 6px; }
 </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- HUD -->
+<div id="mission" class="panel">
+  <div id="mission-title">MISSION 1/1 — MEET ANA</div>
+  <div id="mission-text">Find Ana at the Marina.</div>
+  <div id="mission-track"><div id="mission-bar"></div></div>
+</div>
+<div id="police" class="panel hidden">
+  <h3>🚨 SPD RESPONSE</h3>
+  <div id="police-list"></div>
+</div>
+<div id="stats" class="panel">
+  <div id="stars">☆☆☆☆☆</div>
+  <div id="cash">$0</div>
+  <div id="clock">17:42</div>
+  <div id="health-wrap">
+    <div id="health-label">HEALTH</div>
+    <div id="health-track"><div id="health-bar"></div></div>
+  </div>
+</div>
+<div id="speedo" class="panel">
+  <div><span id="speed">0</span> <span id="speed-unit">km/h</span></div>
+  <div id="vehicle-name">ON FOOT</div>
+  <div id="weapon">PISTOL · 12</div>
+</div>
+<div id="district" class="panel">MARINA BAY</div>
+<div id="minimap-wrap" class="panel"><canvas id="minimap" width="180" height="180"></canvas></div>
+<div id="prompt"></div>
+<div id="toast"></div>
+<div id="help"><b>WASD</b> move · <b>Shift</b> run · <b>E</b> enter/exit car · <b>Click</b> shoot · <b>R</b> reload · <b>Space</b> handbrake · <b>P</b> pause · <b>M</b> mute · drag to look</div>
+<div id="crosshair"></div>
+<div id="hitmarker">✕</div>
+<div id="dmg-layer"></div>
+
+<!-- Menu -->
+<div id="menu" class="overlay">
+  <div class="card">
+    <h1>COSTA <span class="sun">VERDE</span></h1>
+    <div class="tagline">A golden-hour open-world crime game. Steal cars, lose the cops, run the city — and find out what Ana really wants from Leo.</div>
+    <button id="btn-new" class="btn">▶ New Game</button>
+    <button id="btn-continue" class="btn secondary" disabled>Continue — No saved game yet</button>
+    <button id="btn-controls" class="btn secondary">Controls</button>
+    <div id="panel-controls" class="subpanel hidden">
+      <h3>CONTROLS</h3>
+      WASD / arrows — move &amp; drive · Shift — run · E — enter / exit car<br>
+      Click or F — shoot pistol · R — reload · Space — handbrake<br>
+      Mouse drag — look around · P / Esc — pause · M — mute sound
+    </div>
+    <button id="btn-settings" class="btn secondary">Settings</button>
+    <div id="panel-settings" class="subpanel hidden">
+      <h3>SETTINGS</h3>
+      <label>Camera sensitivity <input id="cam-sens" type="range" min="0.3" max="2" step="0.1" value="1"></label><br>
+      <button id="btn-mute" class="btn secondary" style="margin-top:8px">Mute sound (M)</button><br>
+      <button id="btn-reset-save" class="btn secondary">Clear save data</button>
+    </div>
+    <button id="btn-credits" class="btn secondary">Credits</button>
+    <div id="panel-credits" class="subpanel hidden">
+      <h3>CREDITS</h3>
+      COSTA VERDE — an original game built for the Make GTA 6 bounty.<br>
+      No Rockstar assets, no real brands. All code, art and audio are original.
+    </div>
+    <div class="fineprint">Slice 2 — wanted + police, stealable taxi / van / cruiser, pistol &amp; health. Save: progress autosaves at mission steps and on pause.</div>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause" class="overlay hidden">
+  <div class="card">
+    <h2>PAUSED</h2>
+    <div class="tagline">The city waits. The cops don't.</div>
+    <button id="btn-resume" class="btn">Resume</button>
+    <button id="btn-restart" class="btn secondary">Restart from the beginning</button>
+    <button id="btn-quit" class="btn secondary">Save &amp; quit to menu</button>
+  </div>
+</div>
+
+<!-- BUSTED -->
+<div id="busted" class="overlay hidden">
+  <div class="card">
+    <div class="big-emoji">🚔</div>
+    <h1>BUSTED</h1>
+    <div class="tagline">The SPD caught you on foot. You pay a fine and walk out — the city is still yours.</div>
+    <button id="btn-respawn-busted" class="btn">Back to the street</button>
+  </div>
+</div>
+
+<!-- WASTED -->
+<div id="wasted" class="overlay hidden">
+  <div class="card">
+    <div class="big-emoji">💀</div>
+    <h1>WASTED</h1>
+    <div class="tagline">You went down. The paramedics patch you up at the safehouse — the city is still yours.</div>
+    <button id="btn-respawn-wasted" class="btn danger">Respawn at the safehouse</button>
+  </div>
+</div>
+
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
 </script>
-</head>
-<body>
-<canvas id="game" aria-label="Costa Verde: a 3D open-world crime game. Drive the lime Verde GT through a golden-hour coastal city."></canvas>
-<p id="status" role="status" aria-live="polite"></p>
-
-<div id="hud">
-  <div id="mission" class="panel">
-    <div id="mission-title">MISSION 1/1 — FIRST LIGHT</div>
-    <div id="mission-text">Meet Ana at the Marina</div>
-    <div id="mission-bar-wrap"><div id="mission-bar"></div></div>
-  </div>
-  <div id="district">MARINA BAY</div>
-  <div id="stats" class="panel">
-    <div id="stars">☆☆☆☆☆</div>
-    <div id="cash">$0</div>
-    <div id="clock">17:42</div>
-  </div>
-  <div id="minimap-wrap"><canvas id="minimap" width="180" height="180"></canvas></div>
-  <div id="speedo" class="panel">
-    <div><span id="speed">0</span> <span id="speed-unit">km/h</span></div>
-    <div id="vehicle-name">ON FOOT</div>
-  </div>
-  <div id="prompt"></div>
-  <div id="toast"></div>
-  <div id="help">WASD move &nbsp;·&nbsp; Shift sprint &nbsp;·&nbsp; E enter / exit car &nbsp;·&nbsp; Space handbrake &nbsp;·&nbsp; Drag mouse to look &nbsp;·&nbsp; P pause</div>
-</div>
-
-<div id="menu" class="overlay">
-  <div class="menu-card">
-    <h1 class="logo">COSTA<br><span>VERDE</span></h1>
-    <div class="tagline">GOLDEN HOUR &nbsp;·&nbsp; ONE CITY &nbsp;·&nbsp; NO RULES</div>
-    <button id="btn-new" class="menu-btn">New Game</button>
-    <button id="btn-continue" class="menu-btn" disabled>Continue — No saved game yet</button>
-    <button id="btn-controls" class="menu-btn ghost">Controls</button>
-    <button id="btn-settings" class="menu-btn ghost">Settings</button>
-    <button id="btn-credits" class="menu-btn ghost">Credits</button>
-    <div id="panel-controls" class="sub-panel hidden">
-      <h3>CONTROLS</h3>
-      <div><kbd>W A S D</kbd> move / drive &nbsp; <kbd>Shift</kbd> sprint</div>
-      <div><kbd>E</kbd> enter / exit vehicle &nbsp; <kbd>Space</kbd> handbrake</div>
-      <div><kbd>Drag mouse</kbd> look around &nbsp; <kbd>P</kbd> pause</div>
-    </div>
-    <div id="panel-settings" class="sub-panel hidden">
-      <h3>SETTINGS</h3>
-      <div>Camera sensitivity <input id="cam-sens" type="range" min="0.5" max="2" step="0.1" value="1"></div>
-      <div><button id="btn-reset-save" class="menu-btn ghost" style="width:100%;margin:8px 0 0;">Clear save data</button></div>
-    </div>
-    <div id="panel-credits" class="sub-panel hidden">
-      <h3>CREDITS</h3>
-      <div>COSTA VERDE — an original open-world crime game.</div>
-      <div>City, characters, vehicles, story and art made for this entry. No Rockstar or commercial-game content.</div>
-    </div>
-    <div class="cast"><b>Leo Marín</b> — a driver with one last debt to pay. &nbsp; <b>Ana Ruiz</b> — the fixer who owns the Marina.</div>
-  </div>
-</div>
-
-<div id="pause" class="overlay hidden">
-  <div class="menu-card">
-    <h2>PAUSED</h2>
-    <button id="btn-resume" class="menu-btn">Resume</button>
-    <button id="btn-restart" class="menu-btn ghost">Restart</button>
-    <button id="btn-quit" class="menu-btn ghost">Save &amp; quit to menu</button>
-  </div>
-</div>
-
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

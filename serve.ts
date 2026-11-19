@@ -1,10 +1,11 @@
-// COSTA VERDE — tiny static server for game/ (Node 22, standard library only).
+// COSTA VERDE — small static server for local play (Node 22, stdlib only).
 //
-// A development convenience so the entry can be played locally without a
-// build step: `node serve.ts` serves game/ on http://localhost:8080
-// (pass --port <n> for another port). It sends the MIME types a browser game
-// needs, refuses any path outside game/, and does nothing clever: this is a
-// local tool, not a web server for the internet.
+// A dev convenience: the entry needs no build step, so `node serve.ts` serves
+// game/ at http://localhost:8080 (use --port <n> for another port). It answers
+// only files inside game/, sends the MIME types a browser game needs, and
+// never caches — edit a module, reload, and the new code is what runs.
+// This is a local tool, not a server for the internet.
+
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -12,9 +13,9 @@ import { fileURLToPath } from 'node:url';
 
 const gameRoot = resolve(fileURLToPath(new URL('./game', import.meta.url)));
 const argv = process.argv.slice(2);
-const portFlag = argv.indexOf('--port');
-const wanted = portFlag === -1 ? 8080 : Number(argv[portFlag + 1]);
-const port = Number.isInteger(wanted) && wanted > 0 && wanted < 65536 ? wanted : 8080;
+const portArg = argv.indexOf('--port');
+const requested = portArg === -1 ? 8080 : Number(argv[portArg + 1]);
+const port = Number.isInteger(requested) && requested > 0 && requested < 65536 ? requested : 8080;
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -51,6 +52,7 @@ createServer((request, response) => {
   }
   if (pathname.endsWith('/')) pathname += 'index.html';
   const file = resolve(join(gameRoot, normalize(pathname)));
+  // Refuse anything outside game/ (e.g. /../main.ts).
   if (file !== gameRoot && !file.startsWith(gameRoot + sep)) {
     response.writeHead(403).end('forbidden');
     return;
