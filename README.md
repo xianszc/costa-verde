@@ -1,10 +1,10 @@
-# costa-verde
+# Azzura Heist
 
 [![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![rank](https://make.fun/badge/gta6-01/xianszc/costa-verde/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![reward](https://make.fun/badge/gta6-01/xianszc/costa-verde/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 
-AZZURRA — a cliffside Mediterranean riviera open-world crime game built with Three.js. Eight districts with their own architecture, three crews, fifteen missions, a working funicular, drivable boats and yachts, a day/night cycle and a storm event. Everything procedural: geometry, textures and audio, zero network requests.
+Azzura Heist — a cliffside Mediterranean riviera open-world crime game built with Three.js. Nine districts with their own architecture, including the Downtown Bay Skyline (12 towers, 20–60 floors) against eight low-rise riviera districts; three crews, seventeen missions, ten side jobs, ten vehicles, a working funicular, drivable boats and yachts, a day/night cycle and a storm event. Everything procedural: geometry, textures and audio, zero network requests.
 
 ## Run it
 

@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AZZURRA — Porto Azzurra</title>
+<title>Azzura Heist — Porto Azzura</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231E2A32'/%3E%3Ccircle cx='32' cy='26' r='12' fill='%23F2A541'/%3E%3Cpath d='M12 44 Q32 36 52 44 L52 52 L12 52 Z' fill='%232E7F8F'/%3E%3C/svg%3E">
 <style>
   html, body { margin: 0; padding: 0; overflow: hidden; background: #1e2a32;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -12,8 +13,13 @@
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
   #title-card { position: absolute; top: 32%; left: 50%; transform: translate(-50%, -50%);
     text-align: center; color: #f7ebd7; text-shadow: 0 2px 18px rgba(0,0,0,0.55); }
-  #title-card h1 { margin: 0; font-size: 84px; letter-spacing: 14px; font-weight: 800; }
-  #title-card p.tag { margin: 6px 0 0; font-size: 17px; letter-spacing: 2px; color: #f2a541; }
+  #title-card .logo-a { margin: 0; font-size: 84px; letter-spacing: 14px; font-weight: 800;
+    color: #f2a541; line-height: 1; }
+  #title-card .logo-b { margin: 2px 0 0; font-size: 40px; letter-spacing: 30px; font-weight: 800;
+    color: #f7ebd7; line-height: 1; text-indent: 30px; }
+  #title-card .rule { width: 180px; height: 3px; background: #f2a541; margin: 16px auto 0;
+    border-radius: 2px; }
+  #title-card p.tag { margin: 12px 0 0; font-size: 17px; letter-spacing: 2px; color: #f2a541; }
   #title-card p.press { margin-top: 34px; font-size: 15px; letter-spacing: 3px;
     animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
@@ -27,13 +33,15 @@
 <body>
 <div id="app"></div>
 <div id="hud">
-  <div id="topbar"><span>PORTO AZZURRA</span><span id="clock">18:42 · GOLDEN HOUR</span><span>S 1,250</span></div>
+  <div id="topbar"><span>PORTO AZZURA</span><span id="clock">18:42 &middot; GOLDEN HOUR</span><span>S 1,250</span></div>
   <div id="title-card">
-    <h1>AZZURRA</h1>
-    <p class="tag">A CLIFFSIDE RIVIERA · A HARBOR FULL OF SECRETS · ONE LAST SCORE</p>
+    <div class="logo-a">AZZURA</div>
+    <div class="logo-b">HEIST</div>
+    <div class="rule"></div>
+    <p class="tag">A CLIFFSIDE RIVIERA &middot; A HARBOR FULL OF SECRETS &middot; ONE LAST SCORE</p>
     <p class="press">PRESS ENTER</p>
   </div>
-  <div id="version">AZZURRA · Step 0 title screen · Three.js · procedural · offline</div>
+  <div id="version">AZZURA HEIST &middot; Step 0 title screen &middot; Three.js &middot; procedural &middot; offline</div>
 </div>
 <script type="module" src="./src/main.js"></script>
 </body>

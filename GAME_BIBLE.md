@@ -1,13 +1,13 @@
-# AZZURRA — Game Bible
+# AZZURA HEIST — Game Bible
 
-> **Title:** AZZURRA
+> **Title:** AZZURA HEIST
 > **Tagline:** "A cliffside riviera. A harbor full of secrets. One last score."
 > **Genre:** Open-world crime game, third-person, stylized low-poly, fully procedural.
 > **Engine:** Three.js (vendored `three.module.min.js`), plain static files, zero network.
 > **Target:** Top 3. The judge compares screenshots and a source outline; feature
 > completeness first, visual polish second. Build as if for the final.
 
-## 1. The city — Porto Azzurra
+## 1. The city — Porto Azzura
 
 A fictional cliffside Mediterranean riviera town and harbor, invented from scratch.
 No real streets, brands, agencies or TV titles. Whitewashed villas stack up a
@@ -66,7 +66,7 @@ town's signature view.
   striped awnings; the casino with a tall stepped tower and a glowing sign.
 - **Palette:** cream #F3E6C8, deco gold #E8A33D, neon pink #FF5C8A, neon cyan
   #3ED6D6, palm green #3F7A4E, sea blue #2E7F8F.
-- **Hero building:** the Casino Azzurra — curved Art Deco corner, stepped crown,
+- **Hero building:** the Casino Azzura — curved Art Deco corner, stepped crown,
   pink neon sign, fountain forecourt.
 
 ### 2.5 Lighthouse Point (Punta del Faro)
@@ -109,7 +109,7 @@ town's signature view.
 ### 2.9 Downtown Bay Skyline (Baia Alta)
 - **Architecture:** a dense financial and hotel district on the bay — 12+
   skyscrapers of 20–60 floors, each with its own silhouette: a stepped Art
-  Deco spire (Torre Azzurra, 60 floors, the landmark), twin towers joined by
+  Deco spire (Azzura Tower, 60 floors, the landmark), twin towers joined by
   a sky bridge, a curved glass tower, a tapered needle with an antenna, a
   hotel tower with a rooftop pool, a cantilevered crown, a tower with a
   helipad, a ziggurat, a tower with vertical LED strips, a tower with a
@@ -122,8 +122,8 @@ town's signature view.
 - **Palette:** glass blue-grey #35566B, deep glass #22384A, concrete #D8D2C4,
   deco gold #E8A33D, neon pink #FF5C8A, neon cyan #3ED6D6, warm window light
   #FFD9A0, warning red #FF2A2A.
-- **Hero building:** Torre Azzurra — 60 floors, stepped gold crown, spire
-  and antenna, blinking red tip light, the tallest thing in Porto Azzurra.
+- **Hero building:** Azzura Tower — 60 floors, stepped gold crown, spire
+  and antenna, blinking red tip light, the tallest thing in Porto Azzura.
 - **Playable:** enterable lobbies, rooftop helipads, a skyscraper heist
   mission, a rooftop chase, a base-jump stunt, and a helicopter ride. The
   skyline is visible from every district as a backdrop, with atmospheric
@@ -131,12 +131,12 @@ town's signature view.
 - **Performance:** shared materials, one canvas window texture in 3 variants,
   one InstancedMesh for all lit windows in the full cluster, LOD (far towers
   become simple silhouettes with an emissive window texture), frustum
-  culling. Measured in the lineup scenes (SwiftShader software renderer,
-  1280×720): buildings lineup 736 ms/frame, 1.4 FPS, 527 draw calls, 20,236
-  triangles; skyline view 482 ms/frame, 2.1 FPS, 124 draw calls, 2,848
-  triangles. Both are software-renderer bound (1280×720 pixels + 2048
-  shadow maps on a CPU rasterizer); the geometry itself is trivial for real
-  GPU hardware.
+  culling, merged static geometry. Measured in the lineup scenes (SwiftShader
+  software renderer, 1280×720) after the fix round: buildings lineup 129 draw
+  calls, 25,780 triangles (was 527 calls before merging/instancing);
+  skyline view 40 draw calls, 13,046 triangles (was 124). Frame times are
+  software-renderer bound (1280×720 pixels + 2048 shadow maps on a CPU
+  rasterizer); the geometry itself is trivial for real GPU hardware.
 
 ## 3. Art style
 
@@ -207,7 +207,7 @@ finishing its introductory chapter.
 
 ## 6. The Harbor Guard (police)
 
-**Guardia del Porto di Azzurra** — the town's harbor guard, navy blue with white
+**Guardia del Porto di Azzura** — the town's harbor guard, navy blue with white
 belts and gold braid. Distinct uniform and helmet shapes: constables wear flat
 caps, sergeants wear peaked caps, the marine unit wears white helmets, the
 helicopter unit wears dark visors. Callsigns: Gull-1, Anchor-2, Beacon-3,
@@ -230,7 +230,7 @@ character who gives it.
    M2 "Salt in the Wound" (first boat chase).
 2. **The Terracotta Trail** — M3 "Roofs of the Old Town" (rooftop courier run),
    M4 "The Bell Tower Drop" (dead drop at the bell tower).
-3. **Neon and Salt** — M5 "Casino Royale Azzurra" (infiltrate the casino),
+3. **Neon and Salt** — M5 "Casino Royale Azzura" (infiltrate the casino),
    M6 "The Neon Alibi" (lose a 3-star wanted level on the promenade).
 4. **The Lighthouse Keeper** — M7 "Beam in the Dark" (signal the smuggler boat),
    M8 "Storm Warning" (escape the harbor during the storm event).
@@ -240,9 +240,9 @@ character who gives it.
    M12 "Windmill Run" (smuggle goods past the quarry checkpoint).
 7. **The Quarry Deal** — M13 "Concrete Evidence" (photograph the quarry deal),
    M14 "Silos at Midnight" (night infiltration of the silo yard).
-8. **The Azzurra Heist** — M15 "One Last Score" (the casino vault heist, all
+8. **The Azzura Heist** — M15 "One Last Score" (the casino vault heist, all
    crews, boats, funicular and helicopter in one finale).
-9. **The Skyline Job** — M16 "Torre Azzurra" (the skyscraper heist: enter the
+9. **The Skyline Job** — M16 "Azzura Tower" (the skyscraper heist: enter the
    lobby, ride the service lift, crack the penthouse vault), M17 "Rooftop
    Run" (rooftop chase across the twin towers' sky bridge, base jump off
    Torre Ago, helicopter extraction over the bay).
@@ -280,7 +280,7 @@ the Riviera. Rank unlocks vehicles, weapons, crews, and districts' trust.
 ## 13. Radio (3 stations)
 
 - **Radio Lume** — italo disco, bright synths (procedural WebAudio loops).
-- **Onda Azzurra** — jazz and lounge, soft brass.
+- **Onda Azzura** — jazz and lounge, soft brass.
 - **Radio Cava** — rock from the quarry, distorted guitars.
 Radio plays in cars and boats; each station has its own jingle and DJ lines.
 
@@ -291,14 +291,16 @@ Radio plays in cars and boats; each station has its own jingle and DJ lines.
 - Type: system font stack, bold condensed headings, small caps labels.
 - Panels: warm cream glass with terracotta trim, rounded corners, gold icons.
 - HUD: minimap (Chart), wanted stars, money in soli, health, current vehicle,
-  mission tracker, radio station, clock (day/night).
+  mission tracker, radio station, clock (day/night). HUD mockup: `game/hud.html`
+  + `game/src/hud.css` — full HUD over the title-screen scene, verified at
+  1280×720 and 1920×1080 (screenshots in `reviews/hud/`).
 
 ## 15. Fictional brands (15)
 
 Solmar Yachts, Stella Maris Motors, Lumino Scooters, Olio Verde, Caffè Lume,
 Terrazza Hotels, Faro Lager, Bougainvillea Realty, Limone & Figlio, Panificio
-del Porto, Gelateria Azzurra, Pescheria Costa, Tessuti Marini, Farmacia del
-Faro, L'Eco di Azzurra (newspaper).
+del Porto, Gelateria Azzura, Pescheria Costa, Tessuti Marini, Farmacia del
+Faro, L'Eco di Azzura (newspaper).
 
 ## 16. Visible differentiators (what makes this entry stand out)
 
@@ -330,9 +332,14 @@ Faro, L'Eco di Azzurra (newspaper).
 
 ## 18. Milestones
 
-- **Step 0 (this file):** bible + three lineup screenshots (9 hero buildings
+- **Step 0 (done):** bible + three lineup screenshots (9 hero buildings
   with the LOD skyline backdrop; full character lineup; the Downtown Bay
-  Skyline cluster). Await Xian's approval.
+  Skyline cluster). Approved by Xian after the District 9 revision.
+- **Fix round (done):** 6 fixes (4 tree types, layered fountain, LOD towers
+  in hero blue/glass, shader water with boats, tidy mullion facades, merged
+  geometry + instancing cutting draw calls 527→129 buildings / 124→40
+  skyline) + title rename to AZZURA HEIST + HUD mockup (`game/hud.html`,
+  screenshots at 1280×720 and 1920×1080). Awaiting Xian's approval.
 - **M1:** playable core — walking, driving, camera, HUD, day/night, one district.
 - **M2:** all 9 districts + traffic + pedestrians.
 - **M3:** missions 1–7 + Logbook hub + crews.

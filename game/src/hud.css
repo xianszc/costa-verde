@@ -1,0 +1,167 @@
+/* AZZURA HEIST — HUD design system (mockup, game/hud.html).
+   Tokens from GAME_BIBLE.md §14. Panels: warm cream glass with terracotta
+   trim, rounded corners, gold icons. The stage is designed at 1280x720 and
+   scaled by JS to fill any viewport, so the layout is identical at
+   1280x720 and 1920x1080. */
+:root {
+  --gold: #F2A541; --terra: #C65D3B; --sea: #2E7F8F; --cream: #F7EBD7;
+  --ink: #1E2A32; --magenta: #C93A6B;
+  --panel: rgba(247, 235, 215, 0.93);
+  --panel-dark: rgba(30, 42, 50, 0.88);
+  --line: rgba(198, 93, 59, 0.55);
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; overflow: hidden; background: #1e2a32;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+}
+#app { position: fixed; inset: 0; }
+#app canvas { display: block; }
+#hud-stage {
+  position: fixed; left: 50%; top: 50%; width: 1280px; height: 720px;
+  pointer-events: none; z-index: 5;
+}
+.label {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--terra);
+}
+.panel {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+.panel-dark {
+  background: var(--panel-dark); border: 1px solid rgba(242, 165, 65, 0.45);
+  border-radius: 12px; padding: 12px 14px; color: var(--cream);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+.panel-dark .label { color: var(--gold); }
+
+/* ---- top bar ---- */
+.topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 56px;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 16px; color: var(--cream);
+  background: linear-gradient(rgba(20, 28, 34, 0.85), rgba(20, 28, 34, 0));
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+.logo { line-height: 1; }
+.logo b {
+  display: block; font-size: 22px; font-weight: 800; letter-spacing: 3px;
+  color: var(--gold);
+}
+.logo span { font-size: 9px; font-weight: 700; letter-spacing: 3px; opacity: 0.85; }
+.clock { text-align: center; line-height: 1.15; }
+.clock b { display: block; font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+.clock span { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--gold); }
+.top-right { text-align: right; line-height: 1.25; }
+.money { font-size: 20px; font-weight: 800; letter-spacing: 1px; color: var(--gold); }
+.wanted { font-size: 15px; letter-spacing: 2px; }
+.wanted .lit { color: var(--gold); }
+.wanted .dim { color: rgba(247, 235, 215, 0.35); }
+.wanted-status { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #ff7a6b; }
+
+/* ---- mission panel (left) ---- */
+.mission { position: absolute; left: 16px; top: 66px; width: 300px; }
+.mission h2 { margin: 4px 0 8px; font-size: 17px; font-weight: 800; letter-spacing: 0.5px; }
+.mission h2 .chip {
+  background: var(--gold); color: var(--ink); border-radius: 6px;
+  font-size: 11px; padding: 2px 6px; margin-right: 6px; vertical-align: 2px;
+}
+.stages { display: flex; gap: 6px; margin-bottom: 4px; }
+.stage { flex: 1; height: 8px; border-radius: 4px; background: rgba(30, 42, 50, 0.18); }
+.stage.done { background: var(--gold); }
+.stage.active { background: var(--terra); animation: pulse 1.6s ease-in-out infinite; }
+.stage-names { display: flex; gap: 6px; font-size: 9px; font-weight: 700; letter-spacing: 1px; color: #6b5d4f; margin-bottom: 8px; }
+.stage-names span { flex: 1; text-align: center; }
+.mission p { margin: 0; font-size: 12px; line-height: 1.45; }
+.mission .timer { margin-top: 8px; font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+.mission .timer b { color: var(--terra); }
+@keyframes pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+/* ---- radio widget (right) ---- */
+.radio { position: absolute; right: 16px; top: 66px; width: 262px; }
+.radio h3 { margin: 2px 0 0; font-size: 15px; font-weight: 800; letter-spacing: 1px; }
+.radio .track { font-size: 12px; margin-top: 2px; opacity: 0.9; }
+.radio .row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 8px; }
+.eq { display: flex; gap: 2px; align-items: flex-end; height: 18px; }
+.eq i { width: 4px; background: var(--gold); animation: eq 0.9s ease-in-out infinite; }
+.eq i:nth-child(1) { height: 8px; }
+.eq i:nth-child(2) { height: 16px; animation-delay: 0.15s; }
+.eq i:nth-child(3) { height: 11px; animation-delay: 0.3s; }
+.eq i:nth-child(4) { height: 18px; animation-delay: 0.45s; }
+.eq i:nth-child(5) { height: 9px; animation-delay: 0.6s; }
+@keyframes eq { 0%, 100% { transform: scaleY(0.5); } 50% { transform: scaleY(1); } }
+.stations { font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+.stations b { color: var(--gold); }
+.stations span { opacity: 0.55; margin-left: 6px; }
+
+/* ---- police response panel (right, below radio) ---- */
+.police { position: absolute; right: 16px; top: 196px; width: 262px; border-color: rgba(255, 42, 42, 0.5); }
+.police h3 { margin: 2px 0 8px; font-size: 13px; font-weight: 800; letter-spacing: 1px; color: #ff8a7a; }
+.unit { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; border-top: 1px solid rgba(247, 235, 215, 0.15); }
+.unit:first-of-type { border-top: 0; }
+.unit b { letter-spacing: 0.5px; }
+.unit .dist { opacity: 0.75; }
+.unit .st { font-weight: 800; font-size: 10px; letter-spacing: 1px; }
+.unit .st.hot { color: #ff8a7a; }
+.unit .st.warm { color: var(--gold); }
+
+/* ---- minimap (bottom-left) ---- */
+.mapbox { position: absolute; left: 16px; bottom: 16px; width: 192px; }
+.map-circle {
+  width: 150px; height: 150px; border-radius: 50%;
+  border: 3px solid var(--gold); overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45); background: #e9dcc0;
+}
+.map-circle svg { display: block; width: 100%; height: 100%; }
+.map-label { margin-top: 8px; color: var(--cream); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); line-height: 1.25; }
+.map-label b { display: block; font-size: 15px; font-weight: 800; letter-spacing: 2px; }
+.map-label span { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--gold); }
+
+/* ---- bottom-centre dock: vehicle, weapons, dialogue ---- */
+.dock {
+  position: absolute; left: 226px; bottom: 16px; width: 620px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.vehicle {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--panel-dark); color: var(--cream);
+  border: 1px solid rgba(242, 165, 65, 0.45); border-radius: 8px;
+  padding: 6px 12px; font-size: 12px; font-weight: 700; letter-spacing: 1px;
+}
+.vehicle b { color: var(--gold); }
+.weapons { display: flex; gap: 6px; }
+.wslot {
+  flex: 1; background: rgba(30, 42, 50, 0.82); color: var(--cream);
+  border: 1px solid rgba(247, 235, 215, 0.25); border-radius: 8px;
+  padding: 6px 8px 5px; text-align: center; line-height: 1.25;
+}
+.wslot .k { font-size: 9px; font-weight: 800; color: var(--gold); }
+.wslot .n { font-size: 12px; font-weight: 800; letter-spacing: 0.5px; }
+.wslot .a { font-size: 10px; opacity: 0.75; }
+.wslot.sel { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.wslot.sel .k { color: var(--terra); }
+.dialogue { display: flex; gap: 12px; align-items: center; }
+.portrait {
+  width: 72px; height: 72px; flex: none; border-radius: 8px;
+  border: 2px solid var(--gold); overflow: hidden; background: #f2a35e;
+}
+.portrait svg { display: block; width: 100%; height: 100%; }
+.dialogue .who { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--gold); }
+.dialogue .line { font-size: 14px; line-height: 1.4; margin: 2px 0 4px; font-style: italic; }
+.dialogue .cont { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #6b5d4f; animation: pulse 1.6s ease-in-out infinite; }
+
+/* ---- vitals (bottom-right) ---- */
+.vitals { position: absolute; right: 16px; bottom: 16px; width: 262px; }
+.vitals .row { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; letter-spacing: 1px; margin-bottom: 3px; }
+.vitals .row span:last-child { color: var(--terra); }
+.bar { height: 10px; background: rgba(30, 42, 50, 0.18); border-radius: 5px; overflow: hidden; margin-bottom: 8px; }
+.bar > i { display: block; height: 100%; border-radius: 5px; }
+.bar.hp > i { width: 100%; background: #5da24a; }
+.bar.ar > i { width: 60%; background: var(--sea); }
+.bar.xp { margin-bottom: 3px; }
+.bar.xp > i { width: 62%; background: var(--gold); }
+.vitals .xp-line { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #6b5d4f; }
+.vitals .xp-line b { color: var(--ink); }
