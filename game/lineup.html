@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AZZURRA — Lineup</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #f2a35e;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #app { position: fixed; inset: 0; }
+  #app canvas { display: block; }
+  #title { position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(30, 42, 50, 0.85); color: #f7ebd7; padding: 8px 16px;
+    border-radius: 20px; font-size: 15px; font-weight: 700; letter-spacing: 0.4px;
+    border: 1px solid #f2a541; white-space: nowrap; z-index: 10; }
+  #status { position: fixed; bottom: 10px; right: 12px; color: #1e2a32;
+    background: rgba(247, 235, 215, 0.8); padding: 3px 9px; border-radius: 10px;
+    font-size: 11px; z-index: 10; }
+  #labels { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .lbl { position: absolute; transform: translate(-50%, 0); text-align: center;
+    color: #1e2a32; background: rgba(247, 235, 215, 0.88); border-radius: 8px;
+    padding: 2px 7px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .lbl.district { font-size: 12px; padding: 4px 10px; border: 1px solid #c65d3b; }
+  .lbl.person { font-size: 11px; font-weight: 700; }
+  .lbl.role { font-size: 9px; font-weight: 400; color: #5a4a3a; background: rgba(247, 235, 215, 0.7); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="labels"></div>
+<div id="title">AZZURRA · Lineup</div>
+<div id="status">loading…</div>
+<script type="module" src="./src/lineup.js"></script>
+</body>
+</html>
