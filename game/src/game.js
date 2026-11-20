@@ -1143,7 +1143,9 @@ export function createGame(container) {
       setStorm(false);
       updateLighting();
       wanted.addHeat(35);
-      run(240, {});
+      // 120 steps: the Guard closes to ~10 m — in frame, but not yet
+      // inside the 2.5 m / 3 s busted window.
+      run(120, {});
       updateCamera(1);
       combat.fire();
       renderer.render(scene, camera);
