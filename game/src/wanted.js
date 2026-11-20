@@ -49,7 +49,8 @@ function buildHeli() {
     }),
   );
   spot.position.set(0, -11, 0);
-  spot.rotation.x = Math.PI;
+  // ConeGeometry already points apex-up / base-down: the apex sits at
+  // the belly and the cone widens toward the ground. No rotation.
   g.add(spot);
   const pool = new THREE.Mesh(
     new THREE.CircleGeometry(5.5, 20),

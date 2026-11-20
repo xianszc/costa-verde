@@ -15,7 +15,7 @@
 // showcase now has traffic, pedestrians, varied facades and a non-flat
 // horizon (hills + skyline).
 import * as THREE from '../vendor/three.module.min.js';
-import { M, mergedMesh, colored, xform, vertexColorMat, buildSkylineCluster, lampRow } from './world.js';
+import { M, mergedMesh, colored, xform, vertexColorMat, buildSkylineCluster } from './world.js';
 import { buildTrafficCar, buildPoliceCruiser } from './vehicles.js';
 import { makeFigure, CIVILIANS } from './people.js';
 
@@ -273,6 +273,35 @@ function shopTexture(text, bg = '#1e2a32', fg = '#ffd9a0') {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+// A row of lamp posts along the north sidewalk (z -7.2), merged into
+// two meshes, with light cones that switch on at night (setNight).
+// Returns { group, cones }.
+function lampRow() {
+  const xs = [-54, -44, -34, -24, -14, -4, 6, 16, 26, 36, 46, 54];
+  const z = -7.2;
+  const g = new THREE.Group();
+  g.name = 'lampRow';
+  const poles = xs.map((x) => xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), x, 1.2, z));
+  const globes = xs.map((x) => xform(new THREE.SphereGeometry(0.16, 10, 8), x, 2.5, z));
+  g.add(mergedMesh(poles, M(0x2b2b2b)));
+  g.add(mergedMesh(globes, M(0xffd9a0, { emissive: 0xffc46b, emissiveIntensity: 0.9 })));
+  const cones = [];
+  const coneMat = new THREE.MeshBasicMaterial({
+    color: 0xffe9a8, transparent: true, opacity: 0.12,
+    side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  for (const x of xs) {
+    // ConeGeometry: apex at the top (+Y), base at the bottom — a lamp
+    // cone is already the right way up with no rotation.
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.4, 12, 1, true), coneMat);
+    cone.position.set(x, 1.25, z);
+    cone.visible = false;
+    g.add(cone);
+    cones.push(cone);
+  }
+  return { group: g, cones };
 }
 
 // ---------- District 4 (Lungomare) road network ----------
@@ -670,9 +699,8 @@ export function buildRoadShowcase() {
   const plaza = new THREE.Mesh(new THREE.BoxGeometry(6, 0.3, 11.4), plazaMat);
   plaza.position.set(32, 0.05, 0);
   g.add(plaza);
-  // Lamp row along the north sidewalk.
+  // Lamp row along the north sidewalk (the row is already at z -7.2).
   const { group: lampGroup } = lampRow();
-  lampGroup.position.set(0, 0, -6.9);
   g.add(lampGroup);
   // ---------- varied facades (north + south rows) ----------
   const facadeColors = [0xd8a05a, 0xc96a4a, 0xe8c98a, 0x7a9a8a, 0xb88a6a, 0xd8b8a8];
