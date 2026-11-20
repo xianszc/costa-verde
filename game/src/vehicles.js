@@ -1,32 +1,84 @@
-// AZZURA HEIST — vehicles (M1).
+// AZZURA HEIST — vehicles (wheel fix round).
 // Procedural cars: the hero Stella roadster + traffic variants. Arcade
 // handling (accelerate / brake / steer / handbrake), circle-vs-AABB
 // collision against the district's colliders, and traffic AI that follows
 // the road network's lane loops and yields to the car ahead.
+//
+// Wheels: every car uses the ONE shared module in wheels.js — tyre +
+// tread + sidewall + rim + spokes + hub cap + brake disc + caliper,
+// real wheel arches, flush fit, spin/steer/suspension/body roll, drift
+// skid marks + tyre squeal. The old pale-hubcap "eye" wheels are gone:
+// hubs are dark metal now.
 import * as THREE from '../vendor/three.module.min.js';
 import { M, box, cyl, mergedMesh, colored, xform, vertexColorMat } from './world.js';
+import {
+  WHEEL_SPECS, buildWheelRig, updateCarWheels,
+} from './wheels.js';
 
-function wheel(r = 0.34) {
-  const g = new THREE.Group();
-  const tyre = new THREE.Mesh(
-    new THREE.CylinderGeometry(r, r, 0.24, 14),
-    M(0x1a1a1a, { roughness: 0.9 }),
-  );
-  tyre.rotation.z = Math.PI / 2;
-  tyre.castShadow = true;
-  g.add(tyre);
-  const hub = new THREE.Mesh(
-    new THREE.CylinderGeometry(r * 0.55, r * 0.55, 0.26, 10),
-    M(0xd8d2c4, { metalness: 0.5, roughness: 0.35 }),
-  );
-  hub.rotation.z = Math.PI / 2;
-  g.add(hub);
-  return g;
+// Wheel arches for one car: a dark half-torus lip over each wheel plus a
+// dark recess disc on the body side behind each wheel, so the wheel reads
+// as sitting INSIDE an arch instead of pasted on a flat slab. Both are
+// merged into one mesh each per car (2 draw calls per car, not 8).
+function buildArches(wheelPos, halfWidth) {
+  const lips = [];
+  const discs = [];
+  for (const [wx, wz, r] of wheelPos) {
+    const side = Math.sign(wz);
+    lips.push(colored(
+      xform(new THREE.TorusGeometry(r + 0.06, 0.055, 8, 18, Math.PI),
+        wx, r, side * (halfWidth + 0.005)),
+      0x1c1c1c,
+    ));
+    // Shadow disc on the body side, just behind the wheel's outer face.
+    const disc = new THREE.CircleGeometry(r * 1.15, 18);
+    discs.push(colored(
+      xform(disc, wx, r, side * (halfWidth - 0.004), side < 0 ? Math.PI : 0, 1, 0, 0),
+      0x0d0d0d,
+    ));
+  }
+  const group = new THREE.Group();
+  group.add(mergedMesh(lips, vertexColorMat));
+  group.add(mergedMesh(discs, vertexColorMat));
+  return group;
+}
+
+// Mount four wheels (shared module) + contact blobs on a car group.
+// wheelPos: [[x, z, radius, specName], ...] in car space, front two first.
+// Returns { rigs, spins } and stashes them on the car group.
+function mountWheels(g, wheelPos, halfWidth) {
+  const rigs = [];
+  const spins = [];
+  const blobGeos = [];
+  for (const [wx, wz, r, specName] of wheelPos) {
+    const rig = buildWheelRig(specName);
+    rig.position.set(wx, r, wz);
+    rig.userData.phase = (wx * 1.7 + wz * 2.3) % (Math.PI * 2);
+    g.add(rig);
+    rigs.push(rig);
+    spins.push(rig.userData.spin);
+    blobGeos.push(xform(
+      new THREE.CircleGeometry(r * 1.2, 14), wx, 0.02, wz, 0, 1, -Math.PI / 2, 0,
+    ));
+  }
+  // One merged contact blob mesh per car (dark ellipses under the wheels).
+  const blobMat = new THREE.MeshBasicMaterial({
+    color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false,
+  });
+  const blobs = mergedMesh(blobGeos, blobMat);
+  blobs.castShadow = false;
+  blobs.receiveShadow = false;
+  g.add(blobs);
+  g.userData.wheelRigs = rigs;
+  g.userData.wheels = spins;
+  // Rear-wheel local offsets, for drift skid marks.
+  g.userData.wheelOffsets = wheelPos.slice(2).map(([wx, wz]) => [wx, wz]);
+  return { rigs, spins };
 }
 
 // ---------- car models ----------
 export function buildStella() {
   // Stella roadster — coral hero car, low and long, cream interior.
+  // Sports spec: big wheels (r 0.38), low body.
   const g = new THREE.Group();
   g.name = 'stella';
   const body = [
@@ -70,30 +122,35 @@ export function buildStella() {
   );
   bumper.position.set(-2.24, 0.35, 0);
   g.add(rearWindow, bumper);
-  const wheels = [];
-  for (const [wx, wz] of [[1.45, 0.95], [1.45, -0.95], [-1.45, 0.95], [-1.45, -0.95]]) {
-    const w = wheel();
-    w.position.set(wx, 0.34, wz);
-    g.add(w);
-    wheels.push(w);
-  }
-  g.userData.wheels = wheels;
+  // Wheels: flush with the body side (half-width 0.95, tyre width 0.30
+  // → center at ±0.805, outer face at 0.955), inside real arches.
+  const r = WHEEL_SPECS.sport.radius;
+  const wheelPos = [
+    [1.45, 0.805, r, 'sport'], [1.45, -0.805, r, 'sport'],
+    [-1.45, 0.805, r, 'sport'], [-1.45, -0.805, r, 'sport'],
+  ];
+  g.add(buildArches(wheelPos.map(([x, z, rr]) => [x, z, rr]), 0.95));
+  mountWheels(g, wheelPos, 0.95);
   g.userData.headMat = headMat;
   g.userData.tailMat = tailMat;
   return g;
 }
 
-export function buildTrafficCar(color, kind = 'sedan') {
+export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null) {
   const g = new THREE.Group();
   g.name = 'traffic-' + kind;
+  const specName = wheelSpec || (kind === 'pickup' ? 'pickup' : kind === 'van' ? 'van' : 'sedan');
+  const spec = WHEEL_SPECS[specName];
+  const r = spec.radius;
   const parts = [];
   if (kind === 'van') {
     parts.push(colored(xform(new THREE.BoxGeometry(4.2, 1.5, 1.9), 0, 1.05, 0), color));
     parts.push(colored(xform(new THREE.BoxGeometry(1.2, 0.7, 1.7), 1.6, 0.95, 0), 0x2e4a5e));
   } else if (kind === 'pickup') {
-    parts.push(colored(xform(new THREE.BoxGeometry(4.3, 0.6, 1.9), 0, 0.6, 0), color));
-    parts.push(colored(xform(new THREE.BoxGeometry(1.6, 0.6, 1.7), 1.2, 1.05, 0), color));
-    parts.push(colored(xform(new THREE.BoxGeometry(1.8, 0.4, 1.6), -1.2, 0.85, 0), 0x6b4a2a));
+    // Tall tires + raised body = ground clearance.
+    parts.push(colored(xform(new THREE.BoxGeometry(4.3, 0.6, 1.9), 0, 0.66, 0), color));
+    parts.push(colored(xform(new THREE.BoxGeometry(1.6, 0.6, 1.7), 1.2, 1.11, 0), color));
+    parts.push(colored(xform(new THREE.BoxGeometry(1.8, 0.4, 1.6), -1.2, 0.91, 0), 0x6b4a2a));
   } else { // sedan
     parts.push(colored(xform(new THREE.BoxGeometry(4.1, 0.55, 1.85), 0, 0.58, 0), color));
     parts.push(colored(xform(new THREE.BoxGeometry(2.2, 0.5, 1.6), -0.2, 1.0, 0), color));
@@ -106,21 +163,23 @@ export function buildTrafficCar(color, kind = 'sedan') {
     h.position.set(2.1, 0.6, s);
     g.add(h);
   }
-  const wheels = [];
-  for (const [wx, wz] of [[1.4, 0.9], [1.4, -0.9], [-1.4, 0.9], [-1.4, -0.9]]) {
-    const w = wheel(0.32);
-    w.position.set(wx, 0.32, wz);
-    g.add(w);
-    wheels.push(w);
-  }
-  g.userData.wheels = wheels;
+  // Wheels flush with the body side, inside real arches.
+  const halfWidth = kind === 'sedan' ? 0.925 : 0.95;
+  const wz = halfWidth - spec.width / 2 + 0.005;
+  const wheelPos = [
+    [1.4, wz, r, specName], [1.4, -wz, r, specName],
+    [-1.4, wz, r, specName], [-1.4, -wz, r, specName],
+  ];
+  g.add(buildArches(wheelPos.map(([x, z, rr]) => [x, z, rr]), halfWidth));
+  mountWheels(g, wheelPos, halfWidth);
   g.userData.headMat = headMat;
   return g;
 }
 
 export function buildPoliceCruiser() {
   // Gabbiano Harbor Guard cruiser: navy + white doors, light bar.
-  const g = buildTrafficCar(0x16324f, 'sedan');
+  // Police spec: dished steel wheels with a small dark cap.
+  const g = buildTrafficCar(0x16324f, 'sedan', 'police');
   g.name = 'police-cruiser';
   const door = new THREE.Mesh(
     new THREE.BoxGeometry(1.6, 0.4, 0.02),
@@ -185,8 +244,8 @@ export function collideCircleAABBs(x, z, r, colliders) {
 }
 
 // input: { up, down, left, right, handbrake } — dt in seconds.
-export function stepCar(car, input, dt, colliders) {
-  const forward = { x: Math.cos(car.angle), z: -Math.sin(car.angle) };
+export function stepCar(car, input, dt, colliders, nowSec) {
+  const time = nowSec !== undefined ? nowSec : performance.now() / 1000;
   if (input.up) car.speed += car.accel * dt;
   if (input.down) car.speed -= (car.speed > 0.5 ? car.brake : car.accel * 0.5) * dt;
   if (!input.up && !input.down) car.speed -= Math.sign(car.speed) * 4 * dt;
@@ -210,12 +269,9 @@ export function stepCar(car, input, dt, colliders) {
   car.z = res.z;
   car.mesh.position.set(car.x, 0, car.z);
   car.mesh.rotation.y = car.angle;
-  // Wheels spin with speed; front wheels yaw with steering.
-  const wheels = car.mesh.userData.wheels || [];
-  wheels.forEach((w, i) => {
-    w.rotation.x += car.speed * dt * 2.4;
-    if (i < 2) w.rotation.y = steer * 0.35;
-  });
+  // Wheels: spin with speed, front wheels steer, suspension bounce,
+  // body roll in corners, drift skid marks + tyre squeal.
+  updateCarWheels(car, dt, input, time);
   if (car.fuel > 0) car.fuel = Math.max(0, car.fuel - Math.abs(car.speed) * dt * 0.02);
   return car;
 }
@@ -239,7 +295,8 @@ export function createTraffic(lanes, defs) {
   });
   return cars;
 }
-export function stepTraffic(cars, dt, obstacles = []) {
+export function stepTraffic(cars, dt, obstacles = [], nowSec) {
+  const time = nowSec !== undefined ? nowSec : performance.now() / 1000;
   for (const car of cars) {
     const lane = car.lane;
     const target = lane.pts[(car.wp + 1) % lane.pts.length];
@@ -275,8 +332,11 @@ export function stepTraffic(cars, dt, obstacles = []) {
     car.z -= Math.sin(car.angle) * car.speed * dt;
     car.mesh.position.set(car.x, 0, car.z);
     car.mesh.rotation.y = car.angle;
-    const wheels = car.mesh.userData.wheels || [];
-    for (const w of wheels) w.rotation.x += car.speed * dt * 2.4;
+    // Wheels spin with speed; front wheels steer into the turn.
+    updateCarWheels(car, dt, {
+      left: diff > 0.05, right: diff < -0.05,
+      handbrake: false, up: true, down: false,
+    }, time);
   }
   return cars;
 }

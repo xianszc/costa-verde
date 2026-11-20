@@ -1,4 +1,4 @@
-// AZZURA HEIST — game entry point (M2: core systems).
+// AZZURA HEIST — game entry point (wheel fix round).
 // Boots the real game from game.js: the title screen shows the actual
 // District 4 (real scene — layered hills, bay water, quay, ground detail),
 // never flat color bands. Enter starts play (walk / drive / chase camera /
@@ -11,7 +11,16 @@
 // ?shot=road&district=oldtown|marina|quarry|promenade|countryside|skyline
 // [&night=1] stages one road surface. ?seed=N is accepted for
 // determinism and recorded in the shot stats.
+//
+// ?shot=wheels&car=player|pickup|police&angle=front34|side|rear34|motion
+// stages a close-up of one car's wheels (front 3/4, side, rear 3/4, or a
+// low in-motion shot with the car mid-drive and drift marks behind it).
+// The car is parked at a clean spot facing +X, its wheels posed with a
+// visible spoke angle (slight front steer on front34), the camera placed
+// by hand, and the scene rendered twice with __shotReady set.
 import { createGame } from './game.js';
+import { buildTrafficCar, buildPoliceCruiser, createCar } from './vehicles.js';
+import { poseWheelRig, addSkidMark } from './wheels.js';
 
 const errors = [];
 window.addEventListener('error', (e) => errors.push(String(e.message || e.error)));
@@ -24,7 +33,98 @@ const seed = params.get('seed') || '1';
 const app = document.getElementById('app');
 const game = createGame(app);
 
-if (shot) {
+function stageWheels() {
+  const carKind = params.get('car') || 'player';
+  const angle = params.get('angle') || 'front34';
+  // Base scene: golden-hour drive staging (play mode, HUD, lighting).
+  game.stageShot('drive', { seed, district: 'oldtown', night: '0', storm: '0' });
+  // Pick the target car. Traffic kinds may not be on the road in this
+  // staging, so spawn a parked one when the lane has none.
+  let target;
+  if (carKind === 'player') {
+    target = game.car;
+  } else {
+    const name = carKind === 'pickup' ? 'traffic-pickup' : 'police-cruiser';
+    target = game.traffic.find((t) => t.mesh.name === name);
+    if (!target) {
+      const mesh = carKind === 'pickup'
+        ? buildTrafficCar(0x2e7f5e, 'pickup')
+        : buildPoliceCruiser();
+      target = createCar(mesh, { maxSpeed: 20 });
+      game.scene.add(mesh);
+    }
+  }
+  // Park everything else out of the frame; the target gets a clean spot.
+  const spots = { player: [0, 3.4], pickup: [8, -3.4], police: [-8, 3.4] };
+  const [tx, tz] = spots[carKind] || spots.player;
+  const far = { player: [-40, -3.4], pickup: [40, 3.4], police: [-40, 3.4] };
+  game.car.x = carKind === 'player' ? tx : far.player[0];
+  game.car.z = carKind === 'player' ? tz : far.player[1];
+  game.car.angle = 0;
+  game.car.speed = 0;
+  game.car.mesh.position.set(game.car.x, 0, game.car.z);
+  game.car.mesh.rotation.y = 0;
+  for (const t of game.traffic) {
+    if (t === target) continue;
+    t.mesh.position.set(45, 0, 30);
+    t.mesh.visible = false;
+  }
+  if (target !== game.car) {
+    target.x = tx;
+    target.z = tz;
+    target.angle = 0;
+    target.speed = 0;
+    target.mesh.position.set(tx, 0, tz);
+    target.mesh.rotation.y = 0;
+    target.mesh.visible = true;
+  }
+  // Pose the wheels: spokes at a readable angle, slight front steer on
+  // the front-3/4 view so the steering reads too.
+  const rigs = target.mesh.userData.wheelRigs || [];
+  rigs.forEach((rig, i) => {
+    poseWheelRig(rig, 0.6, i < 2 && angle === 'front34' ? 0.18 : 0);
+  });
+  const cam = game.camera;
+  if (angle === 'motion') {
+    // In-motion: re-stage the drive so the car is mid-drive with spun
+    // wheels, then shoot it low from the side with drift marks behind.
+    game.stageShot('drive', { seed, district: 'oldtown', night: '0', storm: '0' });
+    const c = game.car;
+    // Drift trail along the car's path, on both rear-wheel tracks.
+    for (let i = 0; i < 8; i++) {
+      const bx = c.x - 2 - i * 1.3;
+      addSkidMark(game.scene, bx, c.z + 0.8, 0);
+      addSkidMark(game.scene, bx, c.z - 0.8, 0);
+    }
+    const crigs = c.mesh.userData.wheelRigs || [];
+    crigs.forEach((rig, i) => poseWheelRig(rig, 0.9, i < 2 ? 0.3 : 0));
+    cam.position.set(c.x - 1, 0.9, c.z + 4.6);
+    cam.lookAt(c.x + 2, 0.8, c.z);
+  } else if (angle === 'side') {
+    cam.position.set(tx, 1.1, tz + 5.2);
+    cam.lookAt(tx, 0.7, tz);
+  } else if (angle === 'rear34') {
+    cam.position.set(tx - 4.4, 1.5, tz + 3.2);
+    cam.lookAt(tx - 0.4, 0.7, tz);
+  } else { // front34
+    cam.position.set(tx + 4.4, 1.5, tz + 3.2);
+    cam.lookAt(tx + 0.4, 0.7, tz);
+  }
+  game.renderer.render(game.scene, game.camera);
+  game.renderer.render(game.scene, game.camera);
+  window.__shotReady = true;
+  window.__gameStats = {
+    calls: game.renderer.info.render.calls,
+    triangles: game.renderer.info.render.triangles,
+    mode: 'wheels-' + carKind + '-' + angle,
+    time: 18.7,
+  };
+}
+
+if (shot === 'wheels') {
+  stageWheels();
+  window.__gameReady = true;
+} else if (shot) {
   game.stageShot(shot, {
     seed,
     district: params.get('district') || 'oldtown',
