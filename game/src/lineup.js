@@ -1,17 +1,21 @@
-// AZZURA HEIST — lineup viewer (fresh rewrite, fix round).
+// AZZURA HEIST — lineup viewer (fresh rewrite, M1).
 // Renders review shots from real code, no mocks:
 //   ?view=buildings  — one hero building per district, in a row.
 //   ?view=skyline    — the Downtown Bay Skyline cluster across the bay.
 //   ?view=characters — all main characters + crew + police + civilians.
-// The same builders (world.js / people.js) become the real game in M1+.
-// This page stays a review tool; it is removed from the final entry.
+// The same builders (world.js / people.js / water.js) become the real game.
+// The skyline view uses the M1 water: thin white shoreline foam and
+// sailboats with thin fading wakes — never sand-mound blobs or white
+// plinths under the hulls. This page stays a review tool; it is removed
+// from the final entry.
 import * as THREE from '../vendor/three.module.min.js';
 import {
   DISTRICTS, buildHeroBuilding, goldenSkyTexture, goldenHourLights,
   buildSkylineCluster, SKYLINE_TOWERS, warnLightMat, palm, lampPost,
-  fountain, makeWater, sailboat, treeInstanced, lampRow, mergedMesh,
+  fountain, treeInstanced, lampRow, mergedMesh,
   colored, xform, vertexColorMat, M, TREE_TYPES,
 } from './world.js';
+import { makeWater, makeSailboat } from './water.js';
 import { makeFigure, CAST, CREW, POLICE, CIVILIANS } from './people.js';
 
 const params = new URLSearchParams(location.search);
@@ -41,7 +45,7 @@ goldenHourLights(scene);
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 300);
 
 // Sun disc in the sky (golden hour). Per-view position: the skyline view
-// moves it clear of the heliport tower's top (fix 5).
+// moves it clear of the heliport tower's top.
 const sunDisc = new THREE.Mesh(
   new THREE.CircleGeometry(3.2, 24),
   new THREE.MeshBasicMaterial({ color: 0xfff2c0, fog: false }),
@@ -144,7 +148,7 @@ if (view === 'buildings') {
   scene.add(walk);
   const road = new THREE.Mesh(
     new THREE.BoxGeometry(72, 0.32, 3.4),
-    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: 0x8a8580, roughness: 1, flatShading: true }),
   );
   road.position.set(0, 0.16, 12);
   road.receiveShadow = true;
@@ -214,7 +218,7 @@ if (view === 'buildings') {
 else if (view === 'skyline') {
   document.title = 'AZZURA HEIST — Downtown Bay Skyline';
   document.getElementById('title').textContent = 'AZZURA HEIST · Downtown Bay Skyline — 12 towers, 20–60 floors';
-  // Sun moved clear of the heliport tower's top (fix 5): to the right, above
+  // Sun moved clear of the heliport tower's top: to the right, above
   // the shorter eastern towers, so no tower crown is washed out.
   sunDisc.position.set(34, 24, -70);
   sunDisc.lookAt(camera.position);
@@ -229,21 +233,26 @@ else if (view === 'skyline') {
   const cluster = buildSkylineCluster('full');
   cluster.position.set(0, 1.0, -8);
   scene.add(cluster);
-  // Bay water: animated shader waves + fresnel + foam at the shore, not a
-  // flat plane. Shore line at the plinth edge (z = -9).
-  const water = makeWater(170, 70, -9, 96, 48);
-  water.position.set(0, 0.1, 26);
+  // Bay water (M1 shader): thin white shoreline foam, sky reflection,
+  // sparse sun glitter — not a sand-mound look. Shore line at the
+  // plinth edge (z = -3). The water sits at y 2.0: at y 0.1 and even
+  // 0.5 the low grazing camera let the tan ground plane show through
+  // in patches (z-fighting at the shallow angle); at 2.0 the bay is a
+  // clean uniform teal.
+  const water = makeWater(170, 70, -3, 96, 48);
+  water.position.set(0, 2.0, 32);
   scene.add(water);
-  // Sailboats with shaped hulls, cabins and wakes — angled so the hull reads.
+  // Sailboats with shaped hulls, cabins and thin fading wakes — angled
+  // so the hull reads, and pulled away from the frame edges.
   const boats = [
-    { x: -30, z: 16, s: 1.6, sail: 0xf2f0ea, rot: 0.55, phase: 0.0 },
+    { x: -28, z: 16, s: 1.6, sail: 0xf2f0ea, rot: 0.55, phase: 0.0 },
     { x: -8, z: 24, s: 1.4, sail: 0xff5c8a, rot: 0.75, phase: 1.3 },
     { x: 12, z: 14, s: 1.5, sail: 0xf2f0ea, rot: 0.45, phase: 2.1 },
-    { x: 28, z: 22, s: 1.3, sail: 0x3ed6d6, rot: 0.85, phase: 3.4 },
+    { x: 26, z: 22, s: 1.3, sail: 0x3ed6d6, rot: 0.85, phase: 3.4 },
   ];
   for (const b of boats) {
-    const boat = sailboat(b.s, b.sail, b.phase);
-    boat.position.set(b.x, 0.1, b.z);
+    const boat = makeSailboat(b.s, b.sail, b.phase);
+    boat.position.set(b.x, 2.0, b.z);
     boat.rotation.y = b.rot;
     scene.add(boat);
   }

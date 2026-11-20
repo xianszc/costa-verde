@@ -5,44 +5,151 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Azzura Heist — Porto Azzura</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231E2A32'/%3E%3Ccircle cx='32' cy='26' r='12' fill='%23F2A541'/%3E%3Cpath d='M12 44 Q32 36 52 44 L52 52 L12 52 Z' fill='%232E7F8F'/%3E%3C/svg%3E">
-<style>
-  html, body { margin: 0; padding: 0; overflow: hidden; background: #1e2a32;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  #app { position: fixed; inset: 0; }
-  #app canvas { display: block; }
-  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
-  #title-card { position: absolute; top: 32%; left: 50%; transform: translate(-50%, -50%);
-    text-align: center; color: #f7ebd7; text-shadow: 0 2px 18px rgba(0,0,0,0.55); }
-  #title-card .logo-a { margin: 0; font-size: 84px; letter-spacing: 14px; font-weight: 800;
-    color: #f2a541; line-height: 1; }
-  #title-card .logo-b { margin: 2px 0 0; font-size: 40px; letter-spacing: 30px; font-weight: 800;
-    color: #f7ebd7; line-height: 1; text-indent: 30px; }
-  #title-card .rule { width: 180px; height: 3px; background: #f2a541; margin: 16px auto 0;
-    border-radius: 2px; }
-  #title-card p.tag { margin: 12px 0 0; font-size: 17px; letter-spacing: 2px; color: #f2a541; }
-  #title-card p.press { margin-top: 34px; font-size: 15px; letter-spacing: 3px;
-    animation: pulse 1.6s ease-in-out infinite; }
-  @keyframes pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
-  #topbar { position: absolute; top: 0; left: 0; right: 0; display: flex;
-    justify-content: space-between; padding: 14px 18px; color: #f7ebd7;
-    font-size: 14px; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
-  #version { position: absolute; bottom: 12px; left: 16px; color: rgba(247,235,215,0.75);
-    font-size: 12px; }
-</style>
+<link rel="stylesheet" href="./src/hud.css">
 </head>
 <body>
 <div id="app"></div>
-<div id="hud">
-  <div id="topbar"><span>PORTO AZZURA</span><span id="clock">18:42 &middot; GOLDEN HOUR</span><span>S 1,250</span></div>
-  <div id="title-card">
-    <div class="logo-a">AZZURA</div>
-    <div class="logo-b">HEIST</div>
-    <div class="rule"></div>
-    <p class="tag">A CLIFFSIDE RIVIERA &middot; A HARBOR FULL OF SECRETS &middot; ONE LAST SCORE</p>
-    <p class="press">PRESS ENTER</p>
-  </div>
-  <div id="version">AZZURA HEIST &middot; Step 0 title screen &middot; Three.js &middot; procedural &middot; offline</div>
+
+<!-- Title screen: the logo + ONE-LINE tagline over the real 3D town.
+     The tagline never wraps (white-space: nowrap) and the sun disc sits
+     clear of it; the lighthouse stands below the tagline band. -->
+<div id="title-card">
+  <div class="logo-a">AZZURA</div>
+  <div class="logo-b">HEIST</div>
+  <div class="rule"></div>
+  <p class="tag">A CLIFFSIDE RIVIERA &middot; A HARBOR FULL OF SECRETS &middot; ONE LAST SCORE</p>
+  <p class="press">PRESS ENTER</p>
+  <p class="controls">WASD MOVE &middot; E ENTER / EXIT CAR &middot; SPACE HANDBRAKE &middot; R RADIO &middot; ESC PAUSE</p>
 </div>
+<div id="topbar"><span>PORTO AZZURA</span><span id="clock">18:42 &middot; GOLDEN HOUR</span><span>S 1,250</span></div>
+
+<!-- Live HUD: same design as the mockup, every value wired to the game. -->
+<div id="hud-stage" style="display:none">
+  <div class="topbar">
+    <div class="logo"><b>AZZURA HEIST</b><span>PORTO AZZURA &middot; EST. 1962</span></div>
+    <div class="clock"><b id="hud-clock">18:42</b><span id="hud-clock-sub">GOLDEN HOUR &middot; DAY 1</span></div>
+    <div class="top-right">
+      <div class="money" id="hud-money">S 1,250</div>
+      <div class="wanted" id="hud-wanted-stars"><span class="lit"></span><span class="dim">&#9734;&#9734;&#9734;&#9734;&#9734;</span></div>
+      <div class="wanted-status" id="hud-wanted-status">CLEAN</div>
+    </div>
+  </div>
+
+  <section class="panel mission">
+    <div class="label">Mission &middot; Chapter 1</div>
+    <h2><span class="chip">M1</span>THE FERRY JOB</h2>
+    <div class="stages"><div class="stage active" id="hud-stage-1"></div><div class="stage" id="hud-stage-2"></div><div class="stage" id="hud-stage-3"></div></div>
+    <div class="stage-names"><span>1 &middot; RECON</span><span>2 &middot; STEAL</span><span>3 &middot; ESCAPE</span></div>
+    <p>Steal the ferry manifest from the harbormaster&rsquo;s office, then lose the Guard on the promenade.</p>
+    <div class="timer">TIME LEFT <b id="hud-mission-time">04:32</b></div>
+  </section>
+
+  <section class="panel-dark radio">
+    <div class="label">Radio</div>
+    <h3 id="hud-radio-name">RADIO LUME</h3>
+    <div class="track" id="hud-radio-track">Notte di Luce &mdash; Solmar Five &middot; Italo Disco</div>
+    <div class="row">
+      <div class="eq"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="stations"><b>LUME</b><span>ONDA</span><span>CAVA</span></div>
+    </div>
+  </section>
+
+  <section class="panel-dark police">
+    <div class="label">Guardia del Porto</div>
+    <h3>DISPATCH &middot; RESPONSE</h3>
+    <div class="unit"><b>Gull-1 &middot; HELI</b><span class="dist" id="hud-police-1-dist">320 m</span><span class="st warm" id="hud-police-1-st">PATROL</span></div>
+    <div class="unit"><b>Anchor-2 &middot; CRUISER</b><span class="dist" id="hud-police-2-dist">180 m</span><span class="st warm" id="hud-police-2-st">PATROL</span></div>
+    <div class="unit"><b>Beacon-3 &middot; BOAT</b><span class="dist" id="hud-police-3-dist">240 m</span><span class="st warm" id="hud-police-3-st">RESPONDING</span></div>
+  </section>
+
+  <div class="mapbox">
+    <div class="map-circle">
+      <svg viewBox="0 0 150 150" aria-label="minimap">
+        <rect width="150" height="150" fill="#e9dcc0"/>
+        <rect x="0" y="128" width="150" height="22" fill="#5fa8b5"/>
+        <path d="M0,128 L150,128" stroke="#f2a541" stroke-width="2"/>
+        <g fill="#35566b"><rect x="118" y="132" width="9" height="12"/><rect x="130" y="130" width="7" height="14"/><rect x="140" y="134" width="6" height="10"/></g>
+        <rect x="0" y="72" width="150" height="14" fill="#8a8580"/>
+        <g stroke="#ffffff" stroke-width="2" fill="none">
+          <path d="M8,79 L142,79"/>
+        </g>
+        <g stroke="#8a8580" stroke-width="5" fill="none">
+          <path d="M25,0 L25,72"/><path d="M62,0 L62,72"/><path d="M98,0 L98,72"/><path d="M130,0 L130,72"/>
+        </g>
+        <rect x="55" y="100" width="20" height="12" fill="#7a8b5a"/>
+        <rect x="10" y="95" width="10" height="8" fill="#c65d3b"/>
+        <g id="hud-player-arrow" transform="translate(70,79) rotate(0)">
+          <polygon points="8,0 -6,-5 -3,0 -6,5" fill="#f2a541" stroke="#1e2a32" stroke-width="1"/>
+        </g>
+        <polygon points="40,60 45,65 40,70 35,65" fill="#f2a541" stroke="#1e2a32" stroke-width="1"/>
+        <text x="75" y="12" font-size="10" font-weight="800" fill="#1e2a32" text-anchor="middle">N</text>
+      </svg>
+    </div>
+    <div class="map-label"><b id="hud-map-district">LUNGOMARE</b><span id="hud-map-street">VIA DEL FARO &middot; DISTRICT 4</span></div>
+  </div>
+
+  <div class="dock">
+    <div class="vehicle"><span><b id="hud-vehicle-name">ON FOOT</b> &middot; <span id="hud-speed">ON FOOT</span></span><span id="hud-vehicle-sub">PRESS E NEAR THE CAR</span></div>
+    <div class="weapons">
+      <div class="wslot" id="hud-weapon-0"><div class="k">1</div><div class="n">FISTS</div><div class="a">&infin;</div></div>
+      <div class="wslot sel" id="hud-weapon-1"><div class="k">2</div><div class="n">LUPO P9</div><div class="a">12 / 48</div></div>
+      <div class="wslot" id="hud-weapon-2"><div class="k">3</div><div class="n">DOPPIETTA</div><div class="a">2 / 8</div></div>
+      <div class="wslot" id="hud-weapon-3"><div class="k">4</div><div class="n">TAMBURO</div><div class="a">24 / 96</div></div>
+      <div class="wslot" id="hud-weapon-4"><div class="k">5</div><div class="n">FUCILE</div><div class="a">5 / 20</div></div>
+    </div>
+    <section class="panel dialogue" id="hud-dialogue">
+      <div class="portrait">
+        <svg viewBox="0 0 72 72" aria-label="Elio Santoro portrait">
+          <defs><linearGradient id="psky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#f7c873"/><stop offset="1" stop-color="#f2a35e"/>
+          </linearGradient></defs>
+          <rect width="72" height="72" fill="url(#psky)"/>
+          <circle cx="56" cy="13" r="6" fill="#fff2c0"/>
+          <rect y="52" width="72" height="20" fill="#2e7f8f"/>
+          <path d="M8,72 L10,58 Q22,48 36,48 Q50,48 62,58 L64,72 Z" fill="#f2ead8"/>
+          <path d="M14,57 Q36,63 58,57 L58,65 Q36,71 14,65 Z" fill="#e4572e"/>
+          <rect x="32" y="42" width="8" height="8" fill="#d9a06f"/>
+          <ellipse cx="36" cy="32" rx="11" ry="13" fill="#e8b98a"/>
+          <path d="M25,32 Q24,18 36,18 Q48,18 47,32 Q44,24 36,24 Q28,24 25,32 Z" fill="#2b2b2b"/>
+          <path d="M29,32 h4 M39,32 h4" stroke="#2b2b2b" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M32,40 Q36,43 40,40" stroke="#8a5a3b" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="who" id="hud-dialogue-who">ELIO SANTORO</div>
+        <div class="line" id="hud-dialogue-line">&ldquo;The ledger&rsquo;s on the ferry. We go in quiet &mdash; no sirens, no heroes.&rdquo;</div>
+        <div class="cont">SPACE / CLICK TO CONTINUE</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel vitals">
+    <div class="row"><span>HEALTH</span><span id="hud-health-num">100</span></div>
+    <div class="bar hp"><i id="hud-health-bar"></i></div>
+    <div class="row"><span>ARMOUR</span><span id="hud-armour-num">60</span></div>
+    <div class="bar ar"><i id="hud-armour-bar"></i></div>
+    <div class="row"><span>WHEELMAN &middot; XP</span><span id="hud-xp-num">1,240 / 2,000</span></div>
+    <div class="bar xp"><i id="hud-xp-bar"></i></div>
+    <div class="xp-line">Next rank: <b>FIXER</b> &middot; unlocks Tamburo SMG</div>
+  </section>
+</div>
+
+<div id="pause-overlay" style="display:none">
+  <div class="pause-card">
+    <h2>PAUSED</h2>
+    <p>ESC to resume &middot; M1 — AZZURA HEIST</p>
+  </div>
+</div>
+<div id="version">AZZURA HEIST &middot; M1 playable baseline &middot; Three.js &middot; procedural &middot; offline</div>
+<script>
+  // Scale the fixed 1280x720 HUD stage to any viewport, centred.
+  var stage = document.getElementById('hud-stage');
+  function fit() {
+    var s = Math.min(innerWidth / 1280, innerHeight / 720);
+    stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+  addEventListener('resize', fit); fit();
+</script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
