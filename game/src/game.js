@@ -1126,13 +1126,14 @@ export function createGame(container) {
       renderer.render(scene, camera);
       renderer.render(scene, camera);
     } else if (name === 'combat') {
-      // Elio crouched behind a café table (cover) with the Tamburo,
-      // 2-star Guard closing in and returning fire.
+      // Elio crouched behind a quay crate (cover) with the Tamburo,
+      // 2-star Guard closing in and returning fire. The quay gives an
+      // open sightline east (no planter palms in the camera lane).
       state.mode = 'play';
       showHUD();
       state.onFoot = true;
       playerMesh.visible = true;
-      player.x = -14.5; player.z = -8.2; player.angle = 0;
+      player.x = -53.5; player.z = 11.5; player.angle = 0;
       player.crouched = true;
       playerMesh.position.set(player.x, 0, player.z);
       playerMesh.rotation.y = player.angle + Math.PI / 2;
@@ -1142,7 +1143,7 @@ export function createGame(container) {
       setStorm(false);
       updateLighting();
       wanted.addHeat(35);
-      run(120, {});
+      run(240, {});
       updateCamera(1);
       combat.fire();
       renderer.render(scene, camera);

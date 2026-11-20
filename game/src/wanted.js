@@ -13,6 +13,8 @@ import { buildPoliceCruiser, createCar, collideCircleAABBs } from './vehicles.js
 
 const THRESHOLDS = [0, 15, 35, 60, 85, 110]; // heat needed per star
 const STAR_LABEL = ['CLEAN', 'WANTED · 1 STAR', 'WANTED · 2 STARS', 'WANTED · 3 STARS', 'WANTED · 4 STARS', 'WANTED · 5 STARS'];
+// Units spawn on land only (never in the bay, z > 13, or off the map).
+function clampSpawn(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
 // Procedural Harbor Guard helicopter: navy body, tail boom, main + tail
 // rotors, belly spotlight cone (a translucent mesh, aimed at the player).
@@ -198,8 +200,8 @@ export function createWanted(scene, opts) {
       heli.mesh.visible = false;
       clearRoadblock();
     } else {
-      if (haveCruisers < wantCruisers) spawnUnit('cruiser', px + 30 + Math.random() * 20, pz + (Math.random() - 0.5) * 20);
-      if (haveInterceptors < wantInterceptors) spawnUnit('interceptor', px - 45, pz + (Math.random() - 0.5) * 8);
+      if (haveCruisers < wantCruisers) spawnUnit('cruiser', clampSpawn(px + 30 + Math.random() * 20, -58, 58), clampSpawn(pz + (Math.random() - 0.5) * 20, -40, 12));
+      if (haveInterceptors < wantInterceptors) spawnUnit('interceptor', clampSpawn(px - 45, -58, 58), clampSpawn(pz + (Math.random() - 0.5) * 8, -40, 12));
       if (level >= 3 && !heli.active) spawnUnit('heli', px, pz);
       if (level < 3 && heli.active) { heli.active = false; heli.mesh.visible = false; }
       if (level >= 4 && !roadblock) spawnRoadblock(px, pz, p.angle || 0);
