@@ -20,6 +20,10 @@
 // Geometry is built ONCE per wheel spec and shared (cloned meshes share
 // one geometry + one material), so every wheel of every car costs 2 draw
 // calls and almost no extra memory.
+//
+// Skid marks (wheels-fix): bigger, darker, longer-lived — the old marks
+// were subtle at 0.55 opacity and faded in 6 s. New marks are 0.9 x 0.45
+// at 0.85 opacity, fading over 10 s, so a drift trail reads clearly.
 import * as THREE from '../vendor/three.module.min.js';
 import { colored, xform, mergedMesh } from './world.js';
 
@@ -37,7 +41,8 @@ const blobMat = new THREE.MeshBasicMaterial({
 // Wheel specs per vehicle type. Radius/width match the body; the sports
 // car gets big low-profile wheels, the pickup tall treaded tires, the
 // police cruiser a dished steel wheel with a small dark cap, the van
-// small plain wheels.
+// small plain wheels. (Police cruisers now use the 'sedan' spoked spec
+// in vehicles.js — the dished discs read as flat grey circles.)
 export const WHEEL_SPECS = {
   sport: { radius: 0.38, width: 0.30, spokes: 6, rim: 'sport', tread: 'low', caliper: true },
   sedan: { radius: 0.33, width: 0.24, spokes: 5, rim: 'steel', tread: 'normal', caliper: false },
@@ -208,9 +213,9 @@ function getSkidPool(scene) {
   if (!skidPools.has(scene)) {
     const group = new THREE.Group();
     group.name = 'skid-marks';
-    const geo = new THREE.PlaneGeometry(0.7, 0.35);
+    const geo = new THREE.PlaneGeometry(0.9, 0.45);
     const mat = new THREE.MeshBasicMaterial({
-      color: 0x0a0a0a, transparent: true, opacity: 0.55, depthWrite: false,
+      color: 0x0a0a0a, transparent: true, opacity: 0.85, depthWrite: false,
     });
     const marks = [];
     for (let i = 0; i < 80; i++) {
@@ -235,7 +240,7 @@ export function addSkidMark(scene, x, z, angle) {
   pool.next = (pool.next + 1) % pool.marks.length;
   slot.mesh.position.set(x, 0.23, z);
   slot.mesh.rotation.z = -angle;
-  slot.mesh.material.opacity = 0.65;
+  slot.mesh.material.opacity = 0.85;
   slot.mesh.visible = true;
   slot.age = 0;
 }
@@ -244,8 +249,8 @@ function skidUpdate(pool, dt) {
   for (const s of pool.marks) {
     if (!s.mesh.visible) continue;
     s.age += dt;
-    if (s.age > 6) { s.mesh.visible = false; continue; }
-    s.mesh.material.opacity = 0.65 * (1 - s.age / 6);
+    if (s.age > 10) { s.mesh.visible = false; continue; }
+    s.mesh.material.opacity = 0.85 * (1 - s.age / 10);
   }
 }
 

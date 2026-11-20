@@ -1,4 +1,4 @@
-// AZZURA HEIST — vehicles (wheel fix round).
+// AZZURA HEIST — vehicles (wheels-fix round).
 // Procedural cars: the hero Stella roadster + traffic variants. Arcade
 // handling (accelerate / brake / steer / handbrake), circle-vs-AABB
 // collision against the district's colliders, and traffic AI that follows
@@ -9,6 +9,13 @@
 // real wheel arches, flush fit, spin/steer/suspension/body roll, drift
 // skid marks + tyre squeal. The old pale-hubcap "eye" wheels are gone:
 // hubs are dark metal now.
+//
+// Bodies (wheels-fix): side windows on every cabin, windshield kept
+// INSIDE the roofline (no transparent fin), pickup bed attached to the
+// body (floor + walls + tailgate, no floating slab), headlights are
+// rectangular lamps (no white round eyes), police cruiser has a white
+// side stripe instead of a floating white board, and police wheels use
+// the spoked steel spec like the other cars.
 import * as THREE from '../vendor/three.module.min.js';
 import { M, box, cyl, mergedMesh, colored, xform, vertexColorMat } from './world.js';
 import {
@@ -80,6 +87,28 @@ function mountWheels(g, wheelPos, halfWidth) {
 // at ROAD_Y and their tyres touch the asphalt instead of sinking.
 export const ROAD_Y = 0.2;
 
+// Side glass panels for a cabin block: two thin dark panes on the body
+// sides, so the cabin reads as windows instead of a solid slab.
+function sideGlass(g, x, y, len, halfWidth) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x1a2e40, roughness: 0.15, metalness: 0.3 });
+  for (const s of [-1, 1]) {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(len, 0.32, 0.04), mat);
+    p.position.set(x, y, s * (halfWidth + 0.01));
+    g.add(p);
+  }
+}
+
+// Rectangular headlamp: a slim emissive box, not a white sphere.
+function headlamp(g, x, y, z) {
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(0.1, 0.16, 0.36),
+    new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 }),
+  );
+  m.position.set(x, y, z);
+  g.add(m);
+  return m;
+}
+
 // ---------- car models ----------
 export function buildStella() {
   // Stella roadster — coral hero car, low and long, cream interior.
@@ -94,18 +123,21 @@ export function buildStella() {
     colored(xform(new THREE.BoxGeometry(0.5, 0.3, 1.7), -2.1, 0.6, 0), 0xc0392b),
   ];
   g.add(mergedMesh(body, vertexColorMat));
-  // Windshield + side glass.
+  // Windshield: kept INSIDE the roofline (cabin top is y 1.20) — short
+  // pane, slight rake, top edge at ~1.19. No transparent fin above it.
   const glass = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.55, 1.5),
+    new THREE.BoxGeometry(0.06, 0.42, 1.5),
     new THREE.MeshStandardMaterial({ color: 0x9fd4d8, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.7 }),
   );
-  glass.position.set(0.85, 1.15, 0);
-  glass.rotation.z = -0.35;
+  glass.position.set(0.8, 0.98, 0);
+  glass.rotation.z = -0.25;
   g.add(glass);
-  // Headlights (emissive — bright at night) + taillights.
+  // Side windows on the cabin block.
+  sideGlass(g, -0.2, 1.0, 1.5, 0.85);
+  // Rectangular headlamps + taillights.
   const headMat = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 });
   for (const s of [-0.6, 0.6]) {
-    const h = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), headMat);
+    const h = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.36), headMat);
     h.position.set(2.22, 0.62, s);
     g.add(h);
   }
@@ -152,19 +184,29 @@ export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null) {
     parts.push(colored(xform(new THREE.BoxGeometry(4.2, 1.5, 1.9), 0, 1.05, 0), color));
     parts.push(colored(xform(new THREE.BoxGeometry(1.2, 0.7, 1.7), 1.6, 0.95, 0), 0x2e4a5e));
   } else if (kind === 'pickup') {
-    // Tall tires + raised body = ground clearance.
+    // Tall tires + raised body = ground clearance. The bed is ATTACHED:
+    // floor flush with the body top + side walls + tailgate in body
+    // color, all sharing the body's edges — no floating slab.
     parts.push(colored(xform(new THREE.BoxGeometry(4.3, 0.6, 1.9), 0, 0.66, 0), color));
     parts.push(colored(xform(new THREE.BoxGeometry(1.6, 0.6, 1.7), 1.2, 1.11, 0), color));
-    parts.push(colored(xform(new THREE.BoxGeometry(1.8, 0.4, 1.6), -1.2, 0.91, 0), 0x6b4a2a));
+    parts.push(colored(xform(new THREE.BoxGeometry(1.9, 0.12, 1.7), -1.25, 0.96, 0), 0x5a3d22));
+    parts.push(colored(xform(new THREE.BoxGeometry(1.9, 0.24, 0.08), -1.25, 1.06, 0.81), color));
+    parts.push(colored(xform(new THREE.BoxGeometry(1.9, 0.24, 0.08), -1.25, 1.06, -0.81), color));
+    parts.push(colored(xform(new THREE.BoxGeometry(0.08, 0.24, 1.7), -2.16, 1.06, 0), color));
   } else { // sedan
     parts.push(colored(xform(new THREE.BoxGeometry(4.1, 0.55, 1.85), 0, 0.58, 0), color));
     parts.push(colored(xform(new THREE.BoxGeometry(2.2, 0.5, 1.6), -0.2, 1.0, 0), color));
     parts.push(colored(xform(new THREE.BoxGeometry(1.9, 0.4, 1.4), -0.2, 0.95, 0), 0x2e4a5e));
   }
   g.add(mergedMesh(parts, vertexColorMat));
+  // Side windows on the cabin.
+  if (kind === 'van') sideGlass(g, 1.6, 1.05, 0.9, 0.85);
+  else if (kind === 'pickup') sideGlass(g, 1.2, 1.15, 1.1, 0.85);
+  else sideGlass(g, -0.2, 1.05, 1.5, 0.8);
+  // Rectangular headlamps (no white round eyes).
   const headMat = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 });
   for (const s of [-0.55, 0.55]) {
-    const h = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), headMat);
+    const h = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.32), headMat);
     h.position.set(2.1, 0.6, s);
     g.add(h);
   }
@@ -182,19 +224,18 @@ export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null) {
 }
 
 export function buildPoliceCruiser() {
-  // Gabbiano Harbor Guard cruiser: navy + white doors, light bar.
-  // Police spec: dished steel wheels with a small dark cap.
-  const g = buildTrafficCar(0x16324f, 'sedan', 'police');
+  // Gabbiano Harbor Guard cruiser: navy + white side stripe, light bar.
+  // Police wheels use the spoked steel spec like the other cars (the
+  // plain dished discs read as flat grey circles). No floating white
+  // board on the side — a thin white stripe, flush with the body.
+  const g = buildTrafficCar(0x16324f, 'sedan', 'sedan');
   g.name = 'police-cruiser';
-  const door = new THREE.Mesh(
-    new THREE.BoxGeometry(1.6, 0.4, 0.02),
-    M(0xf4f1ea),
-  );
-  door.position.set(0.3, 0.85, 0.94);
-  g.add(door);
-  const door2 = door.clone();
-  door2.position.z = -0.94;
-  g.add(door2);
+  const stripeMat = M(0xf4f1ea);
+  for (const s of [-1, 1]) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.16, 0.02), stripeMat);
+    stripe.position.set(0.3, 0.55, s * 0.928);
+    g.add(stripe);
+  }
   const bar = new THREE.Mesh(
     new THREE.BoxGeometry(0.9, 0.14, 0.3),
     new THREE.MeshStandardMaterial({ color: 0xff2a2a, emissive: 0xff2a2a, emissiveIntensity: 1.4 }),

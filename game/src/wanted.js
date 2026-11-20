@@ -7,9 +7,15 @@
 // 90 m+ away for 10 s and a star drops. Busted: on foot, a cruiser
 // within 2.5 m while the player barely moves for 3 s. Wasted is raised
 // by the combat module when health hits zero.
+//
+// Ground contact (wheels-fix): every ground unit rides on the shared
+// ROAD_Y (road top, y 0.2) — police cars in live pursuit used to sit at
+// y 0 and sink 0.2 into the asphalt. Dispatch rows carry distinct
+// callsigns per unit (no more "Anchor-2" twice) and short statuses so
+// the panel text fits without clipping.
 import * as THREE from '../vendor/three.module.min.js';
 import { M, box, cyl, mergedMesh, colored, xform, vertexColorMat } from './world.js';
-import { buildPoliceCruiser, createCar, collideCircleAABBs } from './vehicles.js';
+import { buildPoliceCruiser, createCar, collideCircleAABBs, ROAD_Y } from './vehicles.js';
 
 const THRESHOLDS = [0, 15, 35, 60, 85, 110]; // heat needed per star
 const STAR_LABEL = ['CLEAN', 'WANTED · 1 STAR', 'WANTED · 2 STARS', 'WANTED · 3 STARS', 'WANTED · 4 STARS', 'WANTED · 5 STARS'];
@@ -68,7 +74,9 @@ export function createWanted(scene, opts) {
   let coolTimer = 0;
   let bustedTimer = 0;
   let roadblock = null;
-  const units = []; // {kind, mesh, car?, angle, speed, fireTimer, ramCooldown}
+  let cruiserSeq = 0;
+  let interceptorSeq = 0;
+  const units = []; // {kind, mesh, car?, angle, speed, fireTimer, ramCooldown, callsign}
   const heli = { mesh: buildHeli(), active: false, angle: 0 };
   heli.mesh.visible = false;
   scene.add(heli.mesh);
@@ -106,7 +114,9 @@ export function createWanted(scene, opts) {
   function spawnUnit(kind, x, z) {
     if (kind === 'heli') { heli.active = true; heli.mesh.visible = true; return null; }
     const mesh = buildPoliceCruiser();
+    let callsign;
     if (kind === 'interceptor') {
+      callsign = 'Vespa-' + (1 + (interceptorSeq++ % 4));
       // Interceptor: gold roof beacon + faster, rams head-on.
       const gold = new THREE.Mesh(
         new THREE.BoxGeometry(1.0, 0.16, 0.5),
@@ -114,12 +124,14 @@ export function createWanted(scene, opts) {
       );
       gold.position.set(0.4, 1.35, 0);
       mesh.add(gold);
+    } else {
+      callsign = 'Anchor-' + (2 + (cruiserSeq++ % 4));
     }
     const car = createCar(mesh, { maxSpeed: kind === 'interceptor' ? 30 : 20 + level, accel: 14 });
     car.x = x; car.z = z; car.angle = 0;
-    car.mesh.position.set(x, 0, z);
+    car.mesh.position.set(x, ROAD_Y, z);
     scene.add(mesh);
-    const u = { kind, mesh, car, ramCooldown: 0, fireTimer: 1 + Math.random() * 2 };
+    const u = { kind, mesh, car, callsign, ramCooldown: 0, fireTimer: 1 + Math.random() * 2 };
     units.push(u);
     return u;
   }
@@ -156,7 +168,7 @@ export function createWanted(scene, opts) {
       g.add(beacon);
     }
     const fx = Math.cos(heading), fz = -Math.sin(heading);
-    g.position.set(px + fx * 18, 0, pz + fz * 18);
+    g.position.set(px + fx * 18, ROAD_Y, pz + fz * 18);
     g.rotation.y = heading;
     scene.add(g);
     roadblock = { group: g, cars, x: g.position.x, z: g.position.z };
@@ -211,7 +223,8 @@ export function createWanted(scene, opts) {
     }
     // Pursuit: steer each ground unit toward the player. On foot the
     // Guard holds a 3 m cordon and aims instead of driving through the
-    // player; in a car it rams on contact.
+    // player; in a car it rams on contact. All ground units ride on
+    // ROAD_Y (the road top), never sunk into the asphalt.
     for (const u of units) {
       const dx = px - u.car.x;
       const dz = pz - u.car.z;
@@ -229,7 +242,7 @@ export function createWanted(scene, opts) {
       const res = collideCircleAABBs(nx, nz, u.car.radius, colliders);
       u.car.x = res.x;
       u.car.z = res.z;
-      u.car.mesh.position.set(u.car.x, 0, u.car.z);
+      u.car.mesh.position.set(u.car.x, ROAD_Y, u.car.z);
       u.car.mesh.rotation.y = u.car.angle;
       const wheels = u.car.mesh.userData.wheels || [];
       for (const w of wheels) w.rotation.x += u.car.speed * dt * 2.4;
@@ -310,22 +323,31 @@ export function createWanted(scene, opts) {
     return STAR_LABEL[level];
   }
   function unitRows() {
-    // For the HUD dispatch panel: name, distance, status per unit.
+    // For the HUD dispatch panel: name, distance, short status per unit.
+    // Callsigns are distinct per unit (Anchor-2/3/4/5, Vespa-1/2) and
+    // statuses are short ('PURSUIT', 'EN ROUTE') so the panel text
+    // fits its width without clipping.
     const p = getPlayer();
     const rows = [];
-    for (const u of units.slice(0, 2)) {
+    const seen = new Set();
+    for (const u of units) {
+      const key = u.callsign + '·' + u.kind;
+      if (seen.has(key)) continue;
+      seen.add(key);
       const d = Math.round(Math.hypot(u.car.x - p.x, u.car.z - p.z));
-      rows.push({ name: u.kind === 'interceptor' ? 'Vespa-1 · INTERCEPTOR' : 'Anchor-2 · CRUISER', dist: d, st: level >= 1 ? 'IN PURSUIT' : 'PATROL' });
+      rows.push({ name: u.callsign + ' · ' + (u.kind === 'interceptor' ? 'INTERCEPTOR' : 'CRUISER'), dist: d, st: level >= 1 ? 'PURSUIT' : 'PATROL' });
+      if (rows.length >= 2) break;
     }
     if (heli.active) rows.push({ name: 'Gull-1 · HELI', dist: 60, st: 'INBOUND' });
-    if (roadblock) rows.push({ name: 'Roadblock · BOULEVARD', dist: Math.round(Math.hypot(roadblock.x - p.x, roadblock.z - p.z)), st: 'SET UP' });
+    if (roadblock) rows.push({ name: 'Roadblock · BLVD', dist: Math.round(Math.hypot(roadblock.x - p.x, roadblock.z - p.z)), st: 'SET UP' });
     const pad = [
-      { name: 'Beacon-3 · BOAT', dist: 240 + level * 40, st: level >= 1 ? 'RESPONDING' : 'PATROL' },
-      { name: 'Tide-4 · BOAT', dist: 310 + level * 30, st: level >= 2 ? 'RESPONDING' : 'PATROL' },
+      { name: 'Beacon-3 · BOAT', dist: 240 + level * 40, st: level >= 1 ? 'EN ROUTE' : 'PATROL' },
+      { name: 'Tide-4 · BOAT', dist: 310 + level * 30, st: level >= 2 ? 'EN ROUTE' : 'PATROL' },
       { name: 'Lighthouse-5 · TOWER', dist: 420, st: 'PATROL' },
     ];
     for (const r of pad) {
       if (rows.length >= 3) break;
+      if (seen.has(r.name)) continue;
       rows.push(r);
     }
     return rows.slice(0, 3);
