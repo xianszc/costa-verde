@@ -5,7 +5,8 @@
 // and resumed on every station switch, so autoplay policy never blocks it.
 // Stations: Radio Lume (italo disco), Onda Azzura (jazz/lounge), Radio
 // Cava (quarry rock). Each has its own track name + DJ line in the HUD.
-const STATIONS = [
+// Station list (also used by the HUD + hub for names/tracks).
+export const STATIONS = [
   { name: 'RADIO LUME', track: 'Notte di Luce — Solmar Five · Italo Disco', bpm: 116 },
   { name: 'ONDA AZZURA', track: 'Blue Hour — Marina Quartet · Jazz', bpm: 92 },
   { name: 'RADIO CAVA', track: 'Stone and Thunder — The Quarrymen · Rock', bpm: 138 },
