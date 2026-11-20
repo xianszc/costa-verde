@@ -702,7 +702,7 @@ export function createGame(container) {
       look = new THREE.Vector3(0, 5, -12);
     } else if (!state.onFoot) {
       const f = { x: Math.cos(car.angle), z: -Math.sin(car.angle) };
-      target = new THREE.Vector3(car.x - f.x * 9.5, 4.2, car.z - f.z * 9.5);
+      target = new THREE.Vector3(car.x - f.x * 10.5, 4.6, car.z - f.z * 10.5);
       look = new THREE.Vector3(car.x + f.x * 5, 1.2, car.z + f.z * 5);
     } else {
       const f = { x: Math.cos(player.angle), z: -Math.sin(player.angle) };
@@ -1114,7 +1114,7 @@ export function createGame(container) {
       showHUD();
       state.onFoot = false;
       playerMesh.visible = false;
-      car.x = 0; car.z = -3.4; car.angle = 0; car.speed = 0;
+      car.x = 0; car.z = 3.4; car.angle = 0; car.speed = 0;
       car.mesh.position.set(car.x, 0, car.z);
       car.mesh.rotation.y = car.angle;
       state.time = 18.7;

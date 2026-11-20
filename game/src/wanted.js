@@ -52,19 +52,8 @@ function buildHeli() {
   // ConeGeometry already points apex-up / base-down: the apex sits at
   // the belly and the cone widens toward the ground. No rotation.
   g.add(spot);
-  const pool = new THREE.Mesh(
-    new THREE.CircleGeometry(5.5, 20),
-    new THREE.MeshBasicMaterial({
-      color: 0xfff2c0, transparent: true, opacity: 0.22,
-      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-    }),
-  );
-  pool.rotation.x = -Math.PI / 2;
-  pool.position.set(0, -21.8, 0);
-  g.add(pool);
   g.userData.rotor = [rotor, rotor2];
   g.userData.spot = spot;
-  g.userData.pool = pool;
   return g;
 }
 
@@ -80,6 +69,20 @@ export function createWanted(scene, opts) {
   const heli = { mesh: buildHeli(), active: false, angle: 0 };
   heli.mesh.visible = false;
   scene.add(heli.mesh);
+  // Spotlight pool: a scene-level disc (not a heli child — a child would
+  // inherit the heli's rotation and land offset from the player). It
+  // tracks the player's world position while the heli is up.
+  const pool = new THREE.Mesh(
+    new THREE.CircleGeometry(5.5, 20),
+    new THREE.MeshBasicMaterial({
+      color: 0xfff2c0, transparent: true, opacity: 0.22,
+      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+    }),
+  );
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(0, 0.3, 0);
+  pool.visible = false;
+  scene.add(pool);
 
   function levelForHeat(h) {
     let l = 0;
@@ -224,21 +227,22 @@ export function createWanted(scene, opts) {
       }
       u.fireTimer -= dt;
     }
-    // Helicopter: hover above the player, spotlight tracks them.
+    // Helicopter: hover just above the player, spotlight tracks them.
     if (heli.active) {
       heli.angle += dt * 0.25;
-      const hx = px + Math.cos(heli.angle) * 6;
-      const hz = pz + Math.sin(heli.angle) * 6;
+      const hx = px + Math.cos(heli.angle) * 2.5;
+      const hz = pz + Math.sin(heli.angle) * 2.5;
       heli.mesh.position.set(hx, 24, hz);
       heli.mesh.rotation.y = -Math.atan2(pz - hz, px - hx) + Math.PI / 2;
       for (const r of heli.mesh.userData.rotor) r.rotation.y += dt * 22;
       const spot = heli.mesh.userData.spot;
-      const pool = heli.mesh.userData.pool;
       const night = opts.isNight ? opts.isNight() : false;
       spot.material.opacity = night ? 0.3 : 0.14;
       pool.material.opacity = night ? 0.4 : 0.2;
-      pool.position.set(px - hx, -21.8, pz - hz);
+      pool.position.set(px, 0.3, pz);
       pool.visible = true;
+    } else {
+      pool.visible = false;
     }
     // Lose-the-heat: every unit far away for 10 s → one star drops.
     if (level > 0) {
@@ -303,6 +307,7 @@ export function createWanted(scene, opts) {
     for (const u of [...units]) removeUnit(u);
     heli.active = false;
     heli.mesh.visible = false;
+    pool.visible = false;
     clearRoadblock();
     level = 0;
     heat = 0;

@@ -37,12 +37,12 @@ export function seededRandom(seed) {
 // gravel: speckled dirt with tire ruts. concrete: slabs + cracks, optional
 // hazard stripes. plaza: large light pavers.
 export const SURFACES = {
-  // Bases are deliberately LIGHT and slightly COOL: ACES tone mapping +
-  // the warm golden-hour sun darken and warm the albedo by roughly a
-  // third, so the canvas base must sit well above #8a8580 and lean cool
-  // for the road to READ as light warm grey, not tan.
-  asphalt: { base: '#a9a49b', kind: 'asphalt' },
-  cobble: { base: '#b3aa99', kind: 'cobble' },
+  // Bases are deliberately LIGHT and slightly COOL/BLUE: ACES tone
+  // mapping + the warm golden-hour sun darken and warm the albedo by
+  // roughly a third, so the canvas base must sit well above #8a8580 and
+  // lean blue for the road to READ as light warm grey, not tan.
+  asphalt: { base: '#9aa0a4', kind: 'asphalt' },
+  cobble: { base: '#a8a9a8', kind: 'cobble' },
   boardwalk: { base: '#a9805a', kind: 'boardwalk' },
   gravel: { base: '#b5a888', kind: 'gravel' },
   concrete: { base: '#b8b8b2', kind: 'concrete' },
