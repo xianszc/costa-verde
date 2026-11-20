@@ -11,7 +11,11 @@ import { makeFigure, CAST, CREW, POLICE, CIVILIANS } from './people.js';
 const params = new URLSearchParams(location.search);
 const view = params.get('view') || 'buildings';
 const errors = [];
-window.addEventListener('error', (e) => errors.push(String(e.message || e.error)));
+window.addEventListener('error', (e) => {
+  errors.push(String(e.message || e.error));
+  const s = document.getElementById('status');
+  if (s) { s.textContent = 'ERROR: ' + errors.join(' | '); s.style.background = '#c0392b'; s.style.color = '#fff'; }
+});
 window.__lineupErrors = errors;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -32,10 +36,10 @@ const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 30
 
 // Sun disc in the sky (golden hour).
 const sunDisc = new THREE.Mesh(
-  new THREE.CircleGeometry(4.5, 24),
+  new THREE.CircleGeometry(3.2, 24),
   new THREE.MeshBasicMaterial({ color: 0xfff2c0, fog: false }),
 );
-sunDisc.position.set(-34, 16, -60);
+sunDisc.position.set(-38, 20, -70);
 sunDisc.lookAt(camera.position);
 scene.add(sunDisc);
 
@@ -81,7 +85,7 @@ function pad(x, z, color, w = 7.5, d = 7.5) {
 if (view === 'buildings') {
   document.title = 'AZZURRA — District lineup';
   document.getElementById('title').textContent = 'AZZURRA · District lineup — one hero building per district';
-  const spacing = 8.2;
+  const spacing = 7.8;
   DISTRICTS.forEach((d, i) => {
     const x = (i - 3.5) * spacing;
     pad(x, 0, d.pad);
@@ -92,31 +96,33 @@ if (view === 'buildings') {
     if (pivot) animated.push({ obj: pivot, axis: 'y', speed: 0.5 });
     const sails = b.getObjectByName('sails');
     if (sails) animated.push({ obj: sails, axis: 'z', speed: 0.35 });
-    addLabel(`${i + 1} · ${d.name} — ${d.hero}`, new THREE.Vector3(x, 0.6, 3.6), 'district');
+    addLabel(`${i + 1} · ${d.name}`, new THREE.Vector3(x, 0.6, 3.6), 'district');
   });
-  camera.position.set(0, 8.5, 50);
-  camera.lookAt(0, 3.6, 0);
+  camera.position.set(0, 5.5, 46);
+  camera.lookAt(0, 4.5, 0);
 } else {
   document.title = 'AZZURRA — Character lineup';
   document.getElementById('title').textContent = 'AZZURRA · Character lineup — mains, crews, Harbor Guard, civilians';
   // Front row: 10 mains + 3 police. Back row: 6 crew + 6 civilians.
+  // Labels are split into two clean bands: front-row names at the figures'
+  // feet, back-row names above their heads, so nothing overlaps.
   const front = [...CAST, ...POLICE];
   const back = [...CREW, ...CIVILIANS];
-  const placeRow = (list, z, spacing) => {
+  const placeRow = (list, z, spacing, labelAt) => {
     list.forEach((c, i) => {
       const x = (i - (list.length - 1) / 2) * spacing;
-      pad(x, z, 0x8a6a4a, 1.5, 1.5);
+      pad(x, z, 0xcbb28a, 1.4, 1.4);
       const fig = makeFigure(c.spec);
       fig.position.set(x, 0.25, z);
       scene.add(fig);
-      addLabel(`${c.name}`, new THREE.Vector3(x, fig.userData.height + 0.55, z), 'person');
-      addLabel(`${c.role}`, new THREE.Vector3(x, fig.userData.height + 0.25, z), 'role');
+      const ly = labelAt === 'feet' ? 0.15 : fig.userData.height + 0.4;
+      addLabel(`${c.name}`, new THREE.Vector3(x, ly, z), 'person');
     });
   };
-  placeRow(front, 0.6, 1.65);
-  placeRow(back, -2.4, 1.65);
-  camera.position.set(0, 2.4, 16.5);
-  camera.lookAt(0, 1.15, -0.9);
+  placeRow(front, 0.6, 1.75, 'feet');
+  placeRow(back, -4.0, 1.75, 'head');
+  camera.position.set(0, 3.4, 18.5);
+  camera.lookAt(0, 1.0, -1.6);
 }
 
 function frame(t) {
