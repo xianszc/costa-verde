@@ -19,7 +19,7 @@
   <div class="rule"></div>
   <p class="tag">A CLIFFSIDE RIVIERA &middot; A HARBOR FULL OF SECRETS &middot; ONE LAST SCORE</p>
   <p class="press">PRESS ENTER</p>
-  <p class="controls">WASD MOVE &middot; E ENTER / EXIT CAR &middot; SPACE HANDBRAKE &middot; R RADIO &middot; ESC PAUSE</p>
+  <p class="controls">WASD MOVE &middot; E ENTER / EXIT CAR &middot; SPACE HANDBRAKE &middot; R RADIO &middot; C CROUCH &middot; TAB LOGBOOK &middot; 1-5 WEAPONS &middot; ESC PAUSE</p>
 </div>
 <div id="topbar"><span>PORTO AZZURA</span><span id="clock">18:42 &middot; GOLDEN HOUR</span><span>S 1,250</span></div>
 
@@ -36,11 +36,12 @@
   </div>
 
   <section class="panel mission">
-    <div class="label">Mission &middot; Chapter 1</div>
-    <h2><span class="chip">M1</span>THE FERRY JOB</h2>
+    <div class="label" id="hud-mission-chapter">Mission &middot; Chapter 1</div>
+    <h2><span class="chip" id="hud-mission-chip">M1</span><span id="hud-mission-title">THE FERRY JOB</span></h2>
     <div class="stages"><div class="stage active" id="hud-stage-1"></div><div class="stage" id="hud-stage-2"></div><div class="stage" id="hud-stage-3"></div></div>
-    <div class="stage-names"><span>1 &middot; RECON</span><span>2 &middot; STEAL</span><span>3 &middot; ESCAPE</span></div>
-    <p>Steal the ferry manifest from the harbormaster&rsquo;s office, then lose the Guard on the promenade.</p>
+    <div class="stage-names" id="hud-stage-names"><span>1 &middot; RECON</span><span>2 &middot; STEAL</span><span>3 &middot; ESCAPE</span></div>
+    <p id="hud-mission-brief">Steal the ferry manifest from the harbormaster&rsquo;s office, then lose the Guard on the promenade.</p>
+    <p class="objective" id="hud-mission-objective">Reach the harbormaster pavilion at the east end of the quay.</p>
     <div class="timer">TIME LEFT <b id="hud-mission-time">04:32</b></div>
   </section>
 
@@ -57,9 +58,9 @@
   <section class="panel-dark police">
     <div class="label">Guardia del Porto</div>
     <h3>DISPATCH &middot; RESPONSE</h3>
-    <div class="unit"><b>Gull-1 &middot; HELI</b><span class="dist" id="hud-police-1-dist">320 m</span><span class="st warm" id="hud-police-1-st">PATROL</span></div>
-    <div class="unit"><b>Anchor-2 &middot; CRUISER</b><span class="dist" id="hud-police-2-dist">180 m</span><span class="st warm" id="hud-police-2-st">PATROL</span></div>
-    <div class="unit"><b>Beacon-3 &middot; BOAT</b><span class="dist" id="hud-police-3-dist">240 m</span><span class="st warm" id="hud-police-3-st">RESPONDING</span></div>
+    <div class="unit"><b id="hud-police-1-name">Gull-1 &middot; HELI</b><span class="dist" id="hud-police-1-dist">320 m</span><span class="st warm" id="hud-police-1-st">PATROL</span></div>
+    <div class="unit"><b id="hud-police-2-name">Anchor-2 &middot; CRUISER</b><span class="dist" id="hud-police-2-dist">180 m</span><span class="st warm" id="hud-police-2-st">PATROL</span></div>
+    <div class="unit"><b id="hud-police-3-name">Beacon-3 &middot; BOAT</b><span class="dist" id="hud-police-3-dist">240 m</span><span class="st warm" id="hud-police-3-st">RESPONDING</span></div>
   </section>
 
   <div class="mapbox">
@@ -78,6 +79,8 @@
         </g>
         <rect x="55" y="100" width="20" height="12" fill="#7a8b5a"/>
         <rect x="10" y="95" width="10" height="8" fill="#c65d3b"/>
+        <circle id="hud-objective-dot" cx="75" cy="75" r="5" fill="#f2a541" stroke="#1e2a32" stroke-width="1.5" style="display:none"/>
+        <circle id="hud-police-dot-1" cx="75" cy="75" r="4" fill="#c0392b" stroke="#fff" stroke-width="1" style="display:none"/>
         <g id="hud-player-arrow" transform="translate(70,79) rotate(0)">
           <polygon points="8,0 -6,-5 -3,0 -6,5" fill="#f2a541" stroke="#1e2a32" stroke-width="1"/>
         </g>
@@ -89,32 +92,16 @@
   </div>
 
   <div class="dock">
-    <div class="vehicle"><span><b id="hud-vehicle-name">ON FOOT</b> &middot; <span id="hud-speed">ON FOOT</span></span><span id="hud-vehicle-sub">PRESS E NEAR THE CAR</span></div>
+    <div class="vehicle"><span><b id="hud-vehicle-name">ON FOOT</b> &middot; <span id="hud-speed">0 KM/H</span></span><span id="hud-vehicle-sub">PRESS E NEAR THE CAR</span></div>
     <div class="weapons">
-      <div class="wslot" id="hud-weapon-0"><div class="k">1</div><div class="n">FISTS</div><div class="a">&infin;</div></div>
-      <div class="wslot sel" id="hud-weapon-1"><div class="k">2</div><div class="n">LUPO P9</div><div class="a">12 / 48</div></div>
-      <div class="wslot" id="hud-weapon-2"><div class="k">3</div><div class="n">DOPPIETTA</div><div class="a">2 / 8</div></div>
-      <div class="wslot" id="hud-weapon-3"><div class="k">4</div><div class="n">TAMBURO</div><div class="a">24 / 96</div></div>
-      <div class="wslot" id="hud-weapon-4"><div class="k">5</div><div class="n">FUCILE</div><div class="a">5 / 20</div></div>
+      <div class="wslot" id="hud-weapon-0"><div class="k">1</div><div class="n">FISTS</div><div class="a" id="hud-weapon-0-ammo">&infin;</div></div>
+      <div class="wslot sel" id="hud-weapon-1"><div class="k">2</div><div class="n">LUPO P9</div><div class="a" id="hud-weapon-1-ammo">12 / 48</div></div>
+      <div class="wslot" id="hud-weapon-2"><div class="k">3</div><div class="n">DOPPIETTA</div><div class="a" id="hud-weapon-2-ammo">2 / 8</div></div>
+      <div class="wslot" id="hud-weapon-3"><div class="k">4</div><div class="n">TAMBURO</div><div class="a" id="hud-weapon-3-ammo">24 / 96</div></div>
+      <div class="wslot" id="hud-weapon-4"><div class="k">5</div><div class="n">FUCILE</div><div class="a" id="hud-weapon-4-ammo">5 / 20</div></div>
     </div>
     <section class="panel dialogue" id="hud-dialogue">
-      <div class="portrait">
-        <svg viewBox="0 0 72 72" aria-label="Elio Santoro portrait">
-          <defs><linearGradient id="psky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#f7c873"/><stop offset="1" stop-color="#f2a35e"/>
-          </linearGradient></defs>
-          <rect width="72" height="72" fill="url(#psky)"/>
-          <circle cx="56" cy="13" r="6" fill="#fff2c0"/>
-          <rect y="52" width="72" height="20" fill="#2e7f8f"/>
-          <path d="M8,72 L10,58 Q22,48 36,48 Q50,48 62,58 L64,72 Z" fill="#f2ead8"/>
-          <path d="M14,57 Q36,63 58,57 L58,65 Q36,71 14,65 Z" fill="#e4572e"/>
-          <rect x="32" y="42" width="8" height="8" fill="#d9a06f"/>
-          <ellipse cx="36" cy="32" rx="11" ry="13" fill="#e8b98a"/>
-          <path d="M25,32 Q24,18 36,18 Q48,18 47,32 Q44,24 36,24 Q28,24 25,32 Z" fill="#2b2b2b"/>
-          <path d="M29,32 h4 M39,32 h4" stroke="#2b2b2b" stroke-width="1.6" stroke-linecap="round"/>
-          <path d="M32,40 Q36,43 40,40" stroke="#8a5a3b" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-        </svg>
-      </div>
+      <div class="portrait" id="hud-dialogue-portrait"></div>
       <div>
         <div class="who" id="hud-dialogue-who">ELIO SANTORO</div>
         <div class="line" id="hud-dialogue-line">&ldquo;The ledger&rsquo;s on the ferry. We go in quiet &mdash; no sirens, no heroes.&rdquo;</div>
@@ -134,13 +121,61 @@
   </section>
 </div>
 
+<!-- Crosshair (on foot) + cover indicator + toast -->
+<div id="crosshair" style="display:none"><span></span></div>
+<div id="cover-indicator" style="display:none">IN COVER</div>
+<div id="toast" style="opacity:0"></div>
+
+<!-- Captain's Logbook hub (Tab / H) -->
+<div id="hub-overlay" style="display:none">
+  <div class="hub-card">
+    <div class="hub-head">
+      <div>
+        <div class="hub-title">THE CAPTAIN&rsquo;S LOGBOOK</div>
+        <div class="hub-sub">Porto Azzura &middot; Elio Santoro &middot; TAB / ESC to close</div>
+      </div>
+      <button class="hub-close" id="hub-close" aria-label="Close logbook">&times;</button>
+    </div>
+    <div class="hub-tabs" id="hub-tabs"></div>
+    <div class="hub-body" id="hub-body"></div>
+  </div>
+</div>
+
+<!-- Pause menu -->
 <div id="pause-overlay" style="display:none">
   <div class="pause-card">
     <h2>PAUSED</h2>
-    <p>ESC to resume &middot; M1 — AZZURA HEIST</p>
+    <p>AZZURA HEIST &middot; M2 — core systems</p>
+    <button id="pause-resume">RESUME</button>
+    <div class="pause-row">
+      <label>Volume <input type="range" id="pause-volume" min="0" max="100" value="70"></label>
+      <label>Quality
+        <select id="pause-quality">
+          <option value="high" selected>High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </label>
+    </div>
+    <div class="pause-row">
+      <button id="pause-save">SAVE (SLOT 1)</button>
+      <button id="pause-load">LOAD (SLOT 1)</button>
+    </div>
+    <button id="pause-quit">QUIT TO TITLE</button>
+    <p class="pause-hint">ESC to resume &middot; saving is refused while wanted</p>
   </div>
 </div>
-<div id="version">AZZURA HEIST &middot; M1 playable baseline &middot; Three.js &middot; procedural &middot; offline</div>
+
+<!-- Busted / wasted overlay -->
+<div id="busted-overlay" style="display:none">
+  <div class="busted-card">
+    <h2 id="busted-title">BUSTED</h2>
+    <p id="busted-sub"></p>
+    <button id="busted-btn">WALK FREE</button>
+  </div>
+</div>
+
+<div id="version">AZZURA HEIST &middot; M2 core systems &middot; Three.js &middot; procedural &middot; offline</div>
 <script>
   // Scale the fixed 1280x720 HUD stage to any viewport, centred.
   var stage = document.getElementById('hud-stage');
@@ -149,6 +184,13 @@
     stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
   }
   addEventListener('resize', fit); fit();
+  // The hub close button (the hub module owns the rest).
+  var hubClose = document.getElementById('hub-close');
+  if (hubClose) hubClose.addEventListener('click', function () {
+    var ov = document.getElementById('hub-overlay');
+    if (ov) ov.style.display = 'none';
+    if (window.__game && window.__game.hub) window.__game.hub.setOpen(false);
+  });
 </script>
 <script type="module" src="./src/main.js"></script>
 </body>

@@ -1,16 +1,22 @@
-// AZZURA HEIST — District 4 (Lungomare / Seaside Promenade) for M1.
+// AZZURA HEIST — District 4 (Lungomare / Seaside Promenade) for M2.
 // Roads FIRST (city-system.md): the boulevard + five cross streets are laid
 // out before any building; every plot is validated against the road and
 // sidewalk rects (validatePlots) and against every other plot. Trees live
 // ONLY in the park green zone and in sidewalk planters — never on a road,
 // never blocking an intersection. The bay + skyline sit across the water
 // to the south; layered hills close the town to the north.
+//
+// M2 changes: palms are the fuller layered palms (vegetation.js) in the
+// park and planters; facades are varied (balconies, rooftop props, shop
+// fronts) so the marina and old-town shots read as a lived-in town; the
+// old bell tower stands at (-47, -36) — the M4 drop point.
 import * as THREE from '../vendor/three.module.min.js';
 import {
   M, box, cyl, cone, sph, mergedMesh, mergeStatic, colored, xform,
   vertexColorMat, buildHeroBuilding, buildSkylineCluster, fountain,
-  treeInstanced, TREE_TYPES, makeTree, lampPost, palm,
+  treeInstanced, TREE_TYPES, makeTree, lampPost,
 } from './world.js';
+import { makePalmFull } from './vegetation.js';
 import { makeWater, makeSailboat } from './water.js';
 import {
   buildRoadNetwork, validatePlots, trafficLanes, minimapLines,
@@ -47,7 +53,9 @@ function brandTexture(text, bg = '#1e2a32', fg = '#ffd9a0') {
 
 // One procedural Art Deco facade: stepped crown, arched windows, striped
 // awning, a small neon brand sign. All windows share windowMat (one draw
-// call for every window in the district after the merge).
+// call for every window in the district after the merge). M2: taller
+// facades get a balcony + rail, every roof carries props (AC box, water
+// tank, chimney), and branded shops get a glass shop front.
 function decoBuilding(rnd, w, h, d, palette, brand) {
   const g = new THREE.Group();
   g.add(box(w, h, d, palette.wall, 0, h / 2, 0));
@@ -79,6 +87,21 @@ function decoBuilding(rnd, w, h, d, palette, brand) {
     aw.rotation.x = 0.35;
     g.add(aw);
   }
+  // Glass shop front flanking the door (branded shops only).
+  if (brand) {
+    g.add(box(1.6, 1.4, 0.08, 0x9fd4d8, -w * 0.28, 1.0, d / 2 + 0.05));
+    g.add(box(1.6, 1.4, 0.08, 0x9fd4d8, w * 0.28, 1.0, d / 2 + 0.05));
+  }
+  // Balcony + rail on the top floor (taller facades).
+  if (h >= 6.5) {
+    g.add(box(w * 0.4, 0.15, 1.0, 0x8a6a4a, w * 0.18, h - 1.6, d / 2 + 0.5));
+    g.add(box(w * 0.4, 0.6, 0.06, 0x1e2a32, w * 0.18, h - 1.25, d / 2 + 0.95));
+    g.add(box(0.7, 1.6, 0.1, 0x2e4a5e, w * 0.18, h - 1.2, d / 2 + 0.04));
+  }
+  // Rooftop props: AC box, water tank, chimney.
+  g.add(box(0.9, 0.7, 0.9, 0x9a9a9a, -w * 0.3, h + 1.75, 0));
+  g.add(cyl(0.55, 0.55, 1.1, 0x6a4a2a, w * 0.28, h + 1.95, -0.4, 8));
+  g.add(box(0.5, 1.1, 0.5, 0x8a4a3a, w * 0.1, h + 1.95, -d / 4));
   // Neon brand sign.
   if (brand) {
     const sign = new THREE.Mesh(
@@ -91,6 +114,36 @@ function decoBuilding(rnd, w, h, d, palette, brand) {
     sign.position.set(0, h - 0.4, d / 2 + 0.08);
     g.add(sign);
   }
+  return g;
+}
+
+// The old bell tower (M4 drop point): stone base, arched belfry with a
+// bronze bell, clock face, pyramidal roof. Stands at (-47, -36), clear of
+// the x=-40 cross street.
+function bellTower() {
+  const g = new THREE.Group();
+  g.add(box(2.4, 9, 2.4, 0xd8cbb2, 0, 4.5, 0));
+  g.add(box(2.8, 0.5, 2.8, 0x8a6a4a, 0, 9.2, 0));
+  // Belfry: four columns + dark inset + bronze bell.
+  for (const [cx, cz] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) {
+    g.add(box(0.35, 2.0, 0.35, 0xd8cbb2, cx, 10.4, cz));
+  }
+  g.add(box(1.6, 1.8, 1.6, 0x2b2b2b, 0, 10.4, 0));
+  const bell = sph(0.55, 0xb08a3a, 0, 10.1, 0);
+  bell.scale.y = 1.2;
+  g.add(bell);
+  // Clock face (south side, toward the boulevard).
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(0.7, 20),
+    new THREE.MeshStandardMaterial({ color: 0xf7ebd7, roughness: 0.5 }),
+  );
+  face.position.set(0, 7.6, 1.22);
+  g.add(face);
+  const hand = box(0.08, 0.5, 0.02, 0x1e2a32, 0, 7.7, 1.24);
+  hand.rotation.z = -0.6;
+  g.add(hand);
+  // Pyramidal roof.
+  g.add(cone(1.9, 1.8, 0xb4552d, 0, 12.3, 0, 4));
   return g;
 }
 
@@ -144,6 +197,7 @@ const PLOTS = [
   { id: 'villa-back-east', x0: 3, z0: -40, x1: 13, z1: -31 },
   { id: 'park', x0: 23, z0: -40, x1: 37, z1: -30 },
   { id: 'pavilion-quay', x0: 44, z0: -28, x1: 56, z1: -10 },
+  { id: 'bell-tower', x0: -48.4, z0: -37.4, x1: -45.6, z1: -34.6 },
 ];
 
 export function buildDistrict4() {
@@ -194,8 +248,9 @@ export function buildDistrict4() {
   for (const [plot, w, h, d, pal, brand] of decoSpecs) {
     addPlot(plot, () => decoBuilding(rnd, w, h, d, pal, brand));
   }
-  // Back-row villas (low, terracotta roofs).
-  for (const plot of [PLOTS[5], PLOTS[6], PLOTS[7]]) {
+  // Back-row villas (low, terracotta roofs; varied: chimneys, shutters,
+  // one with a taller second story).
+  for (const [i, plot] of [PLOTS[5], PLOTS[6], PLOTS[7]].entries()) {
     addPlot(plot, () => {
       const v = new THREE.Group();
       v.add(box(8, 3.2, 5, 0xf5efe2, 0, 1.6, 0));
@@ -204,11 +259,23 @@ export function buildDistrict4() {
       v.add(box(5.4, 0.3, 4.4, 0xb4552d, 1, 5.6, 0));
       v.add(box(0.8, 1.2, 0.1, 0x2e4a5e, -2, 0.9, 2.55));
       v.add(box(0.8, 1.2, 0.1, 0x2e4a5e, 2, 0.9, 2.55));
+      // Shutters beside the front windows + a chimney.
+      v.add(box(0.3, 1.2, 0.08, 0x3a5a3a, -2.6, 0.9, 2.56));
+      v.add(box(0.3, 1.2, 0.08, 0x3a5a3a, 2.6, 0.9, 2.56));
+      v.add(box(0.5, 1.2, 0.5, 0x8a4a3a, -3, 4.2, -1));
+      if (i === 1) {
+        // Middle villa: taller second story + pergola.
+        v.add(box(4, 1.8, 3.5, 0xf5efe2, -1.5, 6.4, 0));
+        v.add(box(4.4, 0.3, 3.9, 0xb4552d, -1.5, 7.4, 0));
+        v.add(box(2.4, 0.12, 2.0, 0x8a6a4a, 2.5, 3.6, 1.5));
+      }
       return v;
     });
   }
   // Quay pavilion (marina hero) on the east front row.
   addPlot(PLOTS[9], () => buildHeroBuilding('marina'));
+  // Old bell tower (M4 drop point).
+  addPlot(PLOTS[10], () => bellTower());
   group.add(mergeStatic(buildings));
   // Animated bits the merge kept whole (the casino fountain) still tick.
   buildings.traverse((o) => { if (o.userData && o.userData.tick) tickers.push(o); });
@@ -216,17 +283,27 @@ export function buildDistrict4() {
   // --- park green zone (Block D back): trees ONLY here + planters ---
   const park = new THREE.Group();
   park.add(box(14, 0.24, 10, 0x7a8b5a, 30, 0.12, -35));
-  const parkTrees = { round: [], cypress: [], palm: [], pine: [] };
+  const parkTrees = { round: [], cypress: [], pine: [] };
+  const parkPalms = [];
   const prnd = seededRandom(4242);
   for (let i = 0; i < 14; i++) {
     const type = TREE_TYPES[i % 4];
-    parkTrees[type].push({
+    const spec = {
       x: 24.5 + prnd() * 11, z: -39 + prnd() * 8,
       s: 0.8 + prnd() * 0.5, rot: prnd() * Math.PI * 2, tint: 0xffffff,
-    });
+    };
+    if (type === 'palm') parkPalms.push(spec);
+    else parkTrees[type].push(spec);
   }
-  for (const type of TREE_TYPES) {
+  for (const type of Object.keys(parkTrees)) {
     if (parkTrees[type].length) park.add(treeInstanced(type, parkTrees[type]));
+  }
+  // Fuller palms in the park (individual merged meshes, varied heights).
+  for (const p of parkPalms) {
+    const palmMesh = makePalmFull(2.6 + p.s * 1.6);
+    palmMesh.position.set(p.x, 0.24, p.z);
+    palmMesh.rotation.y = p.rot;
+    park.add(palmMesh);
   }
   const parkFountain = fountain(1.0);
   parkFountain.position.set(30, 0.24, -35);
@@ -234,13 +311,14 @@ export function buildDistrict4() {
   tickers.push(parkFountain);
   group.add(park);
   report.treesInGreenZones += 14;
-  // Sidewalk planters with palms (green zones on the sidewalk edge only).
-  const planterPalms = [];
+  // Sidewalk planters with fuller palms (green zones on the sidewalk edge).
   for (const px of [-52, -34, -12, 8, 28, 48]) {
-    planterPalms.push({ x: px, z: -7.2, s: 0.9, rot: px, tint: 0xffffff });
+    const palmMesh = makePalmFull(2.8 + (Math.abs(px) % 3) * 0.5);
+    palmMesh.position.set(px, 0.24, -7.2);
+    palmMesh.rotation.y = px * 0.7;
+    group.add(palmMesh);
   }
-  group.add(treeInstanced('palm', planterPalms));
-  report.treesInGreenZones += planterPalms.length;
+  report.treesInGreenZones += 6;
 
   // --- café tables outside the casino (props, with colliders) ---
   const cafe = new THREE.Group();
@@ -252,7 +330,7 @@ export function buildDistrict4() {
   }
   group.add(mergeStatic(cafe));
 
-  // --- quay details: crates, rope coils, cleats, moored boats ---
+  // --- quay details: crates, rope coils, cleats, moored boats, crane ---
   const quayProps = new THREE.Group();
   for (const [qx, qz, c] of [[-52, 11.5, 0x8a6a4a], [-50.5, 11.8, 0x2e7f8f], [52, 11.5, 0x8a6a4a], [18, 11.6, 0xe4572e]]) {
     quayProps.add(box(1.1, 1.1, 1.1, c, qx, 0.85, qz));
@@ -265,6 +343,14 @@ export function buildDistrict4() {
   rope.rotation.x = -Math.PI / 2;
   rope.position.set(-46, 0.35, 11.4);
   quayProps.add(rope);
+  // Small wooden harbor crane + barrels + fishing nets on the quay.
+  quayProps.add(box(0.5, 5.5, 0.5, 0x6a4a2a, 36, 2.75, 11.5));
+  quayProps.add(box(0.4, 0.4, 4.5, 0x6a4a2a, 36, 5.4, 11.5));
+  quayProps.add(box(0.35, 1.6, 0.35, 0x2b2b2b, 36, 4.6, 13.4));
+  quayProps.add(cyl(0.5, 0.5, 1.0, 0x8a6a4a, 38.5, 0.8, 11.5, 10));
+  quayProps.add(cyl(0.5, 0.5, 1.0, 0x2e7f8f, 39.6, 0.8, 11.8, 10));
+  quayProps.add(box(2.2, 0.15, 1.4, 0x3a5a3a, -30, 0.4, 11.6));
+  colliders.push({ x0: 35.7, z0: 11.2, x1: 36.3, z1: 11.8, id: 'crane' });
   group.add(mergeStatic(quayProps));
 
   // --- bay water + moored boats + skyline across the bay ---

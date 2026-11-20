@@ -1,0 +1,177 @@
+// AZZURA HEIST — combat (M2: 5 weapon slots + cover).
+// All five HUD slots are usable: switching (1–5 / wheel), ammo, fire
+// rate, reload. Shooting is a hitscan from the camera through the
+// crosshair with a tracer + muzzle flash; hitting a Guard unit damages
+// it and raises wanted, hitting a pedestrian raises wanted too. Cover:
+// crouch (C) behind a prop or wall within 2 m in front of the player and
+// incoming fire drops to a quarter while police accuracy falls. Police
+// units return fire while wanted — accuracy falls with distance, with
+// the player's speed, and with cover. Armour absorbs damage first.
+import * as THREE from '../vendor/three.module.min.js';
+
+export const WEAPONS = [
+  { name: 'FISTS', damage: 12, range: 2.2, rate: 2.5, spread: 0, mag: Infinity, reserve: Infinity, auto: false },
+  { name: 'LUPO P9', damage: 12, range: 55, rate: 4, spread: 0.012, mag: 12, reserve: 48, auto: false },
+  { name: 'DOPPIETTA', damage: 16, range: 22, rate: 1, spread: 0.06, mag: 2, reserve: 8, auto: false, pellets: 6 },
+  { name: 'TAMBURO', damage: 8, range: 40, rate: 9, spread: 0.03, mag: 24, reserve: 96, auto: true },
+  { name: 'FUCILE', damage: 38, range: 90, rate: 1.5, spread: 0.004, mag: 5, reserve: 20, auto: false },
+];
+
+export function createCombat(scene, camera, opts) {
+  const { getPlayer, getTargets, onCrime, onDamage, onFire } = opts;
+  const ammo = WEAPONS.map((w) => ({ mag: w.mag, reserve: w.reserve }));
+  let selected = 1;
+  let cooldown = 0;
+  let reloading = 0;
+  let flash = null;
+  let flashTimer = 0;
+  const tracers = [];
+  const ray = new THREE.Raycaster();
+
+  function muzzleWorld() {
+    const p = getPlayer();
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    return { origin: new THREE.Vector3(p.x, 1.4, p.z), dir };
+  }
+  function showFlash(origin) {
+    if (!flash) {
+      flash = new THREE.PointLight(0xffe9a8, 0, 9);
+      scene.add(flash);
+    }
+    flash.position.copy(origin);
+    flash.intensity = 6;
+    flashTimer = 0.06;
+  }
+  function showTracer(from, to) {
+    const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
+      color: 0xffe9a8, transparent: true, opacity: 0.9,
+    }));
+    line.userData.life = 0.09;
+    scene.add(line);
+    tracers.push(line);
+  }
+  function fire() {
+    const w = WEAPONS[selected];
+    if (cooldown > 0 || reloading > 0) return false;
+    if (ammo[selected].mag <= 0) { startReload(); return false; }
+    cooldown = 1 / w.rate;
+    if (w.mag !== Infinity) ammo[selected].mag--;
+    const { origin, dir } = muzzleWorld();
+    showFlash(origin);
+    const pellets = w.pellets || 1;
+    let hitAny = false;
+    for (let i = 0; i < pellets; i++) {
+      const d = dir.clone();
+      d.x += (Math.random() - 0.5) * w.spread * 2;
+      d.y += (Math.random() - 0.5) * w.spread * 2;
+      d.z += (Math.random() - 0.5) * w.spread * 2;
+      d.normalize();
+      ray.set(origin, d);
+      ray.far = w.range;
+      const targets = getTargets();
+      const meshes = targets.map((t) => t.mesh);
+      const hits = ray.intersectObjects(meshes, true);
+      let end = origin.clone().addScaledVector(d, w.range);
+      if (hits.length) {
+        const h = hits[0];
+        end = h.point.clone();
+        // Find which target owns the hit mesh.
+        let owner = null;
+        for (const t of targets) {
+          let o = h.object;
+          while (o) { if (o === t.mesh) { owner = t; break; } o = o.parent; }
+          if (owner) break;
+        }
+        if (owner && owner.damage) {
+          owner.damage(w.damage);
+          hitAny = true;
+          if (owner.kind === 'police' && onCrime) onCrime(8);
+          if (owner.kind === 'ped' && onCrime) onCrime(10);
+        }
+      }
+      showTracer(origin, end);
+    }
+    if (onFire) onFire(w, ammo[selected]);
+    if (ammo[selected].mag <= 0 && w.mag !== Infinity) startReload();
+    return hitAny;
+  }
+  function startReload() {
+    const w = WEAPONS[selected];
+    if (w.mag === Infinity || reloading > 0) return;
+    if (ammo[selected].reserve <= 0 || ammo[selected].mag === w.mag) return;
+    reloading = 1.2;
+  }
+  function finishReload() {
+    const w = WEAPONS[selected];
+    const need = w.mag - ammo[selected].mag;
+    const take = Math.min(need, ammo[selected].reserve);
+    ammo[selected].mag += take;
+    ammo[selected].reserve -= take;
+  }
+  function select(i) {
+    selected = Math.max(0, Math.min(WEAPONS.length - 1, i));
+    reloading = 0;
+    cooldown = 0;
+    return selected;
+  }
+  // Cover: crouched behind a prop/wall within 2 m in front of the player.
+  function inCover() {
+    const p = getPlayer();
+    if (!p.crouched) return false;
+    const fx = Math.cos(p.angle), fz = -Math.sin(p.angle);
+    for (const c of opts.colliders || []) {
+      const cx = Math.max(c.x0, Math.min(p.x + fx * 1.2, c.x1));
+      const cz = Math.max(c.z0, Math.min(p.z + fz * 1.2, c.z1));
+      if (Math.hypot(cx - p.x, cz - p.z) < 2.0) return true;
+    }
+    return false;
+  }
+  // Police return fire: each unit shoots on its own timer while wanted.
+  function update(dt, wantedLevel, units) {
+    cooldown = Math.max(0, cooldown - dt);
+    if (reloading > 0) {
+      reloading -= dt;
+      if (reloading <= 0) { reloading = 0; finishReload(); }
+    }
+    if (flashTimer > 0) {
+      flashTimer -= dt;
+      if (flash && flashTimer <= 0) flash.intensity = 0;
+    }
+    for (let i = tracers.length - 1; i >= 0; i--) {
+      const t = tracers[i];
+      t.userData.life -= dt;
+      t.material.opacity = Math.max(0, t.userData.life / 0.09) * 0.9;
+      if (t.userData.life <= 0) {
+        scene.remove(t);
+        t.geometry.dispose();
+        t.material.dispose();
+        tracers.splice(i, 1);
+      }
+    }
+    if (wantedLevel <= 0) return;
+    const p = getPlayer();
+    const cover = inCover();
+    for (const u of units) {
+      if (!u.car) continue;
+      u.fireTimer -= dt;
+      const dist = Math.hypot(u.car.x - p.x, u.car.z - p.z);
+      if (u.fireTimer > 0 || dist > 45) continue;
+      u.fireTimer = 1.6 + Math.random() * 1.4 - wantedLevel * 0.12;
+      const acc = Math.max(0.04, 0.3 - dist * 0.005 - (cover ? 0.16 : 0) - Math.abs(p.speed || 0) * 0.012);
+      if (Math.random() < acc && onDamage) {
+        const dmg = (6 + wantedLevel * 2) * (cover ? 0.25 : 1);
+        onDamage(Math.round(dmg), u);
+      }
+    }
+  }
+  return {
+    WEAPONS,
+    get selected() { return selected; },
+    get ammo() { return ammo; },
+    get reloading() { return reloading > 0; },
+    get cover() { return inCover(); },
+    fire, select, startReload, inCover, update,
+  };
+}

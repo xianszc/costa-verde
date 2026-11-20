@@ -1,4 +1,4 @@
-/* AZZURA HEIST — HUD design system (M1: live HUD, game/index.html).
+/* AZZURA HEIST — HUD design system (M2: live HUD, game/index.html).
    Tokens from GAME_BIBLE.md §14. Panels: warm cream glass with terracotta
    trim, rounded corners, gold icons. The stage is designed at 1280x720 and
    scaled by JS to fill any viewport, so the layout is identical at
@@ -54,9 +54,37 @@ html, body {
 #pause-overlay { position: fixed; inset: 0; display: flex; align-items: center;
   justify-content: center; background: rgba(20, 28, 34, 0.55); z-index: 20; }
 .pause-card { text-align: center; color: var(--cream); background: var(--panel-dark);
-  border: 1px solid rgba(242, 165, 65, 0.45); border-radius: 14px; padding: 28px 44px; }
+  border: 1px solid rgba(242, 165, 65, 0.45); border-radius: 14px; padding: 28px 44px;
+  width: 420px; }
 .pause-card h2 { margin: 0; font-size: 34px; letter-spacing: 8px; color: var(--gold); }
 .pause-card p { margin: 8px 0 0; font-size: 13px; letter-spacing: 2px; }
+.pause-card button {
+  display: block; width: 100%; margin-top: 12px; padding: 10px;
+  background: var(--gold); color: var(--ink); border: 0; border-radius: 8px;
+  font-size: 14px; font-weight: 800; letter-spacing: 2px; cursor: pointer;
+}
+.pause-card button:hover { filter: brightness(1.08); }
+.pause-row { display: flex; gap: 10px; margin-top: 12px; }
+.pause-row button { margin-top: 0; flex: 1; }
+.pause-row label {
+  flex: 1; display: flex; flex-direction: column; gap: 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-align: left;
+}
+.pause-row input[type="range"], .pause-row select { width: 100%; accent-color: var(--gold); }
+.pause-row select { background: var(--cream); color: var(--ink); border: 0; border-radius: 6px; padding: 6px; font-weight: 700; }
+.pause-hint { opacity: 0.7; font-size: 11px !important; margin-top: 14px !important; }
+
+/* ---- busted / wasted overlay ---- */
+#busted-overlay { position: fixed; inset: 0; display: flex; align-items: center;
+  justify-content: center; background: rgba(20, 10, 10, 0.6); z-index: 22; }
+.busted-card { text-align: center; color: var(--cream); background: var(--panel-dark);
+  border: 1px solid rgba(255, 42, 42, 0.55); border-radius: 14px; padding: 32px 48px; width: 440px; }
+.busted-card h2 { margin: 0; font-size: 44px; letter-spacing: 10px; color: #ff6b5e; }
+.busted-card p { margin: 12px 0 0; font-size: 14px; line-height: 1.5; }
+.busted-card button {
+  margin-top: 20px; padding: 12px 28px; background: var(--gold); color: var(--ink);
+  border: 0; border-radius: 8px; font-size: 14px; font-weight: 800; letter-spacing: 2px; cursor: pointer;
+}
 
 /* ---- HUD stage ---- */
 #hud-stage {
@@ -117,6 +145,7 @@ html, body {
 .stage-names { display: flex; gap: 6px; font-size: 9px; font-weight: 700; letter-spacing: 1px; color: #6b5d4f; margin-bottom: 8px; }
 .stage-names span { flex: 1; text-align: center; }
 .mission p { margin: 0; font-size: 12px; line-height: 1.45; }
+.mission .objective { margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--terra); }
 .mission .timer { margin-top: 8px; font-size: 12px; font-weight: 800; letter-spacing: 1px; }
 .mission .timer b { color: var(--terra); }
 
@@ -212,3 +241,68 @@ html, body {
 .bar.xp > i { width: 62%; background: var(--gold); }
 .vitals .xp-line { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #6b5d4f; }
 .vitals .xp-line b { color: var(--ink); }
+
+/* ---- crosshair / cover / toast (M2) ---- */
+#crosshair { position: fixed; left: 50%; top: 50%; width: 24px; height: 24px;
+  transform: translate(-50%, -50%); z-index: 7; pointer-events: none; }
+#crosshair::before, #crosshair::after {
+  content: ''; position: absolute; background: rgba(247, 235, 215, 0.9);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+#crosshair::before { left: 11px; top: 2px; width: 2px; height: 20px; }
+#crosshair::after { left: 2px; top: 11px; width: 20px; height: 2px; }
+#cover-indicator {
+  position: fixed; left: 50%; bottom: 210px; transform: translateX(-50%);
+  background: var(--panel-dark); color: var(--gold); border: 1px solid var(--gold);
+  border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 800;
+  letter-spacing: 2px; z-index: 7; pointer-events: none;
+}
+#toast {
+  position: fixed; left: 50%; bottom: 260px; transform: translateX(-50%);
+  background: var(--panel-dark); color: var(--cream);
+  border: 1px solid rgba(242, 165, 65, 0.45); border-radius: 8px;
+  padding: 8px 16px; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+  z-index: 8; pointer-events: none; transition: opacity 0.4s;
+  max-width: 80vw; text-align: center;
+}
+
+/* ---- Captain's Logbook hub (M2) ---- */
+#hub-overlay { position: fixed; inset: 0; display: flex; align-items: center;
+  justify-content: center; background: rgba(20, 28, 34, 0.6); z-index: 18; }
+.hub-card {
+  width: 720px; max-width: 92vw; max-height: 84vh; overflow: hidden;
+  background: #f7ebd7; border: 2px solid var(--gold); border-radius: 14px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); color: var(--ink);
+  display: flex; flex-direction: column;
+}
+.hub-head { display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 18px 20px 0; }
+.hub-title { font-size: 24px; font-weight: 800; letter-spacing: 3px; color: var(--ink); }
+.hub-sub { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--terra); margin-top: 4px; }
+.hub-close { background: none; border: 0; font-size: 30px; line-height: 1; cursor: pointer; color: var(--ink); }
+.hub-tabs { display: flex; gap: 6px; padding: 14px 20px 0; }
+.hub-tab {
+  flex: 1; padding: 9px 4px; background: rgba(30, 42, 50, 0.08);
+  border: 1px solid rgba(30, 42, 50, 0.2); border-radius: 8px 8px 0 0;
+  font-size: 12px; font-weight: 800; letter-spacing: 1px; cursor: pointer; color: var(--ink);
+}
+.hub-tab.sel { background: var(--ink); color: var(--gold); border-color: var(--ink); }
+.hub-body { padding: 16px 20px 20px; overflow-y: auto; }
+.hub-body h3 { margin: 4px 0 10px; font-size: 15px; letter-spacing: 1px; }
+.hub-row { border: 1px solid rgba(30, 42, 50, 0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.hub-row.active { border-color: var(--gold); background: rgba(242, 165, 65, 0.12); }
+.hub-row b { font-size: 14px; letter-spacing: 0.5px; }
+.hub-row span { float: right; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: var(--terra); }
+.hub-row p { margin: 4px 0 0; font-size: 12px; line-height: 1.45; }
+.hub-row .hub-sub { font-size: 11px; color: #6b5d4f; float: none; }
+.hub-note { font-size: 12px; line-height: 1.5; color: #6b5d4f; }
+.hub-big { font-size: 30px; font-weight: 800; color: var(--gold); margin: 4px 0; }
+.hub-saves { margin-top: 6px; }
+.hub-save { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(30, 42, 50, 0.15); }
+.hub-save span { flex: 1; font-size: 12px; font-weight: 700; }
+.hub-save button, .hub-row button {
+  padding: 6px 12px; background: var(--ink); color: var(--gold); border: 0;
+  border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: 1px; cursor: pointer;
+}
+.hub-save button:disabled, .hub-row button:disabled { opacity: 0.4; cursor: default; }
+.hub-body input[type="range"] { width: 200px; accent-color: var(--gold); vertical-align: middle; }

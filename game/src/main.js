@@ -1,14 +1,16 @@
-// AZZURA HEIST — game entry point (M1: playable baseline).
+// AZZURA HEIST — game entry point (M2: core systems).
 // Boots the real game from game.js: the title screen shows the actual
 // District 4 (real scene — layered hills, bay water, quay, ground detail),
 // never flat color bands. Enter starts play (walk / drive / chase camera /
-// traffic / pedestrians / wired HUD / day-night / storm).
+// traffic / pedestrians / wired HUD / day-night / storm / wanted / combat /
+// hub / radio / save / missions 1–4).
 //
-// ?shot=title|drive|walk|night|storm stages that scene deterministically
-// (fixed steps, scripted inputs), paints it twice and sets
-// window.__shotReady for a screenshot. ?shot=road&district=oldtown|marina|
-// quarry|promenade|countryside|skyline[&night=1] stages one road surface.
-// ?seed=N is accepted for determinism and recorded in the shot stats.
+// ?shot=title|drive|walk|night|storm|road|wanted|combat|hub|mission stages
+// that scene deterministically (fixed steps, scripted inputs), paints it
+// twice and sets window.__shotReady for a screenshot.
+// ?shot=road&district=oldtown|marina|quarry|promenade|countryside|skyline
+// [&night=1] stages one road surface. ?seed=N is accepted for
+// determinism and recorded in the shot stats.
 import { createGame } from './game.js';
 
 const errors = [];

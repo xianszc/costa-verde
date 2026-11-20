@@ -1,4 +1,4 @@
-// AZZURA HEIST — road system (M1, Xian's road spec).
+// AZZURA HEIST — road system (M2, Xian's road spec).
 // One source of truth: the road data drives the mesh, the traffic lanes,
 // the navigation paths and the minimap lines. Procedural only, no external
 // assets. Base asphalt is LIGHT warm grey #8a8580 (never dark) so lane
@@ -8,8 +8,16 @@
 // markings sit 0.02 above the asphalt, sidewalks step up 0.12.
 // City-system rules apply: roads FIRST, trees ONLY in green zones, no
 // building or tree ever on a road or blocking an intersection.
+//
+// M2 changes: asphalt base cooled toward neutral grey (the golden-hour
+// sun warms everything, so the canvas base must lean cool for the road
+// to READ as #8a8580); crosswalks narrower + less dominant; the road
+// showcase now has traffic, pedestrians, varied facades and a non-flat
+// horizon (hills + skyline).
 import * as THREE from '../vendor/three.module.min.js';
-import { M, mergedMesh, colored, xform, vertexColorMat } from './world.js';
+import { M, mergedMesh, colored, xform, vertexColorMat, buildSkylineCluster, lampRow } from './world.js';
+import { buildTrafficCar, buildPoliceCruiser } from './vehicles.js';
+import { makeFigure, CIVILIANS } from './people.js';
 
 export function seededRandom(seed) {
   let a = seed >>> 0;
@@ -29,11 +37,12 @@ export function seededRandom(seed) {
 // gravel: speckled dirt with tire ruts. concrete: slabs + cracks, optional
 // hazard stripes. plaza: large light pavers.
 export const SURFACES = {
-  // Bases are deliberately LIGHT: ACES tone mapping + golden-hour light
-  // darken the albedo by roughly a third, so the canvas base must sit
-  // well above #8a8580 for the road to READ as light warm grey.
-  asphalt: { base: '#b3ada2', kind: 'asphalt' },
-  cobble: { base: '#b8ae9c', kind: 'cobble' },
+  // Bases are deliberately LIGHT and slightly COOL: ACES tone mapping +
+  // the warm golden-hour sun darken and warm the albedo by roughly a
+  // third, so the canvas base must sit well above #8a8580 and lean cool
+  // for the road to READ as light warm grey, not tan.
+  asphalt: { base: '#a9a49b', kind: 'asphalt' },
+  cobble: { base: '#b3aa99', kind: 'cobble' },
   boardwalk: { base: '#a9805a', kind: 'boardwalk' },
   gravel: { base: '#b5a888', kind: 'gravel' },
   concrete: { base: '#b8b8b2', kind: 'concrete' },
@@ -71,30 +80,27 @@ export function roadTexture(surface, seed = 7) {
   const ctx = c.getContext('2d');
   ctx.fillStyle = def.base;
   ctx.fillRect(0, 0, 256, 256);
-  // SEAMLESS TILING: every feature that can cross a tile edge is drawn
-  // wrapped — at (x, y) and at all 8 neighbours (x±256, y±256) — so a
-  // blotch, patch, stain, crack or stone cut by one edge continues on
-  // the opposite edge. Without this the road reads as broken segments
-  // every tile (~7.5 m on the boulevard).
+  // Draw a feature wrapped across all 9 tile offsets so it continues
+  // over the tile edge — nothing is ever cut at the edge, so the road
+  // reads as one continuous surface, never as separate blocks.
   const wrap = (fn) => {
-    for (const dx of [-256, 0, 256]) {
-      for (const dy of [-256, 0, 256]) {
+    for (const ox of [-256, 0, 256]) {
+      for (const oy of [-256, 0, 256]) {
         ctx.save();
-        ctx.translate(dx, dy);
+        ctx.translate(ox, oy);
         fn();
         ctx.restore();
       }
     }
   };
   if (def.kind === 'asphalt' || def.kind === 'concrete') {
-    // Low-frequency noise blotches (±4% lightness — kept subtle so the
-    // road stays light; the old ±6% read as dark patches).
+    // Low-frequency noise blotches (+-6% lightness).
     for (let i = 0; i < 46; i++) {
       const x = rnd() * 256, y = rnd() * 256, r = 12 + rnd() * 42;
-      const f = 0.96 + rnd() * 0.08;
+      const f = 0.94 + rnd() * 0.12;
       wrap(() => {
         const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, shadeA(def.base, f, 1));
+        g.addColorStop(0, shade(def.base, f));
         g.addColorStop(1, shadeA(def.base, f, 0));
         ctx.fillStyle = g;
         ctx.fillRect(x - r, y - r, r * 2, r * 2);
@@ -102,67 +108,61 @@ export function roadTexture(surface, seed = 7) {
     }
     // Patched repairs: slightly darker/lighter rectangles.
     for (let i = 0; i < 8; i++) {
-      const px = rnd() * 200, py = rnd() * 200;
-      const pw = 24 + rnd() * 40, ph = 16 + rnd() * 28;
-      const col = shade(def.base, 0.94 + rnd() * 0.12);
+      const px = rnd() * 200, py = rnd() * 200, pw = 24 + rnd() * 40, ph = 16 + rnd() * 28;
+      const col = shade(def.base, 0.9 + rnd() * 0.2);
       wrap(() => {
         ctx.fillStyle = col;
-        ctx.globalAlpha = 0.4;
+        ctx.globalAlpha = 0.55;
         ctx.fillRect(px, py, pw, ph);
         ctx.globalAlpha = 1;
       });
     }
-    // Fine grain.
+    // Fine grain (1.4px dots — invisible if cut, so no wrap needed).
     for (let i = 0; i < 2200; i++) {
-      const gx = rnd() * 256, gy = rnd() * 256;
-      const col = rnd() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
-      wrap(() => { ctx.fillStyle = col; ctx.fillRect(gx, gy, 1.4, 1.4); });
+      ctx.fillStyle = rnd() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+      ctx.fillRect(rnd() * 256, rnd() * 256, 1.4, 1.4);
     }
-    // Worn tracks along the lanes (full-width bands — already seamless).
-    ctx.fillStyle = 'rgba(40,36,32,0.06)';
+    // Worn tracks along the lanes (two darker bands, full-width).
+    ctx.fillStyle = 'rgba(40,36,32,0.10)';
     ctx.fillRect(0, 66, 256, 14);
     ctx.fillRect(0, 176, 256, 14);
     // Oil stains.
     for (let i = 0; i < 5; i++) {
-      const ox = rnd() * 256, oy = rnd() * 256;
-      const rx = 8 + rnd() * 14, ry2 = 5 + rnd() * 8, rot = rnd() * 3;
+      const ox = rnd() * 256, oy = rnd() * 256, rx = 8 + rnd() * 14, ry = 5 + rnd() * 8;
       wrap(() => {
-        ctx.fillStyle = 'rgba(20,18,16,0.08)';
+        ctx.fillStyle = 'rgba(20,18,16,0.16)';
         ctx.beginPath();
-        ctx.ellipse(ox, oy, rx, ry2, rot, 0, Math.PI * 2);
+        ctx.ellipse(ox, oy, rx, ry, rnd() * 3, 0, Math.PI * 2);
         ctx.fill();
       });
     }
     if (def.kind === 'concrete') {
-      // Slab joints (grid at multiples of 64 tiles exactly) + cracks.
-      ctx.strokeStyle = 'rgba(60,58,54,0.35)';
+      // Slab joints + cracks (joints sit on the 64px grid, so they tile).
+      ctx.strokeStyle = 'rgba(60,58,54,0.5)';
       ctx.lineWidth = 2;
       for (let i = 0; i <= 4; i++) {
         ctx.beginPath(); ctx.moveTo(i * 64, 0); ctx.lineTo(i * 64, 256); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, i * 64); ctx.lineTo(256, i * 64); ctx.stroke();
       }
-      ctx.strokeStyle = 'rgba(50,48,44,0.4)';
+      ctx.strokeStyle = 'rgba(50,48,44,0.6)';
       ctx.lineWidth = 1;
       for (let i = 0; i < 6; i++) {
-        const pts = [];
-        let x = rnd() * 256, y = rnd() * 256;
-        pts.push([x, y]);
-        for (let j = 0; j < 5; j++) { x += (rnd() - 0.5) * 30; y += rnd() * 18; pts.push([x, y]); }
+        const sx = rnd() * 256, sy = rnd() * 256;
         wrap(() => {
-          ctx.beginPath();
-          ctx.moveTo(pts[0][0], pts[0][1]);
-          for (let j = 1; j < pts.length; j++) ctx.lineTo(pts[j][0], pts[j][1]);
+          let x = sx, y = sy;
+          ctx.beginPath(); ctx.moveTo(x, y);
+          for (let j = 0; j < 5; j++) { x += (rnd() - 0.5) * 30; y += rnd() * 18; ctx.lineTo(x, y); }
           ctx.stroke();
         });
       }
     }
   } else if (def.kind === 'cobble') {
-    // Paver grid: rounded stones, per-stone variation. Each stone is
-    // drawn wrapped so the staggered edge stones continue across the tile.
+    // Paver grid: rounded stones, per-stone variation, dark joints.
+    // Each stone is drawn wrapped so the offset rows never cut at the edge.
     const s = 32;
     for (let ry = 0; ry < 8; ry++) {
       for (let cx = 0; cx < 8; cx++) {
-        const col = shade(def.base, 0.94 + rnd() * 0.14);
+        const col = shade(def.base, 0.9 + rnd() * 0.22);
         const off = (ry % 2) * s / 2;
         const sx = cx * s + off - s / 2 + 2, sy = ry * s + 2;
         wrap(() => {
@@ -174,9 +174,7 @@ export function roadTexture(surface, seed = 7) {
       }
     }
   } else if (def.kind === 'boardwalk') {
-    // Wooden planks: 6 wide planks per tile, hairline gaps (1px, light),
-    // grain curves wrapped so they continue across the edge. The old
-    // 2px dark gaps every 32px tiled into a heavy dark grid.
+    // Wooden planks with grain lines and hairline gaps (6 rows).
     for (let ry = 0; ry < 6; ry++) {
       const y0 = ry * 256 / 6;
       ctx.fillStyle = shade(def.base, 0.9 + rnd() * 0.2);
@@ -256,6 +254,20 @@ function signTexture(text) {
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#1e5a8a'; ctx.fillRect(0, 0, 256, 64);
   ctx.fillStyle = '#f7ebd7'; ctx.font = 'bold 26px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 34);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// Shop-front sign texture (fictional brands only).
+function shopTexture(text, bg = '#1e2a32', fg = '#ffd9a0') {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, 256, 64);
+  ctx.fillStyle = fg; ctx.font = 'bold 28px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(text, 128, 34);
   const tex = new THREE.CanvasTexture(c);
@@ -353,324 +365,405 @@ export function buildRoadNetwork() {
   const roadMat = new THREE.MeshStandardMaterial({
     map: tex, roughness: 0.92, metalness: 0.0, flatShading: true,
   });
-  const road = new THREE.Mesh(new THREE.PlaneGeometry(120, 12), roadMat);
-  road.rotation.x = -Math.PI / 2;
-  road.position.set(0, 0.02, 0);
-  road.receiveShadow = true;
-  g.add(road);
-  const crossTex = roadTexture('asphalt', 23);
-  crossTex.repeat.set(2, 10);
-  const crossGeos = CROSS_X.map((cx) => xform(
-    new THREE.PlaneGeometry(7, 48), cx, 0.02, -18, 0, 1, -Math.PI / 2, 0,
-  ));
-  // PlaneGeometry rotated flat via xform: rotate -90 about X, then place.
-  const crossMesh = mergedMesh(crossGeos, new THREE.MeshStandardMaterial({
-    map: crossTex, roughness: 0.92, flatShading: true,
-  }));
-  crossMesh.receiveShadow = true;
-  g.add(crossMesh);
-
-  // Sidewalks: one step lighter than the road, +0.12 height step.
-  const walkMat = M(0xb0a89a);
-  const walkGeos = [
-    xform(new THREE.BoxGeometry(120, 0.24, 2.5), 0, 0.12, -7.25),
-    xform(new THREE.BoxGeometry(120, 0.24, 2.5), 0, 0.12, 7.25),
+  const parts = [];
+  // Road slabs (12 wide; 44 x 7.5m tiles).
+  for (let x = -60; x < 60; x += 7.5) parts.push(colored(xform(new THREE.BoxGeometry(7.5, 0.3, 12), x + 3.75, 0.05, 0), 0xffffff));
+  // Cross streets (7 wide, 42 long) — one box per street, not 9 tiles.
+  for (const cx of CROSS_X) parts.push(colored(xform(new THREE.BoxGeometry(7, 0.3, 48), cx, 0.05, -18), 0xffffff));
+  // Sidewalks (light warm grey, one step lighter than the road) with a
+  // physical height step (y 0.12) and visible curbs.
+  const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true });
+  const swParts = [
+    colored(xform(new THREE.BoxGeometry(120, 0.24, 2.5), 0, 0.12, -7.25), 0xffffff),
+    colored(xform(new THREE.BoxGeometry(120, 0.24, 2.5), 0, 0.12, 7.25), 0xffffff),
   ];
   for (const cx of CROSS_X) {
-    walkGeos.push(xform(new THREE.BoxGeometry(2, 0.24, 48), cx - 4.5, 0.12, -18));
-    walkGeos.push(xform(new THREE.BoxGeometry(2, 0.24, 48), cx + 4.5, 0.12, -18));
+    swParts.push(colored(xform(new THREE.BoxGeometry(2, 0.24, 48), cx - CROSS.half - 1, 0.12, -18), 0xffffff));
+    swParts.push(colored(xform(new THREE.BoxGeometry(2, 0.24, 48), cx + CROSS.half + 1, 0.12, -18), 0xffffff));
   }
-  g.add(mergedMesh(walkGeos, walkMat));
-
-  // Quay: stone edge fronting the bay.
-  const quay = new THREE.Mesh(
-    new THREE.BoxGeometry(120, 0.3, 4.5),
-    M(0xcbb28a),
-  );
-  quay.position.set(0, 0.15, 10.75);
-  quay.receiveShadow = true;
+  const sw = mergedMesh(swParts, sidewalkMat);
+  sw.name = 'sidewalks';
+  g.add(sw);
+  // Quay (z 8.5..13) — wide paved promenade fronting the bay.
+  const quayTex = roadTexture('plaza', 5);
+  quayTex.repeat.set(14, 1);
+  const quayMat = new THREE.MeshStandardMaterial({ map: quayTex, roughness: 0.95, flatShading: true });
+  const quay = new THREE.Mesh(new THREE.BoxGeometry(120, 0.3, 4.5), quayMat);
+  quay.position.set(0, 0.06, 10.75);
+  quay.name = 'quay';
   g.add(quay);
-
-  // ---- markings (merged, 0.02 above asphalt — never z-fighting) ----
-  // Worn white dashes down the boulevard centre + yellow edge lines.
-  const whiteMat = new THREE.MeshBasicMaterial({ color: 0xf2f0ea, transparent: true, opacity: 0.62 });
-  const yellowMat = new THREE.MeshBasicMaterial({ color: 0xe8c33d, transparent: true, opacity: 0.8 });
-  const dashGeos = [];
-  for (let x = -58; x <= 58; x += 4) {
-    dashGeos.push(xform(new THREE.PlaneGeometry(1.8, 0.16), x, 0.045, 0, 0, 1, -Math.PI / 2, 0));
-  }
-  g.add(mergedMesh(dashGeos, whiteMat));
-  const edgeGeos = [
-    xform(new THREE.PlaneGeometry(120, 0.18), 0, 0.045, -5.7, 0, 1, -Math.PI / 2, 0),
-    xform(new THREE.PlaneGeometry(120, 0.18), 0, 0.045, 5.7, 0, 1, -Math.PI / 2, 0),
-  ];
-  g.add(mergedMesh(edgeGeos, yellowMat));
-  // Zebra crosswalks at every cross street + stop lines. Stripes are
-  // narrow with real gaps so they read as a crossing, not a white slab.
-  const zebraGeos = [];
-  const stopGeos = [];
+  const road = mergedMesh(parts, roadMat);
+  road.name = 'roads';
+  g.add(road);
+  // ---------- markings (worn, never crisp) ----------
+  const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.62 });
+  const dashes = [];
+  for (let x = -56; x <= 56; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, 0), 0xffffff));
   for (const cx of CROSS_X) {
-    for (let dz = -4.4; dz <= 4.4; dz += 1.3) {
-      zebraGeos.push(xform(new THREE.PlaneGeometry(5.2, 0.4), cx, 0.045, dz, 0, 1, -Math.PI / 2, 0));
+    for (let z = -40; z <= 4; z += 5) dashes.push(colored(xform(new THREE.BoxGeometry(0.22, 0.01, 3), cx, 0.22, z), 0xffffff));
+  }
+  const dashMesh = mergedMesh(dashes, dashMat);
+  dashMesh.name = 'dashes';
+  g.add(dashMesh);
+  const yellowMat = new THREE.MeshBasicMaterial({ color: 0xe8c33d, transparent: true, opacity: 0.5 });
+  const edges = [
+    colored(xform(new THREE.BoxGeometry(120, 0.01, 0.3), 0, 0.22, -5.6), 0xffffff),
+    colored(xform(new THREE.BoxGeometry(120, 0.01, 0.3), 0, 0.22, 5.6), 0xffffff),
+  ];
+  for (const cx of CROSS_X) {
+    edges.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 48), cx - 3.2, 0.22, -18), 0xffffff));
+    edges.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 48), cx + 3.2, 0.22, -18), 0xffffff));
+  }
+  const edgeMesh = mergedMesh(edges, yellowMat);
+  edgeMesh.name = 'edges';
+  g.add(edgeMesh);
+  // Zebra crossings — narrow (3.6 wide), 6 short stripes, only where a
+  // cross street meets the boulevard (real intersections), so they read
+  // as crossings instead of dominating the whole road.
+  const zebraMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.5 });
+  const zebras = [];
+  for (const cx of CROSS_X) {
+    for (let dz = -4.0; dz <= 4.0; dz += 1.6) {
+      zebras.push(colored(xform(new THREE.BoxGeometry(0.28, 0.01, 3.6), cx, 0.22, dz), 0xffffff));
     }
-    stopGeos.push(xform(new THREE.PlaneGeometry(3.2, 0.35), cx - 5.4, 0.045, -3.4, 0, 1, -Math.PI / 2, 0));
-    stopGeos.push(xform(new THREE.PlaneGeometry(3.2, 0.35), cx + 5.4, 0.045, 3.4, 0, 1, -Math.PI / 2, 0));
   }
-  g.add(mergedMesh(zebraGeos, whiteMat));
-  g.add(mergedMesh(stopGeos, whiteMat));
-  // Turn arrows on the boulevard (simple chevrons, merged).
-  const arrowGeos = [];
-  for (const ax of [-30, 10, 50]) {
-    arrowGeos.push(xform(new THREE.PlaneGeometry(0.5, 1.6), ax - 0.5, 0.045, -3.4, 0.35, 1, -Math.PI / 2, 0));
-    arrowGeos.push(xform(new THREE.PlaneGeometry(0.5, 1.6), ax + 0.5, 0.045, -3.4, -0.35, 1, -Math.PI / 2, 0));
+  const zebraMesh = mergedMesh(zebras, zebraMat);
+  zebraMesh.name = 'zebras';
+  g.add(zebraMesh);
+  // Stop lines + turn arrows at intersections (worn).
+  const stopMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.55 });
+  const stops = [];
+  for (const cx of CROSS_X) {
+    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx - 4.6, 0.22, -3.4), 0xffffff));
+    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx + 4.6, 0.22, 3.4), 0xffffff));
   }
-  g.add(mergedMesh(arrowGeos, whiteMat));
-  // Painted parking bays on the marina stretch (west end, quay side).
-  const bayGeos = [];
-  for (let i = 0; i < 6; i++) {
-    const x = -56 + i * 3.4;
-    bayGeos.push(xform(new THREE.PlaneGeometry(0.14, 2.4), x, 0.045, 4.6, 0, 1, -Math.PI / 2, 0));
+  const stopMesh = mergedMesh(stops, stopMat);
+  stopMesh.name = 'stoplines';
+  g.add(stopMesh);
+  // Turn arrows (worn triangles).
+  const arrowGeo = new THREE.Shape();
+  arrowGeo.moveTo(-0.5, 0); arrowGeo.lineTo(0.5, 0); arrowGeo.lineTo(0.5, 1.6);
+  arrowGeo.lineTo(1.1, 1.6); arrowGeo.lineTo(0, 2.8); arrowGeo.lineTo(-1.1, 1.6);
+  arrowGeo.lineTo(-0.5, 1.6); arrowGeo.closePath();
+  const arrowMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.45 });
+  const arrowParts = [];
+  for (const cx of CROSS_X) {
+    const sh1 = new THREE.ShapeGeometry(arrowGeo);
+    arrowParts.push(colored(xform(sh1, cx, 0.22, -3.4, 0, Math.PI, 0), 0xffffff));
+    const sh2 = new THREE.ShapeGeometry(arrowGeo);
+    arrowParts.push(colored(xform(sh2, cx, 0.22, 3.4, 0, 0, 0), 0xffffff));
   }
-  bayGeos.push(xform(new THREE.PlaneGeometry(20, 0.14), -46, 0.045, 5.8, 0, 1, -Math.PI / 2, 0));
-  g.add(mergedMesh(bayGeos, whiteMat));
-
-  // ---- street furniture (merged by material) ----
-  // Lamp posts down the palm median (poles + globes, 2 draw calls).
-  const lampXs = [];
-  for (let x = -54; x <= 54; x += 12) lampXs.push(x);
-  const poles = lampXs.map((x) => xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), x, 1.2, 0));
-  const globes = lampXs.map((x) => xform(new THREE.SphereGeometry(0.16, 10, 8), x, 2.5, 0));
-  g.add(mergedMesh(poles, M(0x2b2b2b)));
-  const globeMat = M(0xffd9a0, { emissive: 0xffc46b, emissiveIntensity: 0.9 });
-  g.add(mergedMesh(globes, globeMat));
-  // Lamp cones (visible at night only): small, subtle glow cones, not
-  // searchlights.
-  const lampCones = [];
-  for (const x of lampXs) {
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(1.4, 2.2, 12, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: 0xffd9a0, transparent: true, opacity: 0.07,
-        side: THREE.DoubleSide, depthWrite: false,
-      }),
-    );
-    cone.position.set(x, 1.1, 0);
-    cone.visible = false;
-    g.add(cone);
-    lampCones.push(cone);
+  const arrowMesh = mergedMesh(arrowParts, arrowMat);
+  arrowMesh.name = 'arrows';
+  g.add(arrowMesh);
+  // Parking bays (white outline, worn) along the boulevard edges.
+  const bayMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.4 });
+  const bays = [];
+  for (const bx of [-48, -38, -28, -18, -8, 2, 12, 22, 32, 42]) {
+    bays.push(colored(xform(new THREE.BoxGeometry(6.4, 0.01, 0.12), bx, 0.22, -4.9), 0xffffff));
+    bays.push(colored(xform(new THREE.BoxGeometry(6.4, 0.01, 0.12), bx, 0.22, 4.9), 0xffffff));
   }
-  // Benches + bins on the north sidewalk (merged, 2 calls).
-  const benchGeos = [];
-  const binGeos = [];
-  for (const bx of [-48, -28, -8, 12, 32, 52]) {
-    benchGeos.push(xform(new THREE.BoxGeometry(1.8, 0.08, 0.5), bx, 0.55, -7.2));
-    benchGeos.push(xform(new THREE.BoxGeometry(1.8, 0.5, 0.08), bx, 0.3, -7.45));
-    benchGeos.push(xform(new THREE.BoxGeometry(0.08, 0.5, 0.45), bx - 0.8, 0.25, -7.2));
-    benchGeos.push(xform(new THREE.BoxGeometry(0.08, 0.5, 0.45), bx + 0.8, 0.25, -7.2));
-    binGeos.push(xform(new THREE.CylinderGeometry(0.28, 0.24, 0.7, 10), bx + 1.6, 0.35, -7.2));
-  }
-  g.add(mergedMesh(benchGeos, M(0x8a6a4a)));
-  g.add(mergedMesh(binGeos, M(0x2e4a5e)));
-  // Bollards along the quay edge (merged, painted teal).
-  const bolGeos = [];
-  for (let x = -58; x <= 58; x += 4) {
-    bolGeos.push(xform(new THREE.CylinderGeometry(0.14, 0.16, 0.7, 8), x, 0.35, 12.6));
-  }
-  g.add(mergedMesh(bolGeos, M(0x1f7a8c)));
-  // Fire hydrants (red, merged) on sidewalk corners.
-  const hydGeos = [];
-  for (const [hx, hz] of [[-38, -7.2], [2, -7.2], [42, -7.2], [-18, 7.2], [22, 7.2]]) {
-    hydGeos.push(xform(new THREE.CylinderGeometry(0.16, 0.2, 0.6, 8), hx, 0.3, hz));
-    hydGeos.push(xform(new THREE.SphereGeometry(0.14, 8, 6), hx, 0.68, hz));
-  }
-  g.add(mergedMesh(hydGeos, M(0xc0392b)));
-  // Manhole covers + drain grates on the road (flat, merged, 1 call each).
-  const manGeos = [];
-  const grateGeos = [];
-  for (const mx of [-44, -4, 36]) {
-    manGeos.push(xform(new THREE.CylinderGeometry(0.45, 0.45, 0.04, 12), mx, 0.05, 0));
-  }
-  for (const [gx, gz] of [[-52, -5.6], [8, -5.6], [48, -5.6], [-32, 5.6], [28, 5.6]]) {
-    grateGeos.push(xform(new THREE.BoxGeometry(0.9, 0.05, 0.4), gx, 0.05, gz));
-  }
-  g.add(mergedMesh(manGeos, M(0x3a3a3a)));
-  g.add(mergedMesh(grateGeos, M(0x2b2b2b)));
-  // Speed bumps (low, drive-over) on the boulevard.
-  const bumpGeos = [
-    xform(new THREE.BoxGeometry(11.6, 0.09, 0.7), -14, 0.06, -3.4),
-    xform(new THREE.BoxGeometry(11.6, 0.09, 0.7), 26, 0.06, 3.4),
+  const bayMesh = mergedMesh(bays, bayMat);
+  bayMesh.name = 'bays';
+  g.add(bayMesh);
+  // ---------- furniture ----------
+  // Curbs: raised lip between road and sidewalk (height step is visible).
+  const curbMat = new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.95 });
+  const curbs = [
+    colored(xform(new THREE.BoxGeometry(120, 0.34, 0.3), 0, 0.17, -6.05), 0xffffff),
+    colored(xform(new THREE.BoxGeometry(120, 0.34, 0.3), 0, 0.17, 6.05), 0xffffff),
   ];
-  g.add(mergedMesh(bumpGeos, M(0x6a655e)));
-  // Street signs with fictional names at intersections (one plane each).
-  const signNames = [
-    ['VIA LUNGOMARE', -40, -7.6], ['VIA DEL FARO', -20, -7.6],
-    ['VIA DEL PORTO', 0, -7.6], ['VIA SOLMAR', 20, -7.6], ['VIA AZZURA', 40, -7.6],
-  ];
-  for (const [name, sx, sz] of signNames) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.6, 6), M(0x2b2b2b));
-    pole.position.set(sx, 1.3, sz);
-    g.add(pole);
-    const panel = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.2, 0.55),
-      new THREE.MeshBasicMaterial({ map: signTexture(name), transparent: false }),
-    );
-    panel.position.set(sx, 2.5, sz);
-    panel.rotation.y = Math.PI / 4;
-    g.add(panel);
+  const curbMesh = mergedMesh(curbs, curbMat);
+  curbMesh.name = 'curbs';
+  g.add(curbMesh);
+  // Manholes + grates.
+  const metal = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.6, metalness: 0.7 });
+  const metalParts = [];
+  for (const mx of [-32, -8, 18, 44]) metalParts.push(colored(xform(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 12), mx, 0.22, -3.4), 0xffffff));
+  for (const gx of [-24, 8, 34]) {
+    for (let i = 0; i < 4; i++) metalParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.02, 0.08), gx, 0.22, 5.5 - i * 0.18), 0xffffff));
   }
-
-  // ---- storm: puddles (hidden until wet) ----
+  const metalMesh = mergedMesh(metalParts, metal);
+  metalMesh.name = 'metal';
+  g.add(metalMesh);
+  // Hydrants, bollards, bins, benches.
+  const red = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.5 });
+  const hydParts = [];
+  for (const hx of [-24, 8, 34]) {
+    hydParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 8), hx, 0.55, 7.3), 0xffffff));
+    hydParts.push(colored(xform(new THREE.SphereGeometry(0.22, 8, 6), hx, 0.95, 7.3), 0xffffff));
+  }
+  const hydMesh = mergedMesh(hydParts, red);
+  hydMesh.name = 'hydrants';
+  g.add(hydMesh);
+  const teal = new THREE.MeshStandardMaterial({ color: 0x2e7f8f, roughness: 0.6 });
+  const bolParts = [];
+  for (let x = -54; x <= 54; x += 6) {
+    bolParts.push(colored(xform(new THREE.CylinderGeometry(0.14, 0.18, 0.85, 8), x, 0.45, 8.6), 0xffffff));
+    bolParts.push(colored(xform(new THREE.SphereGeometry(0.14, 8, 6), x, 0.9, 8.6), 0xffffff));
+  }
+  const bolMesh = mergedMesh(bolParts, teal);
+  bolMesh.name = 'bollards';
+  g.add(bolMesh);
+  const binMat = new THREE.MeshStandardMaterial({ color: 0x3a4a52, roughness: 0.7 });
+  const binParts = [];
+  for (const bx of [-44, -14, 14, 44]) binParts.push(colored(xform(new THREE.CylinderGeometry(0.35, 0.3, 0.8, 8), bx, 0.6, 7.3), 0xffffff));
+  const binMesh = mergedMesh(binParts, binMat);
+  binMesh.name = 'bins';
+  g.add(binMesh);
+  const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.8 });
+  const benchParts = [];
+  for (const bx of [-36, 6, 26]) {
+    benchParts.push(colored(xform(new THREE.BoxGeometry(2.2, 0.12, 0.5), bx, 0.55, 7.4), 0xffffff));
+    benchParts.push(colored(xform(new THREE.BoxGeometry(0.12, 0.55, 0.5), bx - 0.9, 0.28, 7.4), 0xffffff));
+    benchParts.push(colored(xform(new THREE.BoxGeometry(0.12, 0.55, 0.5), bx + 0.9, 0.28, 7.4), 0xffffff));
+  }
+  const benchMesh = mergedMesh(benchParts, wood);
+  benchMesh.name = 'benches';
+  g.add(benchMesh);
+  // Traffic lights at the two main intersections (red/amber/green).
+  const tlMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 });
+  const tlParts = [];
+  const tlLights = [];
+  for (const cx of [-20, 20]) {
+    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), cx + 4.4, 1.7, 6.2), 0xffffff));
+    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), cx + 4.4, 3.6, 6.2), 0xffffff));
+    for (let i = 0; i < 3; i++) {
+      const col = [0xff3b30, 0xffcc00, 0x34c759][i];
+      tlLights.push({ mesh: new THREE.Mesh(
+        new THREE.CircleGeometry(0.16, 10),
+        new THREE.MeshBasicMaterial({ color: col }),
+      ), pos: [cx + 4.4, 3.9 - i * 0.28, 5.93] });
+    }
+  }
+  const tlMesh = mergedMesh(tlParts, tlMat);
+  tlMesh.name = 'trafficlights';
+  g.add(tlMesh);
+  for (const l of tlLights) {
+    l.mesh.position.set(l.pos[0], l.pos[1], l.pos[2]);
+    g.add(l.mesh);
+  }
+  // Lamp posts with fictional street names + speed bumps + puddles.
+  const { group: lampGroup, cones: lampCones } = lampRow();
+  g.add(lampGroup);
+  const bumpMat = new THREE.MeshStandardMaterial({ color: 0x8a8580, roughness: 0.95 });
+  const bumpParts = [];
+  for (const bx of [-16, 16]) bumpParts.push(colored(xform(new THREE.BoxGeometry(0.6, 0.18, 11.4), bx, 0.28, 0), 0xffffff));
+  const bumpMesh = mergedMesh(bumpParts, bumpMat);
+  bumpMesh.name = 'speedbumps';
+  g.add(bumpMesh);
   const puddleMat = new THREE.MeshStandardMaterial({
-    color: 0x8fb8c8, roughness: 0.05, metalness: 0.6, flatShading: true,
+    color: 0x9fd4d8, roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.75,
   });
-  const puddles = [];
-  for (const [px, pz, pr] of [[-30, -3.4, 1.6], [6, 3.4, 1.9], [34, -3.4, 1.4], [-12, 3.4, 1.7], [48, 0, 1.5]]) {
-    const p = new THREE.Mesh(new THREE.CircleGeometry(pr, 14), puddleMat);
-    p.rotation.x = -Math.PI / 2;
-    p.position.set(px, 0.06, pz);
-    p.visible = false;
-    g.add(p);
-    puddles.push(p);
-  }
-
-  // Wetness / night state.
-  let wet = 0;
-  function setWet(v) {
-    wet = Math.max(0, Math.min(1, v));
-    roadMat.roughness = 0.92 - wet * 0.65;
-    roadMat.color.setHex(wet > 0.5 ? 0x6a655e : 0xffffff);
-    for (const p of puddles) p.visible = wet > 0.5;
-  }
-  function setNight(on) {
-    globeMat.emissiveIntensity = on ? 2.2 : 0.9;
-    for (const c of lampCones) c.visible = on;
-  }
-  return { group: g, roadMat, setWet, setNight, lampCones, puddles };
+  const puddleParts = [];
+  for (const px of [-34, 4, 28]) puddleParts.push(colored(xform(new THREE.CircleGeometry(1.4, 16), px, 0.23, 2.4, -Math.PI / 2, 0, 0), 0xffffff));
+  const puddles = mergedMesh(puddleParts, puddleMat);
+  puddles.name = 'puddles';
+  puddles.visible = false;
+  g.add(puddles);
+  // Street-name signs (fictional names only).
+  const signNames = ['VIA DEL SOLE', 'CORSO AZZURRA', 'VIA DELLE VELA', 'LUNGOMARE', 'VIA DEL FARO'];
+  const signGeo = new THREE.PlaneGeometry(2.4, 0.6);
+  signNames.forEach((n, i) => {
+    const cx = CROSS_X[i];
+    const sign = new THREE.Mesh(signGeo, new THREE.MeshBasicMaterial({ map: signTexture(n) }));
+    sign.position.set(cx - 4.4, 3.1, 6.2);
+    sign.rotation.y = Math.PI;
+    g.add(sign);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.1, 6), M(0x3a3a3a));
+    pole.position.set(cx - 4.4, 1.55, 6.2);
+    g.add(pole);
+  });
+  return {
+    group: g, roadMat, wetness: { value: 0 }, puddles, lampCones,
+    setWet(v) { roadMat.roughness = 0.92 - v * 0.62; puddles.visible = v > 0.4; },
+    setNight(on) { lampCones.forEach((c) => { c.visible = on; }); },
+  };
 }
 
-// ---------- road showcase: one road, one district ----------
-// Used by ?shot=road&district=X to verify a surface in isolation: a
-// 44-long straight road with sidewalks, two flanking buildings in the
-// district palette, and the district's furniture. Returns { group, label }.
-export function buildRoadShowcase(district) {
+// ---------- Road showcase (kit check / ?shot=road) ----------
+// One 44-long road showing all six surfaces: asphalt (west), marina
+// boardwalk strip by the water, old-town cobble (east), quarry concrete
+// with hazard stripes, countryside gravel, skyline plaza. M2: the shot
+// now has traffic + pedestrians, varied facades (awnings, balconies,
+// rooftop props, shop fronts) and a non-flat horizon (hills + skyline).
+export function buildRoadShowcase() {
   const g = new THREE.Group();
-  g.name = 'roadShowcase-' + district;
-  const spec = {
-    oldtown: { surface: 'cobble', wall: 0xd9b98a, roof: 0xb4552d, accent: 0x4a6741, label: 'Fortress Old Town · cobblestones' },
-    marina: { surface: 'asphalt', wall: 0xf2f0ea, roof: 0x1f7a8c, accent: 0xe4572e, label: 'Yacht Marina · asphalt + boardwalk' },
-    quarry: { surface: 'concrete', wall: 0x9a9a94, roof: 0x8a4b2e, accent: 0xe8c33d, label: 'Quarry · concrete slabs' },
-    promenade: { surface: 'asphalt', wall: 0xf3e6c8, roof: 0xe8a33d, accent: 0xff5c8a, label: 'Promenade · boulevard' },
-    countryside: { surface: 'gravel', wall: 0xb7a88e, roof: 0xb4552d, accent: 0x7a8b5a, label: 'Countryside · gravel' },
-    skyline: { surface: 'plaza', wall: 0x35566b, roof: 0xd8d2c4, accent: 0x3ed6d6, label: 'Downtown Skyline · plaza' },
-  }[district] || { surface: 'asphalt', wall: 0xf3e6c8, roof: 0xe8a33d, accent: 0xff5c8a, label: 'Promenade · boulevard' };
-  const tex = roadTexture(spec.surface, district.length * 7 + 3);
-  tex.repeat.set(6, 1.4);
-  const road = new THREE.Mesh(
-    new THREE.PlaneGeometry(44, 8),
-    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, flatShading: true }),
-  );
-  road.rotation.x = -Math.PI / 2;
-  road.position.set(0, 0.02, 0);
-  road.receiveShadow = true;
+  g.name = 'roadShowcase';
+  const tex = roadTexture('asphalt', 21);
+  tex.repeat.set(6, 1.6);
+  const roadMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, flatShading: true });
+  const parts = [colored(xform(new THREE.BoxGeometry(44, 0.3, 11.4), 0, 0.05, 0), 0xffffff)];
+  const cobTex = roadTexture('cobble', 22);
+  cobTex.repeat.set(1.2, 1.4);
+  const cobMat = new THREE.MeshStandardMaterial({ map: cobTex, roughness: 0.95, flatShading: true });
+  const cob = new THREE.Mesh(new THREE.BoxGeometry(6, 0.3, 11.4), cobMat);
+  cob.position.set(20, 0.05, 0);
+  g.add(cob);
+  const swMat = new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true });
+  const sw = mergedMesh([
+    colored(xform(new THREE.BoxGeometry(44, 0.24, 2.4), 0, 0.12, -6.9), 0xffffff),
+    colored(xform(new THREE.BoxGeometry(44, 0.24, 2.4), 0, 0.12, 6.9), 0xffffff),
+  ], swMat);
+  g.add(sw);
+  const road = mergedMesh(parts, roadMat);
   g.add(road);
-  // Ground plane so the frame below the road is earth, not empty sky.
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(120, 60),
-    new THREE.MeshStandardMaterial({ color: 0x8a7a5e, roughness: 1 }),
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(0, -0.05, 0);
-  g.add(ground);
-  // Sidewalks (lighter, stepped up).
-  const walkGeos = [
-    xform(new THREE.BoxGeometry(44, 0.24, 2.2), 0, 0.12, -5.1),
-    xform(new THREE.BoxGeometry(44, 0.24, 2.2), 0, 0.12, 5.1),
+  // Markings: dashed center, yellow edges, ONE narrow zebra (3 stripes)
+  // at the single cross street, worn and patchy.
+  const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.62 });
+  const dashes = [];
+  for (let x = -20; x <= 20; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, 0), 0xffffff));
+  g.add(mergedMesh(dashes, dashMat));
+  const yellowMat = new THREE.MeshBasicMaterial({ color: 0xe8c33d, transparent: true, opacity: 0.5 });
+  const edges = [
+    colored(xform(new THREE.BoxGeometry(44, 0.01, 0.3), 0, 0.22, -5.3), 0xffffff),
+    colored(xform(new THREE.BoxGeometry(44, 0.01, 0.3), 0, 0.22, 5.3), 0xffffff),
   ];
-  g.add(mergedMesh(walkGeos, M(0xb0a89a)));
-  // Markings: dashed centre + zebra at both ends.
-  const whiteMat = new THREE.MeshBasicMaterial({ color: 0xf2f0ea, transparent: true, opacity: 0.62 });
-  const dashGeos = [];
-  for (let x = -20; x <= 20; x += 4) {
-    dashGeos.push(xform(new THREE.PlaneGeometry(1.8, 0.16), x, 0.045, 0, 0, 1, -Math.PI / 2, 0));
+  g.add(mergedMesh(edges, yellowMat));
+  const zebraMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.5 });
+  const zebras = [];
+  for (let dz = -3.2; dz <= 3.2; dz += 1.6) {
+    zebras.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 1.8), -16, 0.22, dz), 0xffffff));
   }
-  g.add(mergedMesh(dashGeos, whiteMat));
-  const zebraGeos = [];
-  for (const zx of [-16, 16]) {
-    for (let dz = -3.2; dz <= 3.2; dz += 1.3) {
-      zebraGeos.push(xform(new THREE.PlaneGeometry(2.2, 0.4), zx, 0.045, dz, 0, 1, -Math.PI / 2, 0));
+  g.add(mergedMesh(zebras, zebraMat));
+  // Marina boardwalk strip by the water (hairline gaps, 6 wide planks),
+  // teal bollards + rope + cleats along the quay edge.
+  const bwTex = roadTexture('boardwalk', 23);
+  bwTex.repeat.set(6, 1);
+  const bwMat = new THREE.MeshStandardMaterial({ map: bwTex, roughness: 0.85, flatShading: true });
+  const bw = new THREE.Mesh(new THREE.BoxGeometry(44, 0.3, 2.4), bwMat);
+  bw.position.set(0, 0.06, 9.4);
+  g.add(bw);
+  const teal = new THREE.MeshStandardMaterial({ color: 0x2e7f8f, roughness: 0.6 });
+  const bolParts = [];
+  for (let x = -20; x <= 20; x += 4) bolParts.push(colored(xform(new THREE.CylinderGeometry(0.14, 0.18, 0.85, 8), x, 0.45, 10.4), 0xffffff));
+  g.add(mergedMesh(bolParts, teal));
+  const ropeMat = new THREE.MeshStandardMaterial({ color: 0xc9a86a, roughness: 0.9 });
+  const ropeParts = [];
+  for (let x = -20; x < 20; x += 4) {
+    ropeParts.push(colored(xform(new THREE.BoxGeometry(4, 0.06, 0.06), x + 2, 0.75, 10.4), 0xffffff));
+  }
+  g.add(mergedMesh(ropeParts, ropeMat));
+  // Quarry concrete slab + hazard stripes; gravel patch; plaza strip.
+  const conTex = roadTexture('concrete', 24);
+  conTex.repeat.set(1, 1);
+  const conMat = new THREE.MeshStandardMaterial({ map: conTex, roughness: 0.95, flatShading: true });
+  const con = new THREE.Mesh(new THREE.BoxGeometry(4, 0.3, 11.4), conMat);
+  con.position.set(-26, 0.05, 0);
+  g.add(con);
+  const haz = hazardTexture();
+  haz.repeat.set(2, 1);
+  const hazMat = new THREE.MeshBasicMaterial({ map: haz });
+  const hazMesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.5), hazMat);
+  hazMesh.rotation.x = -Math.PI / 2;
+  hazMesh.position.set(-26, 0.23, -5.6);
+  g.add(hazMesh);
+  const gravTex = roadTexture('gravel', 25);
+  gravTex.repeat.set(1.4, 1.4);
+  const gravMat = new THREE.MeshStandardMaterial({ map: gravTex, roughness: 1.0, flatShading: true });
+  const grav = new THREE.Mesh(new THREE.BoxGeometry(6, 0.3, 11.4), gravMat);
+  grav.position.set(26, 0.05, 0);
+  g.add(grav);
+  const plazaTex = roadTexture('plaza', 26);
+  plazaTex.repeat.set(1, 1);
+  const plazaMat = new THREE.MeshStandardMaterial({ map: plazaTex, roughness: 0.95, flatShading: true });
+  const plaza = new THREE.Mesh(new THREE.BoxGeometry(6, 0.3, 11.4), plazaMat);
+  plaza.position.set(32, 0.05, 0);
+  g.add(plaza);
+  // Lamp row along the north sidewalk.
+  const { group: lampGroup } = lampRow();
+  lampGroup.position.set(0, 0, -6.9);
+  g.add(lampGroup);
+  // ---------- varied facades (north + south rows) ----------
+  const facadeColors = [0xd8a05a, 0xc96a4a, 0xe8c98a, 0x7a9a8a, 0xb88a6a, 0xd8b8a8];
+  const shopDefs = [
+    { name: 'CAFÉ LUME', bg: '#1e2a32', fg: '#ffd9a0' },
+    { name: 'FORNO AZZURRO', bg: '#7a2e2e', fg: '#f7ebd7' },
+    { name: 'PESCHERIA', bg: '#1f7a8c', fg: '#f7ebd7' },
+    { name: 'GELATO SOL', bg: '#c98a3a', fg: '#1e2a32' },
+  ];
+  const facadeParts = [];
+  const awningParts = [];
+  const signMeshes = [];
+  for (let i = 0; i < 4; i++) {
+    const x = -16 + i * 10;
+    const h = 4.5 + (i % 2) * 1.5;
+    const col = facadeColors[i % facadeColors.length];
+    // Main volume + upper floor + parapet (varied heights + colors).
+    facadeParts.push(colored(xform(new THREE.BoxGeometry(7.5, h, 2.5), x, h / 2, -9.5), col));
+    facadeParts.push(colored(xform(new THREE.BoxGeometry(7.5, 0.4, 2.8), x, h + 0.2, -9.5), col));
+    // Windows: two rows, shutters on the upper row.
+    for (const wy of [1.6, 3.2]) {
+      for (const wx of [-2.2, 0, 2.2]) {
+        facadeParts.push(colored(xform(new THREE.BoxGeometry(1.0, 1.2, 0.1), x + wx, wy, -8.2), 0x1e2a32));
+        if (wy > 3) facadeParts.push(colored(xform(new THREE.BoxGeometry(0.3, 1.2, 0.1), x + wx - 0.7, wy, -8.2), 0x3a5a3a));
+      }
     }
-  }
-  g.add(mergedMesh(zebraGeos, whiteMat));
-  // Flanking buildings in the district palette: walls, roof, an accent
-  // band, and a row of windows so they read as buildings, not blank boxes.
-  const bGeos = [];
-  const wGeos = [];
-  for (const [bx, bz, bw, bh] of [[-12, -9, 9, 5], [10, -9, 11, 7], [-14, 9, 10, 6], [12, 9, 9, 4.5]]) {
-    bGeos.push(colored(xform(new THREE.BoxGeometry(bw, bh, 6), bx, bh / 2, bz), spec.wall));
-    bGeos.push(colored(xform(new THREE.BoxGeometry(bw + 0.3, 0.3, 6.3), bx, bh + 0.15, bz), spec.roof));
-    // Accent band near the top, on the road-facing side, so it never
-    // overlaps the window row.
-    const bandZ = bz > 0 ? bz - 3.1 : bz + 3.1;
-    bGeos.push(colored(xform(new THREE.BoxGeometry(bw * 0.7, 0.5, 0.4), bx, bh * 0.85, bandZ), spec.accent));
-    // Windows on the road-facing side, mid-height.
-    const faceZ = bz > 0 ? bz - 3.05 : bz + 3.05;
-    for (let wx = bx - bw / 2 + 1.2; wx <= bx + bw / 2 - 1.2; wx += 2) {
-      wGeos.push(colored(xform(new THREE.BoxGeometry(0.9, 1.1, 0.1), wx, bh * 0.45, faceZ), 0x2e3a4a));
-    }
-  }
-  g.add(mergedMesh(bGeos, vertexColorMat));
-  g.add(mergedMesh(wGeos, vertexColorMat));
-  // Hazard stripes on the quarry showcase edges.
-  if (district === 'quarry') {
-    const hz = new THREE.Mesh(
-      new THREE.PlaneGeometry(44, 0.5),
-      new THREE.MeshBasicMaterial({ map: hazardTexture() }),
+    // Striped awning over the shop front + sign.
+    const stripe = i % 2 ? 0xf7ebd7 : 0xc93a6b;
+    awningParts.push(colored(xform(new THREE.BoxGeometry(7.5, 0.15, 1.6), x, 2.6, -8.0), stripe));
+    const sd = shopDefs[i % shopDefs.length];
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.2, 1.0),
+      new THREE.MeshBasicMaterial({ map: shopTexture(sd.name, sd.bg, sd.fg) }),
     );
-    hz.rotation.x = -Math.PI / 2;
-    hz.position.set(0, 0.05, -4.1);
-    g.add(hz);
-  }
-  // Marina: the ROAD is asphalt (spec) — the wooden boardwalk is only a
-  // strip beside the water (south edge), with painted bollards, a rope
-  // rail and cleats on it. The old version paved the whole road in planks.
-  if (district === 'marina') {
-    const bwTex = roadTexture('boardwalk', 11);
-    bwTex.repeat.set(6, 0.6);
-    const boardwalk = new THREE.Mesh(
-      new THREE.PlaneGeometry(44, 2.4),
-      new THREE.MeshStandardMaterial({ map: bwTex, roughness: 0.85, flatShading: true }),
-    );
-    boardwalk.rotation.x = -Math.PI / 2;
-    boardwalk.position.set(0, 0.08, 7.6);
-    g.add(boardwalk);
-    // Painted bollards (teal body + white cap) along the water edge.
-    const bolGeos = [];
-    const capGeos = [];
-    for (let x = -20; x <= 20; x += 4) {
-      bolGeos.push(xform(new THREE.CylinderGeometry(0.14, 0.16, 0.7, 8), x, 0.35, 8.6));
-      capGeos.push(xform(new THREE.CylinderGeometry(0.15, 0.15, 0.1, 8), x, 0.73, 8.6));
+    sign.position.set(x, 2.0, -8.15);
+    signMeshes.push(sign);
+    // Balcony + rail on the upper floor (two of the four buildings).
+    if (i % 2 === 0) {
+      facadeParts.push(colored(xform(new THREE.BoxGeometry(3.4, 0.15, 1.0), x + 1.4, 3.9, -8.4), 0x8a6a4a));
+      facadeParts.push(colored(xform(new THREE.BoxGeometry(3.4, 0.7, 0.08), x + 1.4, 4.35, -8.9), 0x1e2a32));
     }
-    g.add(mergedMesh(bolGeos, M(0x1f7a8c)));
-    g.add(mergedMesh(capGeos, M(0xf2f0ea)));
-    // Rope rail between the bollards + mooring cleats on the boardwalk.
-    const rope = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.03, 0.03, 42, 6),
-      new THREE.MeshStandardMaterial({ color: 0xc8b890, roughness: 1 }),
-    );
-    rope.rotation.z = Math.PI / 2;
-    rope.position.set(0, 0.62, 8.6);
-    g.add(rope);
-    const cleatGeos = [];
-    for (const x of [-18, -10, -2, 6, 14]) {
-      cleatGeos.push(xform(new THREE.BoxGeometry(0.5, 0.12, 0.25), x, 0.16, 7.6));
-    }
-    g.add(mergedMesh(cleatGeos, M(0x3a3a3a)));
+    // Rooftop props: AC box + water tank + chimney (varied per building).
+    facadeParts.push(colored(xform(new THREE.BoxGeometry(0.9, 0.7, 0.9), x - 2.2, h + 0.8, -9.5), 0x9a9a9a));
+    facadeParts.push(colored(xform(new THREE.CylinderGeometry(0.55, 0.55, 1.1, 8), x + 2.0, h + 1.0, -9.8), 0x6a4a2a));
+    facadeParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.1, 0.5), x + 0.4, h + 1.0, -10.2), 0x8a4a3a));
   }
-  // A lamp row + one hydrant so the furniture reads in the shot.
-  const lampXs = [-16, -4, 8, 18];
-  const poles = lampXs.map((x) => xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), x, 1.2, -4.6));
-  const globes = lampXs.map((x) => xform(new THREE.SphereGeometry(0.16, 10, 8), x, 2.5, -4.6));
-  g.add(mergedMesh(poles, M(0x2b2b2b)));
-  g.add(mergedMesh(globes, M(0xffd9a0, { emissive: 0xffc46b, emissiveIntensity: 0.9 })));
-  return { group: g, label: spec.label };
+  g.add(mergedMesh(facadeParts, vertexColorMat));
+  g.add(mergedMesh(awningParts, vertexColorMat));
+  for (const s of signMeshes) g.add(s);
+  // ---------- traffic + pedestrians on the showcase road ----------
+  const carA = buildTrafficCar(0xe4572e);
+  carA.position.set(-10, 0, -2.2);
+  carA.rotation.y = Math.PI / 2;
+  g.add(carA);
+  const carB = buildTrafficCar(0x2e7f8f);
+  carB.position.set(6, 0, 2.4);
+  carB.rotation.y = -Math.PI / 2;
+  g.add(carB);
+  const cruiser = buildPoliceCruiser();
+  cruiser.position.set(14, 0, -2.2);
+  cruiser.rotation.y = Math.PI / 2;
+  g.add(cruiser);
+  const pedDefs = [
+    { x: -6, z: -6.2, y: Math.PI / 2 },
+    { x: 2, z: 6.2, y: -Math.PI / 2 },
+    { x: 12, z: -6.2, y: Math.PI / 2 },
+  ];
+  pedDefs.forEach((p, i) => {
+    const fig = makeFigure(CIVILIANS[i % CIVILIANS.length].spec);
+    fig.position.set(p.x, 0.12, p.z);
+    fig.rotation.y = p.y;
+    g.add(fig);
+  });
+  // ---------- non-flat horizon: layered hills + skyline across the bay ----------
+  const hillMat = new THREE.MeshStandardMaterial({ color: 0x8a9a6a, roughness: 1, flatShading: true });
+  const hillMat2 = new THREE.MeshStandardMaterial({ color: 0x6a8a7a, roughness: 1, flatShading: true });
+  const hills = [
+    { x: -52, y: -1.5, z: -28, r: 16, m: hillMat },
+    { x: -58, y: -2.5, z: 6, r: 20, m: hillMat2 },
+    { x: -50, y: -1, z: 34, r: 14, m: hillMat },
+    { x: -66, y: -3, z: -8, r: 22, m: hillMat2 },
+  ];
+  for (const h of hills) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(h.r, 12, 8), h.m);
+    s.scale.y = 0.32;
+    s.position.set(h.x, h.y, h.z);
+    g.add(s);
+  }
+  const skyline = buildSkylineCluster('lod');
+  skyline.position.set(-56, 0, -2);
+  skyline.scale.set(0.55, 0.55, 0.55);
+  g.add(skyline);
+  return { group: g, roadMat };
 }
