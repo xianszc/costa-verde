@@ -201,13 +201,17 @@ export function createWanted(scene, opts) {
       clearRoadblock();
     } else {
       if (haveCruisers < wantCruisers) spawnUnit('cruiser', clampSpawn(px + 30 + Math.random() * 20, -58, 58), clampSpawn(pz + (Math.random() - 0.5) * 20, -40, 12));
-      if (haveInterceptors < wantInterceptors) spawnUnit('interceptor', clampSpawn(px - 45, -58, 58), clampSpawn(pz + (Math.random() - 0.5) * 8, -40, 12));
+      // Interceptors spawn AHEAD of the player (they cut you off) and
+      // the cruisers converge from behind — never on top of the player.
+      if (haveInterceptors < wantInterceptors) spawnUnit('interceptor', clampSpawn(px + 45, -58, 58), clampSpawn(pz + (Math.random() - 0.5) * 8, -40, 12));
       if (level >= 3 && !heli.active) spawnUnit('heli', px, pz);
       if (level < 3 && heli.active) { heli.active = false; heli.mesh.visible = false; }
       if (level >= 4 && !roadblock) spawnRoadblock(px, pz, p.angle || 0);
       if (level < 4 && roadblock) clearRoadblock();
     }
-    // Pursuit: steer each ground unit toward the player, ram on contact.
+    // Pursuit: steer each ground unit toward the player. On foot the
+    // Guard holds a 3 m cordon and aims instead of driving through the
+    // player; in a car it rams on contact.
     for (const u of units) {
       const dx = px - u.car.x;
       const dz = pz - u.car.z;
@@ -217,7 +221,8 @@ export function createWanted(scene, opts) {
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       u.car.angle += Math.max(-2.2 * dt, Math.min(2.2 * dt, diff));
-      const targetSpeed = dist > 4 ? u.car.maxSpeed : u.car.maxSpeed * 0.4;
+      const holdDist = p.onFoot ? 3 : 4;
+      const targetSpeed = dist > holdDist ? u.car.maxSpeed : (p.onFoot ? 0 : u.car.maxSpeed * 0.4);
       u.car.speed += (targetSpeed - u.car.speed) * Math.min(1, dt * 1.2);
       const nx = u.car.x + Math.cos(u.car.angle) * u.car.speed * dt;
       const nz = u.car.z - Math.sin(u.car.angle) * u.car.speed * dt;
@@ -232,8 +237,9 @@ export function createWanted(scene, opts) {
       const lb = u.car.mesh.userData.lightBar;
       if (lb) { const on = Math.floor(now * 3) % 2 === 0; lb[0].visible = on; lb[1].visible = !on; }
       // Ramming: close + fast → push + damage the player's car.
+      // Only while the player is driving — never onto a pedestrian.
       u.ramCooldown -= dt;
-      if (dist < 3.2 && Math.abs(u.car.speed) > 6 && u.ramCooldown <= 0) {
+      if (!p.onFoot && dist < 3.2 && Math.abs(u.car.speed) > 6 && u.ramCooldown <= 0) {
         u.ramCooldown = 2.5;
         if (opts.onRam) opts.onRam(u, dist);
       }
@@ -269,11 +275,12 @@ export function createWanted(scene, opts) {
         coolTimer = 0;
       }
     }
-    // Busted: on foot, a cruiser right next to a nearly-still player.
+    // Busted: on foot, a cruiser inside the 3 m cordon next to a
+    // nearly-still player. (Units hold at 3 m, so the check is 3.5 m.)
     if (level > 0 && p.onFoot) {
       let close = false;
       for (const u of units) {
-        if (Math.hypot(u.car.x - px, u.car.z - pz) < 2.5) { close = true; break; }
+        if (Math.hypot(u.car.x - px, u.car.z - pz) < 3.5) { close = true; break; }
       }
       if (close && p.speed < 1) {
         bustedTimer += dt;
