@@ -857,6 +857,13 @@ export function createGame(container) {
   function updateHUD(now) {
     if (now - lastHud < 100) return;
     lastHud = now;
+    // Debug stats (M3 leftover 5): live renderer.info for the page.
+    window.__stats = {
+      calls: renderer.info.render.calls,
+      triangles: renderer.info.render.triangles,
+      mode: state.mode,
+      time: state.time,
+    };
     const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     const setWidth = (id, pct) => { const el = $(id); if (el) el.style.width = pct + '%'; };
     setText('hud-money', 'S ' + Math.floor(state.money).toLocaleString('en-US'));
@@ -1073,6 +1080,13 @@ export function createGame(container) {
         triangles: renderer.info.render.triangles,
         mode: name, time: state.time,
       };
+      // Debug stats (M3 leftover 5): renderer.info, readable from the
+      // page at any time via window.__stats (drive / walk / title).
+      window.__stats = {
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+        mode: name, time: state.time,
+      };
       return;
     }
     district.group.visible = true;
@@ -1125,7 +1139,7 @@ export function createGame(container) {
       updateCamera(1);
       renderer.render(scene, camera);
       renderer.render(scene, camera);
-    } else if (name === 'combat') {
+    } else if (name === 'combat' || name === 'tracer') {
       // Elio crouched behind a quay crate (cover) with the Tamburo,
       // 2-star Guard closing in and returning fire. The quay gives an
       // open sightline east (no planter palms in the camera lane).
@@ -1148,6 +1162,16 @@ export function createGame(container) {
       run(120, {});
       updateCamera(1);
       combat.fire();
+      if (name === 'tracer') {
+        // Side view of the firing line (M3): Elio in profile at the
+        // quay, the player tracer running east toward the closing
+        // Guard and the enemy tracers coming back — the chase camera
+        // foreshortens the tracer to a dot, this angle shows it.
+        camera.position.set(-53.5, 2.6, 19.5);
+        camera.lookAt(-44, 1.2, 11.5);
+        camPos.copy(camera.position);
+        camLook.set(-44, 1.2, 11.5);
+      }
       renderer.render(scene, camera);
       renderer.render(scene, camera);
     } else if (name === 'hub') {
@@ -1205,6 +1229,12 @@ export function createGame(container) {
     updateHUD(performance.now());
     window.__shotReady = true;
     window.__gameStats = {
+      calls: renderer.info.render.calls,
+      triangles: renderer.info.render.triangles,
+      mode: name,
+      time: state.time,
+    };
+    window.__stats = {
       calls: renderer.info.render.calls,
       triangles: renderer.info.render.triangles,
       mode: name,

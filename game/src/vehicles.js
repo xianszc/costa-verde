@@ -49,7 +49,33 @@ function buildArches(wheelPos, halfWidth) {
   return group;
 }
 
-// Mount four wheels (shared module) + contact blobs on a car group.
+// Soft footprint shadow texture (M3 leftover 1): a radial gradient that
+// fades to transparent at the edge, so the shadow under a car reads as a
+// soft contact shadow sized to the car footprint — never a black puddle.
+let softShadowTex = null;
+function getSoftShadowTex() {
+  if (softShadowTex) return softShadowTex;
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64, 32, 4, 64, 32, 62);
+  g.addColorStop(0, 'rgba(0,0,0,0.85)');
+  g.addColorStop(0.55, 'rgba(0,0,0,0.45)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  // Ellipse: scale the radial gradient into the footprint shape.
+  ctx.save();
+  ctx.translate(64, 32);
+  ctx.scale(1, 0.5);
+  ctx.translate(-64, -64);
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.restore();
+  softShadowTex = new THREE.CanvasTexture(c);
+  softShadowTex.colorSpace = THREE.SRGBColorSpace;
+  return softShadowTex;
+}
+
+// Mount four wheels (shared module) + contact shadow on a car group.
 // wheelPos: [[x, z, radius, specName], ...] in car space, front two first.
 // Returns { rigs, spins } and stashes them on the car group.
 function mountWheels(g, wheelPos, halfWidth) {
@@ -63,13 +89,30 @@ function mountWheels(g, wheelPos, halfWidth) {
     g.add(rig);
     rigs.push(rig);
     spins.push(rig.userData.spin);
+    // Faint dot under each wheel only (opacity 0.14, smaller than the
+    // tyre) — the footprint ellipse below carries the shadow.
     blobGeos.push(xform(
-      new THREE.CircleGeometry(r * 1.2, 14), wx, 0.02, wz, 0, 1, -Math.PI / 2, 0,
+      new THREE.CircleGeometry(r * 0.85, 12), wx, 0.02, wz, 0, 1, -Math.PI / 2, 0,
     ));
   }
-  // One merged contact blob mesh per car (dark ellipses under the wheels).
+  // One soft footprint ellipse per car, sized to the wheelbase + body
+  // overhang: low opacity, feathered edge, no hard black disc anywhere.
+  const maxWx = Math.max(...wheelPos.map(([wx]) => Math.abs(wx)));
+  const maxWz = Math.max(...wheelPos.map(([, wz]) => Math.abs(wz)));
+  const r0 = wheelPos[0][2];
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(maxWx * 2 + r0 * 2 + 0.5, maxWz * 2 + 0.5),
+    new THREE.MeshBasicMaterial({
+      map: getSoftShadowTex(), transparent: true, opacity: 0.32, depthWrite: false,
+    }),
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.02;
+  shadow.castShadow = false;
+  shadow.receiveShadow = false;
+  g.add(shadow);
   const blobMat = new THREE.MeshBasicMaterial({
-    color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false,
+    color: 0x000000, transparent: true, opacity: 0.14, depthWrite: false,
   });
   const blobs = mergedMesh(blobGeos, blobMat);
   blobs.castShadow = false;

@@ -22,6 +22,7 @@ import {
   buildRoadNetwork, validatePlots, trafficLanes, minimapLines,
   BOULEVARD, CROSS_X, seededRandom,
 } from './roads.js';
+import { buildNewDistricts } from './districts.js';
 
 // Shared window material for the deco facades: emissive intensity is
 // raised at night by the game (windows light up at dusk).
@@ -148,7 +149,9 @@ function bellTower() {
 }
 
 // Layered hills closing the town to the north: three hazy ridges + a few
-// cypress silhouettes and villa dots on the near ridge.
+// cypress silhouettes and villa dots on the near ridge. M3: the ridges
+// sit BEHIND the old-town fortress wall (z -90 and beyond) so the old
+// town quarter (z -44..-86) is clear ground, not inside a hill.
 function buildHills() {
   const g = new THREE.Group();
   g.name = 'hills';
@@ -161,17 +164,17 @@ function buildHills() {
     m.position.set(x, y, z);
     return m;
   };
-  g.add(ridge(0x9aa88a, -40, -2, -95, 70, 22, 18));
-  g.add(ridge(0x8a9a7a, 30, -3, -88, 80, 26, 20));
-  g.add(ridge(0x7a8a68, -70, -1, -80, 50, 16, 14));
-  g.add(ridge(0x6a7a58, 10, -2, -70, 55, 14, 12));
-  g.add(ridge(0x5a6a48, -25, -1, -58, 45, 10, 10));
-  // Cypress silhouettes + villa dots on the near ridge.
+  g.add(ridge(0x9aa88a, -40, -2, -128, 70, 22, 18));
+  g.add(ridge(0x8a9a7a, 30, -3, -120, 80, 26, 20));
+  g.add(ridge(0x7a8a68, -70, -1, -112, 50, 16, 14));
+  g.add(ridge(0x6a7a58, 10, -2, -102, 55, 14, 12));
+  g.add(ridge(0x5a6a48, -25, -1, -98, 45, 9, 8));
+  // Cypress silhouettes + villa dots on the near ridge, behind the wall.
   const rnd = seededRandom(99);
   for (let i = 0; i < 14; i++) {
     const x = -55 + rnd() * 110;
     const t = makeTree('cypress', 1.6 + rnd() * 1.2);
-    t.position.set(x, 2 + rnd() * 3, -56 - rnd() * 8);
+    t.position.set(x, 4 + rnd() * 2, -90 - rnd() * 6);
     g.add(t);
   }
   for (let i = 0; i < 6; i++) {
@@ -179,7 +182,7 @@ function buildHills() {
     const v = new THREE.Group();
     v.add(box(3, 2, 2.5, 0xf5efe2, 0, 1, 0));
     v.add(box(3.3, 0.3, 2.8, 0xb4552d, 0, 2.1, 0));
-    v.position.set(x, 3 + rnd() * 2, -54 - rnd() * 6);
+    v.position.set(x, 4 + rnd() * 2, -92 - rnd() * 4);
     g.add(v);
   }
   return mergeStatic(g);
@@ -330,6 +333,90 @@ export function buildDistrict4() {
   }
   group.add(mergeStatic(cafe));
 
+  // --- cover props (M3 leftover 3): solid barriers, crates, low walls
+  // and planters at the shoot-out spots, wired into the cover system via
+  // colliders. Every prop is built from varied parts (hazard stripes,
+  // cap stones, frame edges, shrubs) — never a plain tan box. Placed
+  // off the pedestrian paths (quay + facade line) so peds never clip.
+  const cover = new THREE.Group();
+  function barrier(x, z, ry = 0) {
+    const b = new THREE.Group();
+    b.add(box(2.2, 0.85, 0.55, 0xd8d2c4, 0, 0.43, 0));
+    b.add(box(2.24, 0.18, 0.57, 0xe8c33d, 0, 0.78, 0));
+    b.add(box(0.18, 0.85, 0.57, 0xc0392b, -1.05, 0.43, 0));
+    b.add(box(0.18, 0.85, 0.57, 0xc0392b, 1.05, 0.43, 0));
+    b.add(box(2.0, 0.1, 0.4, 0x8a8a84, 0, 0.05, 0));
+    b.position.set(x, 0, z);
+    b.rotation.y = ry;
+    cover.add(b);
+    colliders.push({ x0: x - 1.1, z0: z - 0.3, x1: x + 1.1, z1: z + 0.3, id: 'cover-barrier' });
+  }
+  function crateStack(x, z, ry = 0) {
+    const c = new THREE.Group();
+    c.add(box(1.1, 1.1, 1.1, 0x8a6a4a, 0, 0.55, 0));
+    c.add(box(1.14, 0.12, 1.14, 0x6b4a2a, 0, 1.06, 0));
+    c.add(box(1.14, 0.12, 1.14, 0x6b4a2a, 0, 0.08, 0));
+    for (const [ex, ez] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) {
+      c.add(box(0.1, 1.1, 0.1, 0x5a3d22, ex, 0.55, ez));
+    }
+    const top = new THREE.Group();
+    top.add(box(0.9, 0.9, 0.9, 0x7a5a34, 0, 0.45, 0));
+    top.add(box(0.94, 0.1, 0.94, 0x5a3d22, 0, 0.86, 0));
+    top.position.set(0.1, 1.1, -0.05);
+    top.rotation.y = 0.4;
+    c.add(top);
+    c.position.set(x, 0, z);
+    c.rotation.y = ry;
+    cover.add(c);
+    colliders.push({ x0: x - 0.6, z0: z - 0.6, x1: x + 0.6, z1: z + 0.6, id: 'cover-crates' });
+  }
+  function lowWall(x, z, ry = 0) {
+    const w = new THREE.Group();
+    w.add(box(2.4, 0.8, 0.5, 0xd9b98a, 0, 0.4, 0));
+    w.add(box(2.6, 0.14, 0.62, 0xefe3c8, 0, 0.87, 0));
+    w.add(box(2.4, 0.18, 0.52, 0x8a6a4a, 0, 0.09, 0));
+    w.add(box(0.3, 0.5, 0.54, 0xb4552d, -0.9, 0.55, 0));
+    w.add(box(0.3, 0.5, 0.54, 0xb4552d, 0.9, 0.55, 0));
+    w.position.set(x, 0, z);
+    w.rotation.y = ry;
+    cover.add(w);
+    colliders.push({ x0: x - 1.3, z0: z - 0.31, x1: x + 1.3, z1: z + 0.31, id: 'cover-wall' });
+  }
+  function planter(x, z, ry = 0) {
+    const p = new THREE.Group();
+    p.add(box(1.5, 0.55, 0.6, 0xb4552d, 0, 0.28, 0));
+    p.add(box(1.56, 0.1, 0.66, 0x8a4a3a, 0, 0.6, 0));
+    p.add(box(1.4, 0.08, 0.5, 0x3a2a1a, 0, 0.56, 0));
+    for (const [sx, s, c] of [[-0.45, 0.32, 0x3f7a4e], [0, 0.4, 0x4d8a5c], [0.45, 0.3, 0x356b42]]) {
+      const s1 = sph(s, c, sx, 0.75, 0);
+      s1.scale.y = 0.8;
+      p.add(s1);
+    }
+    p.add(sph(0.12, 0xff5c8a, -0.3, 0.95, 0.1));
+    p.add(sph(0.12, 0xff5c8a, 0.35, 0.9, -0.08));
+    p.position.set(x, 0, z);
+    p.rotation.y = ry;
+    cover.add(p);
+    colliders.push({ x0: x - 0.75, z0: z - 0.3, x1: x + 0.75, z1: z + 0.3, id: 'cover-planter' });
+  }
+  // Quay west — the combat staging spot (Elio crouches at -53.5, 11.5).
+  barrier(-52.5, 10.5);
+  crateStack(-50.5, 12.2, 0.3);
+  lowWall(-55.5, 11.2);
+  // Quay east + mid-east by the crane.
+  barrier(50, 11.0);
+  crateStack(53.5, 12.0, -0.2);
+  lowWall(33, 11.6);
+  // Facade line (north sidewalk edge, clear of the ped path at z -7.2)
+  // and flanking the casino entrance.
+  planter(-24, -9.6);
+  planter(-2, -9.6);
+  planter(24, -9.6);
+  planter(-14, -9.6);
+  planter(-6, -9.6);
+  lowWall(14, -9.6);
+  group.add(mergeStatic(cover));
+
   // --- quay details: crates, rope coils, cleats, moored boats, crane ---
   const quayProps = new THREE.Group();
   for (const [qx, qz, c] of [[-52, 11.5, 0x8a6a4a], [-50.5, 11.8, 0x2e7f8f], [52, 11.5, 0x8a6a4a], [18, 11.6, 0xe4572e]]) {
@@ -385,8 +472,14 @@ export function buildDistrict4() {
   skyPodium.position.set(0, 0.5, 88);
   group.add(skyPodium);
 
-  // --- hills to the north ---
+  // --- hills to the north (moved behind the old-town wall, z -90+) ---
   group.add(buildHills());
+
+  // --- M3 districts (old town now; promenade east + skyline land next) ---
+  const nd = buildNewDistricts();
+  group.add(nd.group);
+  colliders.push(...nd.colliders);
+  tickers.push(...nd.tickers);
 
   // --- ground detail for the lower third (title screen + low angles) ---
   // Grass tufts on the quay land (never in the bay — the old z 14..20
@@ -406,7 +499,8 @@ export function buildDistrict4() {
   return {
     group, colliders, tickers, roads,
     report,
-    lanes: trafficLanes(),
+    lanes: [...trafficLanes(), ...nd.lanes],
+    pedPaths: nd.pedPaths,
     minimap: minimapLines(),
     spawnPlayer: { x: -2, z: -7.2, angle: Math.PI },
     spawnCar: { x: -8, z: -3.4, angle: 0 },

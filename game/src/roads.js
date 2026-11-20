@@ -590,17 +590,19 @@ export function buildRoadNetwork() {
   puddles.name = 'puddles';
   puddles.visible = false;
   g.add(puddles);
-  // Street-name signs (fictional names only).
+  // Street-name signs (fictional names only). Small (1.5 x 0.38 m) and
+  // mounted at 2.35 m on a 2.4 m pole — legible, never dominating the
+  // frame the way the old 2.4 m signs at 3.1 m did.
   const signNames = ['VIA DEL SOLE', 'CORSO AZZURRA', 'VIA DELLE VELA', 'LUNGOMARE', 'VIA DEL FARO'];
-  const signGeo = new THREE.PlaneGeometry(2.4, 0.6);
+  const signGeo = new THREE.PlaneGeometry(1.5, 0.38);
   signNames.forEach((n, i) => {
     const cx = CROSS_X[i];
     const sign = new THREE.Mesh(signGeo, new THREE.MeshBasicMaterial({ map: signTexture(n) }));
-    sign.position.set(cx - 4.4, 3.1, 6.2);
+    sign.position.set(cx - 4.4, 2.35, 6.2);
     sign.rotation.y = Math.PI;
     g.add(sign);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.1, 6), M(0x3a3a3a));
-    pole.position.set(cx - 4.4, 1.55, 6.2);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 6), M(0x3a3a3a));
+    pole.position.set(cx - 4.4, 1.2, 6.2);
     g.add(pole);
   });
   return {

@@ -240,8 +240,16 @@ export function createWanted(scene, opts) {
       const nx = u.car.x + Math.cos(u.car.angle) * u.car.speed * dt;
       const nz = u.car.z - Math.sin(u.car.angle) * u.car.speed * dt;
       const res = collideCircleAABBs(nx, nz, u.car.radius, colliders);
-      u.car.x = res.x;
-      u.car.z = res.z;
+      // Stay on land: never drive into the bay (z > 12.5) — a cruiser
+      // straddling the quay edge reads as sunk — except on the skyline
+      // bridge / landmass (x -58..58, z 62..104), and never off the map
+      // (old town z -86, promenade east x 108).
+      const onSkyline = (res.x >= -58 && res.x <= 58 && res.z >= 62 && res.z <= 104)
+        || (Math.abs(res.x) <= 4.5 && res.z >= 13 && res.z <= 62);
+      u.car.x = Math.max(-58, Math.min(108, res.x));
+      u.car.z = onSkyline
+        ? Math.max(-86, Math.min(104, res.z))
+        : Math.max(-86, Math.min(12.5, res.z));
       u.car.mesh.position.set(u.car.x, ROAD_Y, u.car.z);
       u.car.mesh.rotation.y = u.car.angle;
       const wheels = u.car.mesh.userData.wheels || [];
