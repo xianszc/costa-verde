@@ -1164,7 +1164,9 @@ export function createGame(container) {
       showHUD();
       state.onFoot = true;
       playerMesh.visible = true;
-      player.x = 46; player.z = -19; player.angle = 0;
+      // Elio 12 m west of the pavilion so its face (and the gold beacon
+      // at the objective) read in frame instead of filling it.
+      player.x = 38; player.z = -19; player.angle = 0;
       playerMesh.position.set(player.x, 0, player.z);
       playerMesh.rotation.y = player.angle + Math.PI / 2;
       state.time = 18.7;
