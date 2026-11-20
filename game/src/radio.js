@@ -144,6 +144,8 @@ export function createRadio() {
     if (ctx) nextTime = ctx.currentTime + 0.05;
     return current;
   }
+  function next() { return setStation(current + 1); }
+  function prev() { return setStation(current - 1); }
   function setVolume(v) {
     volume = Math.max(0, Math.min(1, v));
     if (master) master.gain.value = volume * 0.6;
@@ -158,7 +160,8 @@ export function createRadio() {
   return {
     stations: STATIONS,
     get current() { return current; },
+    get index() { return current; },
     get playing() { return started; },
-    start, resume, setStation, setVolume, stop,
+    start, resume, setStation, next, prev, setVolume, stop,
   };
 }
