@@ -19,7 +19,9 @@
 // visible spoke angle (slight front steer on front34), the camera placed
 // by hand, and the scene rendered twice with __shotReady set.
 import { createGame } from './game.js';
-import { buildTrafficCar, buildPoliceCruiser, createCar } from './vehicles.js';
+import {
+  buildTrafficCar, buildPoliceCruiser, createCar, ROAD_Y,
+} from './vehicles.js';
 import { poseWheelRig, addSkidMark } from './wheels.js';
 
 const errors = [];
@@ -38,6 +40,12 @@ function stageWheels() {
   const angle = params.get('angle') || 'front34';
   // Base scene: golden-hour drive staging (play mode, HUD, lighting).
   game.stageShot('drive', { seed, district: 'oldtown', night: '0', storm: '0' });
+  // Wheels are the subject: hide the HUD (its speed readout would be
+  // stale — the drive staging ran at 94 km/h before we parked the car).
+  for (const id of ['hud-stage', 'topbar', 'title-card', 'version']) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
   // Pick the target car. Traffic kinds may not be on the road in this
   // staging, so spawn a parked one when the lane has none.
   let target;
@@ -55,14 +63,15 @@ function stageWheels() {
     }
   }
   // Park everything else out of the frame; the target gets a clean spot.
-  const spots = { player: [0, 3.4], pickup: [8, -3.4], police: [-8, 3.4] };
+  // North lane (z -3.4) — the south lane has quay props in the way.
+  const spots = { player: [0, -3.4], pickup: [10, -3.4], police: [-10, -3.4] };
   const [tx, tz] = spots[carKind] || spots.player;
   const far = { player: [-40, -3.4], pickup: [40, 3.4], police: [-40, 3.4] };
   game.car.x = carKind === 'player' ? tx : far.player[0];
   game.car.z = carKind === 'player' ? tz : far.player[1];
   game.car.angle = 0;
   game.car.speed = 0;
-  game.car.mesh.position.set(game.car.x, 0, game.car.z);
+  game.car.mesh.position.set(game.car.x, ROAD_Y, game.car.z);
   game.car.mesh.rotation.y = 0;
   for (const t of game.traffic) {
     if (t === target) continue;
@@ -74,7 +83,7 @@ function stageWheels() {
     target.z = tz;
     target.angle = 0;
     target.speed = 0;
-    target.mesh.position.set(tx, 0, tz);
+    target.mesh.position.set(tx, ROAD_Y, tz);
     target.mesh.rotation.y = 0;
     target.mesh.visible = true;
   }
@@ -98,16 +107,17 @@ function stageWheels() {
     }
     const crigs = c.mesh.userData.wheelRigs || [];
     crigs.forEach((rig, i) => poseWheelRig(rig, 0.9, i < 2 ? 0.3 : 0));
-    cam.position.set(c.x - 1, 0.9, c.z + 4.6);
-    cam.lookAt(c.x + 2, 0.8, c.z);
+    // Pulled back so the whole car AND the drift trail behind it fit.
+    cam.position.set(c.x + 1, 1.6, c.z + 8);
+    cam.lookAt(c.x - 3, 0.7, c.z);
   } else if (angle === 'side') {
-    cam.position.set(tx, 1.1, tz + 5.2);
+    cam.position.set(tx, 1.0, tz + 4.6);
     cam.lookAt(tx, 0.7, tz);
   } else if (angle === 'rear34') {
-    cam.position.set(tx - 4.4, 1.5, tz + 3.2);
+    cam.position.set(tx - 3.6, 1.2, tz + 3.0);
     cam.lookAt(tx - 0.4, 0.7, tz);
   } else { // front34
-    cam.position.set(tx + 4.4, 1.5, tz + 3.2);
+    cam.position.set(tx + 3.6, 1.2, tz + 3.0);
     cam.lookAt(tx + 0.4, 0.7, tz);
   }
   game.renderer.render(game.scene, game.camera);

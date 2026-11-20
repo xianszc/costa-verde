@@ -75,6 +75,11 @@ function mountWheels(g, wheelPos, halfWidth) {
   return { rigs, spins };
 }
 
+// The drivable road surface sits at y 0.2 (roads.js: 0.3-tall slabs
+// centered at y 0.05). Cars ride on the road top, so their meshes sit
+// at ROAD_Y and their tyres touch the asphalt instead of sinking.
+export const ROAD_Y = 0.2;
+
 // ---------- car models ----------
 export function buildStella() {
   // Stella roadster — coral hero car, low and long, cream interior.
@@ -267,7 +272,10 @@ export function stepCar(car, input, dt, colliders, nowSec) {
   }
   car.x = res.x;
   car.z = res.z;
-  car.mesh.position.set(car.x, 0, car.z);
+  // The road surface sits at y 0.2 (roads.js slabs) — the car rides on
+  // the road top, not on the ground plane, so the tyres touch the
+  // asphalt instead of sinking 0.2 into it.
+  car.mesh.position.set(car.x, ROAD_Y, car.z);
   car.mesh.rotation.y = car.angle;
   // Wheels: spin with speed, front wheels steer, suspension bounce,
   // body roll in corners, drift skid marks + tyre squeal.
@@ -330,7 +338,7 @@ export function stepTraffic(cars, dt, obstacles = [], nowSec) {
     car.speed += (targetSpeed - car.speed) * Math.min(1, dt * 1.5);
     car.x += Math.cos(car.angle) * car.speed * dt;
     car.z -= Math.sin(car.angle) * car.speed * dt;
-    car.mesh.position.set(car.x, 0, car.z);
+    car.mesh.position.set(car.x, ROAD_Y, car.z);
     car.mesh.rotation.y = car.angle;
     // Wheels spin with speed; front wheels steer into the turn.
     updateCarWheels(car, dt, {

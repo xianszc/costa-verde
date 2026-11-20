@@ -208,7 +208,7 @@ function getSkidPool(scene) {
   if (!skidPools.has(scene)) {
     const group = new THREE.Group();
     group.name = 'skid-marks';
-    const geo = new THREE.PlaneGeometry(0.55, 0.3);
+    const geo = new THREE.PlaneGeometry(0.7, 0.35);
     const mat = new THREE.MeshBasicMaterial({
       color: 0x0a0a0a, transparent: true, opacity: 0.55, depthWrite: false,
     });
@@ -226,14 +226,16 @@ function getSkidPool(scene) {
   return skidPools.get(scene);
 }
 
-// One skid mark at world (x, z), laid along heading `angle`.
+// One skid mark at world (x, z), laid along heading `angle`. The road
+// top is y 0.2, so marks sit at 0.23 (like the lane dashes at 0.22) —
+// at 0.03 they were buried under the asphalt and invisible.
 export function addSkidMark(scene, x, z, angle) {
   const pool = getSkidPool(scene);
   const slot = pool.marks[pool.next];
   pool.next = (pool.next + 1) % pool.marks.length;
-  slot.mesh.position.set(x, 0.03, z);
+  slot.mesh.position.set(x, 0.23, z);
   slot.mesh.rotation.z = -angle;
-  slot.mesh.material.opacity = 0.55;
+  slot.mesh.material.opacity = 0.65;
   slot.mesh.visible = true;
   slot.age = 0;
 }
@@ -243,7 +245,7 @@ function skidUpdate(pool, dt) {
     if (!s.mesh.visible) continue;
     s.age += dt;
     if (s.age > 6) { s.mesh.visible = false; continue; }
-    s.mesh.material.opacity = 0.55 * (1 - s.age / 6);
+    s.mesh.material.opacity = 0.65 * (1 - s.age / 6);
   }
 }
 
