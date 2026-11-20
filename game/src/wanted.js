@@ -41,10 +41,11 @@ function buildHeli() {
   tail.position.set(-3.4, 0.3, 0);
   g.add(tail);
   // Spotlight cone: apex at the belly, opening down toward the player.
+  // Narrow (3.5) and faint so it reads as a beam, not a solid pyramid.
   const spot = new THREE.Mesh(
-    new THREE.ConeGeometry(6, 22, 16, 1, true),
+    new THREE.ConeGeometry(3.5, 22, 16, 1, true),
     new THREE.MeshBasicMaterial({
-      color: 0xfff2c0, transparent: true, opacity: 0.16,
+      color: 0xfff2c0, transparent: true, opacity: 0.08,
       side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
     }),
   );
@@ -138,13 +139,22 @@ export function createWanted(scene, opts) {
       cars.push(m);
     }
     const barrier = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, 1.0, 8.5),
+      new THREE.BoxGeometry(0.4, 1.4, 9),
       new THREE.MeshStandardMaterial({ color: 0xe8c33d, emissive: 0xe8c33d, emissiveIntensity: 0.4 }),
     );
-    barrier.position.set(0, 0.5, 0);
+    barrier.position.set(0, 0.7, 0);
     g.add(barrier);
+    // Red flashing beacons on the barrier so it reads at a distance.
+    for (const bz of [-3.5, 3.5]) {
+      const beacon = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.5, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0xff2a2a, emissive: 0xff2a2a, emissiveIntensity: 1.6 }),
+      );
+      beacon.position.set(0, 1.65, bz);
+      g.add(beacon);
+    }
     const fx = Math.cos(heading), fz = -Math.sin(heading);
-    g.position.set(px + fx * 26, 0, pz + fz * 26);
+    g.position.set(px + fx * 18, 0, pz + fz * 18);
     g.rotation.y = heading;
     scene.add(g);
     roadblock = { group: g, cars, x: g.position.x, z: g.position.z };
@@ -237,7 +247,7 @@ export function createWanted(scene, opts) {
       for (const r of heli.mesh.userData.rotor) r.rotation.y += dt * 22;
       const spot = heli.mesh.userData.spot;
       const night = opts.isNight ? opts.isNight() : false;
-      spot.material.opacity = night ? 0.3 : 0.14;
+      spot.material.opacity = night ? 0.16 : 0.08;
       pool.material.opacity = night ? 0.4 : 0.2;
       pool.position.set(px, 0.3, pz);
       pool.visible = true;
