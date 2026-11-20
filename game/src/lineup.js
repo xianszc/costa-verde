@@ -86,6 +86,7 @@ if (view === 'buildings') {
   document.title = 'AZZURRA — District lineup';
   document.getElementById('title').textContent = 'AZZURRA · District lineup — one hero building per district';
   const spacing = 7.4;
+  const SHORT = ['Villas', 'Marina', 'Old Town', 'Promenade', 'Lighthouse', 'Funicular', 'Countryside', 'Quarry', 'Skyline'];
   DISTRICTS.forEach((d, i) => {
     const x = (i - (DISTRICTS.length - 1) / 2) * spacing;
     pad(x, 0, d.pad, 7.0, 7.0);
@@ -96,7 +97,7 @@ if (view === 'buildings') {
     if (pivot) animated.push({ obj: pivot, axis: 'y', speed: 0.5 });
     const sails = b.getObjectByName('sails');
     if (sails) animated.push({ obj: sails, axis: 'z', speed: 0.35 });
-    addLabel(`${i + 1} · ${d.name}`, new THREE.Vector3(x, 0.6, 3.6), 'district');
+    addLabel(`${i + 1} · ${SHORT[i]}`, new THREE.Vector3(x, 0.6, 3.6), 'district');
   });
   // LOD skyline as the backdrop behind the whole row — District 9 visible
   // from every district, softened by fog.
@@ -153,8 +154,47 @@ if (view === 'buildings') {
   );
   sea.position.set(0, 0.1, -19);
   scene.add(sea);
-  camera.position.set(0, 8, 54);
-  camera.lookAt(0, 7, 0);
+  // Park strip in the near foreground (trees + fountains) so the bottom of
+  // the frame is a park, not empty tan ground.
+  const park = new THREE.Mesh(
+    new THREE.BoxGeometry(72, 0.3, 12),
+    new THREE.MeshStandardMaterial({ color: 0x7a8b5a, roughness: 1, flatShading: true }),
+  );
+  park.position.set(0, 0.15, 20);
+  park.receiveShadow = true;
+  scene.add(park);
+  for (let x = -33; x <= 33; x += 7.5) {
+    scene.add(palm(x, 18.5, 1.0));
+    const tree = new THREE.Group();
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.18, 1.2, 7),
+      new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 1, flatShading: true }),
+    );
+    trunk.position.y = 0.6;
+    const crown = new THREE.Mesh(
+      new THREE.SphereGeometry(0.85, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0x3f7a4e, roughness: 1, flatShading: true }),
+    );
+    crown.position.y = 1.7;
+    tree.add(trunk, crown);
+    tree.position.set(x + 3.7, 0.3, 22.5);
+    scene.add(tree);
+  }
+  for (const fx of [-14, 14]) {
+    const basin = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.5, 1.6, 0.5, 16),
+      new THREE.MeshStandardMaterial({ color: 0xe8dcc4, roughness: 1, flatShading: true }),
+    );
+    basin.position.set(fx, 0.55, 20);
+    const jet = new THREE.Mesh(
+      new THREE.SphereGeometry(0.3, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0x39b8c4, roughness: 0.15, flatShading: true }),
+    );
+    jet.position.set(fx, 1.1, 20);
+    scene.add(basin, jet);
+  }
+  camera.position.set(0, 12, 50);
+  camera.lookAt(0, 6, 0);
 } else if (view === 'skyline') {
   document.title = 'AZZURRA — Downtown Bay Skyline';
   document.getElementById('title').textContent = 'AZZURRA · Downtown Bay Skyline — 12 towers, 20–60 floors';
@@ -176,21 +216,45 @@ if (view === 'buildings') {
   );
   water.position.set(0, 0.1, 26);
   scene.add(water);
-  // A few yachts on the bay for scale.
-  for (const [bx, bz, s] of [[-22, 14, 1.2], [18, 20, 1.0], [30, 10, 0.8]]) {
+  // Yachts on the bay for scale — white hull, cabin, tall mast, sail.
+  for (const [bx, bz, s, sailColor] of [[-30, 16, 1.6, 0xf2f0ea], [-8, 24, 1.4, 0xff5c8a], [12, 14, 1.5, 0xf2f0ea], [28, 22, 1.3, 0x3ed6d6]]) {
     const hull = new THREE.Mesh(
-      new THREE.BoxGeometry(3.2 * s, 0.6, 1.2 * s),
+      new THREE.BoxGeometry(3.6 * s, 0.7, 1.3 * s),
       new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.6, flatShading: true }),
     );
-    hull.position.set(bx, 0.4, bz);
+    hull.position.set(bx, 0.45, bz);
     hull.rotation.y = 0.4;
     scene.add(hull);
+    const cabin = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6 * s, 0.7, 0.9 * s),
+      new THREE.MeshStandardMaterial({ color: 0xe8dcc4, roughness: 0.6, flatShading: true }),
+    );
+    cabin.position.set(bx - 0.2 * s, 1.1, bz);
+    cabin.rotation.y = 0.4;
+    scene.add(cabin);
     const mast = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.05, 0.07, 3.4 * s, 6),
+      new THREE.CylinderGeometry(0.05, 0.07, 4.5 * s, 6),
       new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 1 }),
     );
-    mast.position.set(bx, 2.0 * s, bz);
+    mast.position.set(bx, 2.6 * s, bz);
     scene.add(mast);
+    const sail = new THREE.Mesh(
+      new THREE.ConeGeometry(1.0 * s, 2.6 * s, 4),
+      new THREE.MeshStandardMaterial({ color: sailColor, roughness: 0.7, flatShading: true, side: THREE.DoubleSide }),
+    );
+    sail.position.set(bx + 0.7 * s, 2.9 * s, bz);
+    sail.scale.z = 0.15;
+    sail.rotation.y = Math.PI / 4;
+    scene.add(sail);
+  }
+  // Sun-glitter path on the water under the low sun.
+  for (const gz of [6, 12, 18, 24]) {
+    const glitter = new THREE.Mesh(
+      new THREE.BoxGeometry(2.5, 0.05, 5),
+      new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffc46b, emissiveIntensity: 0.5, roughness: 0.2 }),
+    );
+    glitter.position.set(-28, 0.25, gz);
+    scene.add(glitter);
   }
   // Tower labels (short names + floors), staggered in height so neighbours
   // never overlap.
@@ -198,7 +262,7 @@ if (view === 'buildings') {
     const ly = t.floors * 0.3 + (i % 2 === 0 ? 2.2 : 4.8);
     addLabel(`${t.name.replace('Torre ', '')} · ${t.floors}f`, new THREE.Vector3(t.x, ly, -8), 'person');
   });
-  camera.position.set(0, 4.5, 58);
+  camera.position.set(0, 4.5, 62);
   camera.lookAt(0, 9, -8);
 } else {
   document.title = 'AZZURRA — Character lineup';

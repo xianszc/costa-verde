@@ -19,16 +19,20 @@ optional storm event (dark clouds, rain, lightning, rough sea).
 The city is one continuous map, roughly 1.2 km across, ringed by cliffs and sea.
 Roads are terraced: switchback streets, stair-streets, a funicular climbing the
 hill, a seaside boulevard, and a harbor road. The player can walk, drive, steal
-boats, and ride the funicular.
+boats, and ride the funicular. Across the bay, the glass towers of the
+Downtown Bay Skyline rise over the old rooftops — visible from every district,
+hazed gold at sunset, their windows lighting up at dusk.
 
-## 2. The 8 districts
+## 2. The 9 districts
 
 Every district has its own visual vocabulary built procedurally from different
 parts — no generic box-with-windows buildings. At least 6 distinct building
 archetypes per district, each with several procedural variants (roof type, color,
 balcony, awning, rooftop props). **Silhouette test:** from far away, each district
 must be readable by shape and color alone. Each district has a limited,
-harmonious palette.
+harmonious palette. The first eight districts are low-rise — the old riviera.
+District 9 is the glass skyline, and the contrast between the two is the
+town's signature view.
 
 ### 2.1 Cliff Villas (Ville della Scogliera)
 - **Architecture:** stacked cubic whitewashed volumes; flat roofs with wooden
@@ -101,6 +105,38 @@ harmonious palette.
   #2E7F8F, hazard yellow #E8C33D, soot #3A3A3A.
 - **Hero building:** the silo cluster — three concrete silos, a tower crane
   overhead, conveyor belt snaking to a container yard.
+
+### 2.9 Downtown Bay Skyline (Baia Alta)
+- **Architecture:** a dense financial and hotel district on the bay — 12+
+  skyscrapers of 20–60 floors, each with its own silhouette: a stepped Art
+  Deco spire (Torre Azzurra, 60 floors, the landmark), twin towers joined by
+  a sky bridge, a curved glass tower, a tapered needle with an antenna, a
+  hotel tower with a rooftop pool, a cantilevered crown, a tower with a
+  helipad, a ziggurat, a tower with vertical LED strips, a tower with a
+  glowing brand billboard, and a wide podium tower with a rooftop garden.
+  Procedural facades: glass curtain walls with reflections, mullion grids,
+  emissive window patterns that change by time of day, setbacks, rooftop
+  machinery, billboards and LED strips with fictional brands, aircraft
+  warning lights blinking red. Street level: plazas, fountains, covered
+  walkways, parking garages, elevated roads, a monorail line, tunnels.
+- **Palette:** glass blue-grey #35566B, deep glass #22384A, concrete #D8D2C4,
+  deco gold #E8A33D, neon pink #FF5C8A, neon cyan #3ED6D6, warm window light
+  #FFD9A0, warning red #FF2A2A.
+- **Hero building:** Torre Azzurra — 60 floors, stepped gold crown, spire
+  and antenna, blinking red tip light, the tallest thing in Porto Azzurra.
+- **Playable:** enterable lobbies, rooftop helipads, a skyscraper heist
+  mission, a rooftop chase, a base-jump stunt, and a helicopter ride. The
+  skyline is visible from every district as a backdrop, with atmospheric
+  haze at golden hour and sunset reflections on the glass.
+- **Performance:** shared materials, one canvas window texture in 3 variants,
+  one InstancedMesh for all lit windows in the full cluster, LOD (far towers
+  become simple silhouettes with an emissive window texture), frustum
+  culling. Measured in the lineup scenes (SwiftShader software renderer,
+  1280×720): buildings lineup 736 ms/frame, 1.4 FPS, 527 draw calls, 20,236
+  triangles; skyline view 482 ms/frame, 2.1 FPS, 124 draw calls, 2,848
+  triangles. Both are software-renderer bound (1280×720 pixels + 2048
+  shadow maps on a CPU rasterizer); the geometry itself is trivial for real
+  GPU hardware.
 
 ## 3. Art style
 
@@ -188,7 +224,7 @@ The player's hub is a captain's logbook — a leather-bound book UI with tabs:
 Every mission briefing shows an illustrated (not photoreal) portrait of the
 character who gives it.
 
-## 8. Chapters (8) and missions (14)
+## 8. Chapters (9) and missions (17)
 
 1. **First Light on the Water** — M1 "The Ferry Job" (steal a ferry manifest),
    M2 "Salt in the Wound" (first boat chase).
@@ -206,19 +242,26 @@ character who gives it.
    M14 "Silos at Midnight" (night infiltration of the silo yard).
 8. **The Azzurra Heist** — M15 "One Last Score" (the casino vault heist, all
    crews, boats, funicular and helicopter in one finale).
+9. **The Skyline Job** — M16 "Torre Azzurra" (the skyscraper heist: enter the
+   lobby, ride the service lift, crack the penthouse vault), M17 "Rooftop
+   Run" (rooftop chase across the twin towers' sky bridge, base jump off
+   Torre Ago, helicopter extraction over the bay).
 
-## 9. Side jobs (9)
+## 9. Side jobs (10)
 
 Ferry taxi (drive tourists), fish delivery (timed boat runs), vineyard harvest
 (pick grapes before sunset), valet parking (park casino guests' cars), tour
 guide (drive the open-top bus), tow truck (clear wrecks), courier (rooftop
-parcels), lemon picking (grove runs), yacht detailing (clean and fuel yachts).
+parcels), lemon picking (grove runs), yacht detailing (clean and fuel yachts),
+heli tour (fly tourists over the skyline at sunset).
 
-## 10. Vehicles (9)
+## 10. Vehicles (10)
 
 1. Stella roadster (coral, hero car), 2. Lumino 50 scooter, 3. Barca fishing
    boat, 4. Sirena yacht, 5. Mulo pickup, 6. Furgone delivery van, 7. Filobus
-   city bus, 8. Gabbiano Harbor Guard cruiser, 9. Trattore farm tractor.
+   city bus, 8. Gabbiano Harbor Guard cruiser, 9. Trattore farm tractor,
+   10. Gabbiano H1 helicopter (Harbor Guard heli, rideable from the Torre
+   Eliporto helipad).
 Plus the funicular car — rideable, not drivable — and a Harbor Guard boat.
 
 ## 11. Weapons (5 slots)
@@ -265,8 +308,11 @@ Faro, L'Eco di Azzurra (newspaper).
    playground, not a backdrop.
 3. **The Captain's Logbook** — a hand-illustrated hub with portraits, not a
    generic phone.
-4. **Eight readable districts** — each with its own silhouette and palette;
+4. **Nine readable districts** — each with its own silhouette and palette;
    the town is recognizable from a single far screenshot.
+5. **Old riviera vs glass skyline** — eight low-rise districts of whitewash
+   and terracotta against one dense bay skyline of glass towers, visible
+   from everywhere; the contrast is the town's signature view.
 
 ## 17. Tech notes
 
@@ -284,10 +330,11 @@ Faro, L'Eco di Azzurra (newspaper).
 
 ## 18. Milestones
 
-- **Step 0 (this file):** bible + two lineup screenshots (8 hero buildings;
-  full character lineup). Await Xian's approval.
+- **Step 0 (this file):** bible + three lineup screenshots (9 hero buildings
+  with the LOD skyline backdrop; full character lineup; the Downtown Bay
+  Skyline cluster). Await Xian's approval.
 - **M1:** playable core — walking, driving, camera, HUD, day/night, one district.
-- **M2:** all 8 districts + traffic + pedestrians.
+- **M2:** all 9 districts + traffic + pedestrians.
 - **M3:** missions 1–7 + Logbook hub + crews.
 - **M4:** missions 8–15 + side jobs + wanted system + storm event.
 - **M5:** polish — radio, audio, particles, cover art, final screenshots, kit check.
