@@ -312,7 +312,15 @@ export function createWanted(scene, opts) {
     }
     if (heli.active) rows.push({ name: 'Gull-1 · HELI', dist: 60, st: 'INBOUND' });
     if (roadblock) rows.push({ name: 'Roadblock · BOULEVARD', dist: Math.round(Math.hypot(roadblock.x - p.x, roadblock.z - p.z)), st: 'SET UP' });
-    while (rows.length < 3) rows.push({ name: 'Beacon-3 · BOAT', dist: 240 + level * 40, st: level >= 1 ? 'RESPONDING' : 'PATROL' });
+    const pad = [
+      { name: 'Beacon-3 · BOAT', dist: 240 + level * 40, st: level >= 1 ? 'RESPONDING' : 'PATROL' },
+      { name: 'Tide-4 · BOAT', dist: 310 + level * 30, st: level >= 2 ? 'RESPONDING' : 'PATROL' },
+      { name: 'Lighthouse-5 · TOWER', dist: 420, st: 'PATROL' },
+    ];
+    for (const r of pad) {
+      if (rows.length >= 3) break;
+      rows.push(r);
+    }
     return rows.slice(0, 3);
   }
   function reset() {
