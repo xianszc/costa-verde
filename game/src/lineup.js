@@ -5,7 +5,7 @@
 // The same builders (world.js / people.js) become the real game in M1+.
 // This page stays a review tool; it is removed from the final entry.
 import * as THREE from '../vendor/three.module.min.js';
-import { DISTRICTS, buildHeroBuilding, goldenSkyTexture, goldenHourLights } from './world.js';
+import { DISTRICTS, buildHeroBuilding, goldenSkyTexture, goldenHourLights, buildSkylineCluster, SKYLINE_TOWERS, warnLightMat, palm, lampPost } from './world.js';
 import { makeFigure, CAST, CREW, POLICE, CIVILIANS } from './people.js';
 
 const params = new URLSearchParams(location.search);
@@ -85,10 +85,10 @@ function pad(x, z, color, w = 7.5, d = 7.5) {
 if (view === 'buildings') {
   document.title = 'AZZURRA — District lineup';
   document.getElementById('title').textContent = 'AZZURRA · District lineup — one hero building per district';
-  const spacing = 7.8;
+  const spacing = 7.4;
   DISTRICTS.forEach((d, i) => {
-    const x = (i - 3.5) * spacing;
-    pad(x, 0, d.pad);
+    const x = (i - (DISTRICTS.length - 1) / 2) * spacing;
+    pad(x, 0, d.pad, 7.0, 7.0);
     const b = buildHeroBuilding(d.id);
     b.position.set(x, 0.25, 0);
     scene.add(b);
@@ -98,8 +98,108 @@ if (view === 'buildings') {
     if (sails) animated.push({ obj: sails, axis: 'z', speed: 0.35 });
     addLabel(`${i + 1} · ${d.name}`, new THREE.Vector3(x, 0.6, 3.6), 'district');
   });
-  camera.position.set(0, 5.5, 46);
-  camera.lookAt(0, 4.5, 0);
+  // LOD skyline as the backdrop behind the whole row — District 9 visible
+  // from every district, softened by fog.
+  const backdrop = buildSkylineCluster('lod');
+  backdrop.position.set(0, 0.25, -30);
+  backdrop.scale.setScalar(0.85);
+  scene.add(backdrop);
+  const podium = new THREE.Mesh(
+    new THREE.BoxGeometry(95, 1.0, 7),
+    new THREE.MeshStandardMaterial({ color: 0x4a4a44, roughness: 1, flatShading: true }),
+  );
+  podium.position.set(0, 0.5, -30);
+  podium.receiveShadow = true;
+  scene.add(podium);
+  // Foreground: waterfront promenade + road, so the bottom of the frame is
+  // street and plaza, not empty tan ground.
+  const walk = new THREE.Mesh(
+    new THREE.BoxGeometry(72, 0.3, 4.5),
+    new THREE.MeshStandardMaterial({ color: 0xf0e6d2, roughness: 1, flatShading: true }),
+  );
+  walk.position.set(0, 0.15, 7.5);
+  walk.receiveShadow = true;
+  scene.add(walk);
+  const road = new THREE.Mesh(
+    new THREE.BoxGeometry(72, 0.32, 3.4),
+    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1, flatShading: true }),
+  );
+  road.position.set(0, 0.16, 12);
+  road.receiveShadow = true;
+  scene.add(road);
+  for (let x = -34; x <= 34; x += 4) {
+    const dash = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 0.05, 0.18),
+      new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 1 }),
+    );
+    dash.position.set(x, 0.34, 12);
+    scene.add(dash);
+  }
+  for (let x = -33; x <= 33; x += 8.25) {
+    scene.add(lampPost(x, 6.0));
+    scene.add(palm(x + 4, 6.4, 0.9));
+  }
+  // Plaza strip behind the pads + a sea band, bridging the gap to the skyline.
+  const plaza = new THREE.Mesh(
+    new THREE.BoxGeometry(72, 0.28, 7),
+    new THREE.MeshStandardMaterial({ color: 0xe8dcc4, roughness: 1, flatShading: true }),
+  );
+  plaza.position.set(0, 0.14, -7.5);
+  plaza.receiveShadow = true;
+  scene.add(plaza);
+  const sea = new THREE.Mesh(
+    new THREE.BoxGeometry(150, 0.2, 16),
+    new THREE.MeshStandardMaterial({ color: 0x2e7f8f, roughness: 0.15, metalness: 0.1, flatShading: true }),
+  );
+  sea.position.set(0, 0.1, -19);
+  scene.add(sea);
+  camera.position.set(0, 8, 54);
+  camera.lookAt(0, 7, 0);
+} else if (view === 'skyline') {
+  document.title = 'AZZURRA — Downtown Bay Skyline';
+  document.getElementById('title').textContent = 'AZZURRA · Downtown Bay Skyline — 12 towers, 20–60 floors';
+  // Waterfront plinth under the full cluster.
+  const plinth = new THREE.Mesh(
+    new THREE.BoxGeometry(100, 1.0, 10),
+    new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 1, flatShading: true }),
+  );
+  plinth.position.set(0, 0.5, -8);
+  plinth.receiveShadow = true;
+  scene.add(plinth);
+  const cluster = buildSkylineCluster('full');
+  cluster.position.set(0, 1.0, -8);
+  scene.add(cluster);
+  // Bay water in front of the towers.
+  const water = new THREE.Mesh(
+    new THREE.BoxGeometry(170, 0.2, 70),
+    new THREE.MeshStandardMaterial({ color: 0x2e7f8f, roughness: 0.12, metalness: 0.2, flatShading: true }),
+  );
+  water.position.set(0, 0.1, 26);
+  scene.add(water);
+  // A few yachts on the bay for scale.
+  for (const [bx, bz, s] of [[-22, 14, 1.2], [18, 20, 1.0], [30, 10, 0.8]]) {
+    const hull = new THREE.Mesh(
+      new THREE.BoxGeometry(3.2 * s, 0.6, 1.2 * s),
+      new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.6, flatShading: true }),
+    );
+    hull.position.set(bx, 0.4, bz);
+    hull.rotation.y = 0.4;
+    scene.add(hull);
+    const mast = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.07, 3.4 * s, 6),
+      new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 1 }),
+    );
+    mast.position.set(bx, 2.0 * s, bz);
+    scene.add(mast);
+  }
+  // Tower labels (short names + floors), staggered in height so neighbours
+  // never overlap.
+  SKYLINE_TOWERS.forEach((t, i) => {
+    const ly = t.floors * 0.3 + (i % 2 === 0 ? 2.2 : 4.8);
+    addLabel(`${t.name.replace('Torre ', '')} · ${t.floors}f`, new THREE.Vector3(t.x, ly, -8), 'person');
+  });
+  camera.position.set(0, 4.5, 58);
+  camera.lookAt(0, 9, -8);
 } else {
   document.title = 'AZZURRA — Character lineup';
   document.getElementById('title').textContent = 'AZZURRA · Character lineup — mains, crews, Harbor Guard, civilians';
@@ -125,11 +225,31 @@ if (view === 'buildings') {
   camera.lookAt(0, 1.0, -1.6);
 }
 
+let frames = 0, totalMs = 0, lastT = performance.now();
 function frame(t) {
   const dt = 0.016;
   for (const a of animated) a.obj.rotation[a.axis] += a.speed * dt;
+  // Aircraft warning lights blink (shared material, ~2.9 s period).
+  warnLightMat.emissiveIntensity = 1.0 + 1.2 * Math.sin(t * 0.0022);
   renderer.render(scene, camera);
   updateLabels();
+  // Perf sampling: average the first 30 rendered frames, then publish the
+  // numbers for the Playwright probe (draw calls + triangles included).
+  const now = performance.now();
+  if (frames < 30) {
+    if (frames > 0) totalMs += now - lastT;
+    frames++;
+    if (frames === 30) {
+      const avg = totalMs / 29;
+      window.__lineupStats = {
+        avgMs: +avg.toFixed(2),
+        fps: +(1000 / avg).toFixed(1),
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      };
+    }
+  }
+  lastT = now;
   if (!window.__lineupReady) {
     window.__lineupReady = true;
     document.getElementById('status').textContent = 'rendered · ' + view;
