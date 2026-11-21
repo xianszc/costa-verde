@@ -689,3 +689,57 @@ export const PROMENADE_EXT_DEF = {
     { a: { x: -95, z: 33 }, b: { x: -64, z: 33 } },
   ],
 };
+
+// --- zone definitions: 2c residential ring, east + west (Xian 21 Nov 17:58) ---
+// Apartments + townhouses 2-6 floors, terraced rows (depth 3.0,
+// width 2.2-2.8), courtyards in the block middles, small parks.
+// Wide blocks (20, one column per strip) and shallow blocks (7 deep,
+// E-W streets every 9) so every block holds two rows — the densest
+// the generator does. East x 96..120, z -88..12 (11 blocks); west
+// x -120..-96, z -88..35 (14 blocks); 2 park blocks.
+// The NORTH residential (z -105..-88) is NOT here: the whole north
+// strip sits on the hill ridges (z -90..-128) — the buildings would
+// be buried in the hillside. It comes in 2d, when the ridges move
+// north. The east rect ends at z 12 so its last block stays clear
+// of the quay (z 12.7, x -96..108). No roads.js street crosses these
+// rects, so no gaps.
+export const RESIDENTIAL_DEF = {
+  id: 'residential', seed: 20261121, style: 'townhouse', floors: [2, 6],
+  palette: PALETTE_TOWNHOUSE, shopfronts: false, spacing: 3.2,
+  idPrefix: 'res', fill: 'rows', depth: 3.0, houseW: [2.2, 2.8],
+  rects: [
+    {
+      x0: 96, z0: -88, x1: 120, z1: 12,
+      ns: [{ x: 97, w: 2 }, { x: 119, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3].map((z) => ({ z, w: 2, kind: 'street' })),
+    },
+    {
+      x0: -120, z0: -88, x1: -96, z1: 35,
+      ns: [{ x: -119, w: 2 }, { x: -97, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3, 12, 21, 30].map((z) => ({ z, w: 2, kind: 'street' })),
+    },
+  ],
+  parks: [4, 15],
+  roadsNs: [
+    { x: 97, w: 2, kind: 'street', z0: -87, z1: 3 },
+    { x: 119, w: 2, kind: 'street', z0: -87, z1: 3 },
+    { x: -119, w: 2, kind: 'street', z0: -87, z1: 30 },
+    { x: -97, w: 2, kind: 'street', z0: -87, z1: 30 },
+  ],
+  roadsEw: [
+    ...[-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3].map((z) => ({ z, w: 2, kind: 'street', x0: 96, x1: 120 })),
+    ...[-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3, 12, 21, 30].map((z) => ({ z, w: 2, kind: 'street', x0: -120, x1: -96 })),
+  ],
+  lanes: [
+    { name: 'res-east', x0: 97, z0: -87, x1: 119, z1: 3, speed: 6 },
+    { name: 'res-west', x0: -119, z0: -87, x1: -97, z1: 30, speed: 6 },
+  ],
+  pedPaths: [
+    { a: { x: 98.2, z: -87 }, b: { x: 98.2, z: 3 } },
+    { a: { x: 117.8, z: -87 }, b: { x: 117.8, z: 3 } },
+    { a: { x: -117.8, z: -87 }, b: { x: -117.8, z: 30 } },
+    { a: { x: -98.2, z: -87 }, b: { x: -98.2, z: 30 } },
+    { a: { x: 97, z: -42 }, b: { x: 119, z: -42 } },
+    { a: { x: -119, z: -42 }, b: { x: -97, z: -42 } },
+  ],
+};

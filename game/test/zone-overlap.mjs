@@ -11,7 +11,7 @@
 //
 // Usage: node game/test/zone-overlap.mjs   (from the repo root)
 // Exit 0 = PASS, exit 1 = FAIL.
-import { createPools, buildZoneInto, deriveBlocks, RING_EXT_DEF, PROMENADE_EXT_DEF, OLD_TOWN_EXT_DEF } from '../src/blocks.js';
+import { createPools, buildZoneInto, deriveBlocks, RING_EXT_DEF, PROMENADE_EXT_DEF, OLD_TOWN_EXT_DEF, RESIDENTIAL_DEF } from '../src/blocks.js';
 import { roadRects, boulevardMedianSegments } from '../src/roads.js';
 import { cbdGridRoadRects } from '../src/cbd-grid.js';
 import { buildCBD } from '../src/cbd.js';
@@ -91,6 +91,7 @@ const results = [
   checkZone(RING_EXT_DEF, 'ring-ext'),
   checkZone(PROMENADE_EXT_DEF, 'promenade-ext'),
   checkZone(OLD_TOWN_EXT_DEF, 'oldtown-ext'),
+  checkZone(RESIDENTIAL_DEF, 'residential'),
 ];
 const total = results.reduce((s, r) => s + r.problems.length, 0);
 console.log(total === 0

@@ -27,7 +27,7 @@ import { buildNewDistricts } from './districts.js';
 import { buildCBD } from './cbd.js';
 import { buildCBDGrid } from './cbd-grid.js';
 import { buildCommercialRing, buildSignAtlas } from './commercial.js';
-import { createPools, mergePools, buildZoneInto, RING_EXT_DEF, OLD_TOWN_EXT_DEF, PROMENADE_EXT_DEF } from './blocks.js';
+import { createPools, mergePools, buildZoneInto, RING_EXT_DEF, OLD_TOWN_EXT_DEF, PROMENADE_EXT_DEF, RESIDENTIAL_DEF } from './blocks.js';
 
 // Shared window material for the deco facades: emissive intensity is
 // raised at night by the game (windows light up at dusk).
@@ -555,10 +555,13 @@ export function buildDistrict4() {
   // --- NEW PLAN 2b: promenade extension + old town west (same pools) ---
   const promExt = buildZoneInto(PROMENADE_EXT_DEF, zonePools, zoneAtlas);
   const otExt = buildZoneInto(OLD_TOWN_EXT_DEF, zonePools, zoneAtlas);
+  // --- NEW PLAN 2c: residential ring, east + west (same pools) ---
+  // North residential deferred to 2d (the ridges sit on that land).
+  const res = buildZoneInto(RESIDENTIAL_DEF, zonePools, zoneAtlas);
   const ringExtGroup = mergePools(zonePools, zoneAtlas, roads.roadMat);
   group.add(ringExtGroup);
-  colliders.push(...ringExt.colliders, ...promExt.colliders, ...otExt.colliders);
-  tickers.push(...ringExt.tickers, ...promExt.tickers, ...otExt.tickers);
+  colliders.push(...ringExt.colliders, ...promExt.colliders, ...otExt.colliders, ...res.colliders);
+  tickers.push(...ringExt.tickers, ...promExt.tickers, ...otExt.tickers, ...res.tickers);
 
   // --- ground detail: DELETED in the GRID REBUILD — the grass tufts
   // stood at z 9.5..11.5, which is CBD block row 4 + the south street
@@ -568,10 +571,10 @@ export function buildDistrict4() {
   return {
     group, colliders, tickers, roads,
     report,
-    lanes: [...trafficLanes(), ...nd.lanes, ...ring.lanes, ...ringExt.lanes, ...promExt.lanes, ...otExt.lanes],
-    pedPaths: [...nd.pedPaths, ...ring.pedPaths, ...ringExt.pedPaths, ...promExt.pedPaths, ...otExt.pedPaths],
-    minimap: [...minimapLines(), ...ringExt.minimap, ...promExt.minimap, ...otExt.minimap],
-    ringExt, promExt, otExt,
+    lanes: [...trafficLanes(), ...nd.lanes, ...ring.lanes, ...ringExt.lanes, ...promExt.lanes, ...otExt.lanes, ...res.lanes],
+    pedPaths: [...nd.pedPaths, ...ring.pedPaths, ...ringExt.pedPaths, ...promExt.pedPaths, ...otExt.pedPaths, ...res.pedPaths],
+    minimap: [...minimapLines(), ...ringExt.minimap, ...promExt.minimap, ...otExt.minimap, ...res.minimap],
+    ringExt, promExt, otExt, res,
     // Spawn points live in anchors.js (one source of truth for every
     // gameplay position) — the district just carries them through.
     spawnPlayer: { x: ANCHORS.player_spawn.x, z: ANCHORS.player_spawn.z, angle: ANCHORS.player_spawn.angle },
