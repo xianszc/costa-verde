@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T23:47:06.573Z",
+  "generated": "2026-11-21T23:47:57.814Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -67,7 +67,7 @@
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "ms": 41883,
+      "ms": 13099,
       "money": 2350,
       "xp": 1890,
       "errors": 0,
