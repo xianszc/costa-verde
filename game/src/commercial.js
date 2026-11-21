@@ -444,12 +444,12 @@ export function buildCommercialRing() {
   }
 
   // --- pedestrian paths along the ring avenue + the boulevard ---
-  // GRID REBUILD: the z -37.5 path ran through CBD blocks (the north
-  // strip's south row is gone); the boulevard path moves to the south
-  // sidewalk (z 1.5) of the narrowed boulevard (sidewalks to z 2.25).
+  // The boulevard path walks the SOUTH sidewalk (z 2.75, centre of
+  // the 2.4..3.1 strip) — the old z 1.5 line was on the asphalt: the
+  // avenue road is 4.8 wide (edge |z| 2.4), not narrowed.
   pedPaths.push(
     { a: { x: -56, z: -46.5 }, b: { x: 56, z: -46.5 } },
-    { a: { x: -56, z: 1.5 }, b: { x: 56, z: 1.5 } },
+    { a: { x: -56, z: 2.75 }, b: { x: 56, z: 2.75 } },
   );
 
   return {
