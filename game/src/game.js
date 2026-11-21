@@ -1210,6 +1210,7 @@ export function createGame(container) {
       renderer.render(scene, camera);
       renderer.render(scene, camera);
       window.__shotReady = true;
+      window.__ready = true;
       window.__shotLabel = 'road';
       window.__gameStats = {
         calls: renderer.info.render.calls,
@@ -1417,6 +1418,58 @@ export function createGame(container) {
       updateCamera(1);
       renderer.render(scene, camera);
       renderer.render(scene, camera);
+    } else if (name === 'cbd') {
+      // CBD verification (stage 1): skip the title, load the world
+      // directly, and frame the new CBD core. view=street (default):
+      // Elio on foot on the boulevard inside the CBD, facing the
+      // Azzura Tower; view=bay: from the water looking north at the
+      // skyline; view=top: straight down over the CBD grid. The test
+      // waits for window.__ready before screenshotting.
+      const view = params.view || 'street';
+      state.mode = 'play';
+      showHUD();
+      state.time = 18.7;
+      setStorm(false);
+      updateLighting();
+      if (view === 'bay') {
+        state.onFoot = false;
+        playerMesh.visible = false;
+        car.x = ANCHORS.boulevard_mid_south.x; car.z = ANCHORS.boulevard_mid_south.z; car.angle = 0; car.speed = 0;
+        car.mesh.position.set(car.x, 0, car.z);
+        car.mesh.rotation.y = car.angle;
+        run(150, {});
+        state.time = 18.7;
+        updateLighting();
+        camera.position.set(ANCHORS.vantage_cbd_bay.x, ANCHORS.vantage_cbd_bay.y, ANCHORS.vantage_cbd_bay.z);
+        camera.lookAt(ANCHORS.vantage_cbd_bay.look.x, ANCHORS.vantage_cbd_bay.look.y, ANCHORS.vantage_cbd_bay.look.z);
+        camPos.copy(camera.position);
+        camLook.set(ANCHORS.vantage_cbd_bay.look.x, ANCHORS.vantage_cbd_bay.look.y, ANCHORS.vantage_cbd_bay.look.z);
+      } else if (view === 'top') {
+        state.onFoot = false;
+        playerMesh.visible = false;
+        run(150, {});
+        state.time = 18.7;
+        updateLighting();
+        camera.position.set(ANCHORS.vantage_cbd_top.x, ANCHORS.vantage_cbd_top.y, ANCHORS.vantage_cbd_top.z);
+        camera.lookAt(ANCHORS.vantage_cbd_top.look.x, ANCHORS.vantage_cbd_top.look.y, ANCHORS.vantage_cbd_top.look.z);
+        camPos.copy(camera.position);
+        camLook.set(ANCHORS.vantage_cbd_top.look.x, ANCHORS.vantage_cbd_top.look.y, ANCHORS.vantage_cbd_top.look.z);
+      } else { // street
+        state.onFoot = true;
+        playerMesh.visible = true;
+        player.x = ANCHORS.cbd_street.x; player.z = ANCHORS.cbd_street.z; player.angle = ANCHORS.cbd_street.angle;
+        playerMesh.position.set(player.x, 0, player.z);
+        playerMesh.rotation.y = player.angle + Math.PI / 2;
+        run(120, {});
+        state.time = 18.7;
+        updateLighting();
+        camera.position.set(ANCHORS.vantage_cbd_street.x, ANCHORS.vantage_cbd_street.y, ANCHORS.vantage_cbd_street.z);
+        camera.lookAt(ANCHORS.vantage_cbd_street.look.x, ANCHORS.vantage_cbd_street.look.y, ANCHORS.vantage_cbd_street.look.z);
+        camPos.copy(camera.position);
+        camLook.set(ANCHORS.vantage_cbd_street.look.x, ANCHORS.vantage_cbd_street.look.y, ANCHORS.vantage_cbd_street.look.z);
+      }
+      renderer.render(scene, camera);
+      renderer.render(scene, camera);
     } else { // walk
       state.mode = 'play';
       showHUD();
@@ -1440,6 +1493,7 @@ export function createGame(container) {
     // shows real numbers even if no animation frame has run yet.
     updateHUD(performance.now());
     window.__shotReady = true;
+    window.__ready = true;
     window.__gameStats = {
       calls: renderer.info.render.calls,
       triangles: renderer.info.render.triangles,

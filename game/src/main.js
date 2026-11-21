@@ -8,6 +8,10 @@
 // ?shot=title|drive|walk|night|storm|road|wanted|combat|hub|mission stages
 // that scene deterministically (fixed steps, scripted inputs), paints it
 // twice and sets window.__shotReady for a screenshot.
+// ?shot=cbd&view=street|bay|top stages the CBD core directly (no title):
+// street-level inside the CBD, from the bay at the skyline, or top-down.
+// ?debug=1&skip=1&at=cbd_center is the same as ?shot=cbd&view=street.
+// Every staged shot also sets window.__ready — the test waits for it.
 // ?shot=road&district=oldtown|marina|quarry|promenade|countryside|skyline
 // [&night=1] stages one road surface. ?seed=N is accepted for
 // determinism and recorded in the shot stats.
@@ -143,7 +147,14 @@ function stageWheels() {
   };
 }
 
-if (shot === 'wheels') {
+// Debug: ?debug=1&skip=1&at=cbd_center skips the title and loads the
+// world directly at the CBD (same as ?shot=cbd&view=street). The test
+// waits for window.__ready before screenshotting.
+const debugSkip = params.get('debug') === '1' && params.get('skip') === '1';
+if (debugSkip && params.get('at') === 'cbd_center') {
+  game.stageShot('cbd', { seed, view: 'street' });
+  window.__gameReady = true;
+} else if (shot === 'wheels') {
   stageWheels();
   window.__gameReady = true;
 } else if (shot) {
@@ -153,6 +164,7 @@ if (shot === 'wheels') {
     night: params.get('night') || '0',
     storm: params.get('storm') || '0',
     m: params.get('m') || '1',
+    view: params.get('view') || 'street',
   });
   window.__gameReady = true;
 } else {

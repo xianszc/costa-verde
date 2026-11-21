@@ -130,6 +130,21 @@ export const ANCHORS = {
   vantage_tracer_cam: { x: -41, y: 4.5, z: 19, look: { x: -52, y: 1, z: 11.5 }, district: 'quay' },
   // Walk: low on the south sidewalk, looking east along the bay.
   vantage_walk_cam: { x: -35.5, y: 3, z: 7.2, look: { x: -27.5, y: 1.4, z: 7.2 }, district: 'boulevard' },
+
+  // --- CBD verification (stage 1) ---
+  // The CBD centre (0, -6): the middle of the new CBD core, used by
+  // ?debug=1&skip=1&at=cbd_center to load the world directly.
+  cbd_center: { x: 0, z: -6, district: 'cbd' },
+  // Street-level spot inside the CBD: Elio on the boulevard south
+  // lane, facing north at the Azzura Tower.
+  cbd_street: { x: 0, z: 3.4, angle: Math.PI / 2, district: 'cbd' },
+  // CBD camera vantages for ?shot=cbd.
+  // Street: low behind Elio, looking up the Azzura Tower.
+  vantage_cbd_street: { x: 0.5, y: 2.2, z: 8.5, look: { x: 0, y: 25, z: -9 }, district: 'cbd' },
+  // Bay: over the water south of the quay, looking north at the skyline.
+  vantage_cbd_bay: { x: 0, y: 9, z: 48, look: { x: 0, y: 35, z: -9 }, district: 'cbd' },
+  // Top: straight down over the CBD grid.
+  vantage_cbd_top: { x: 0, y: 150, z: -6, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
 };
 
 // A mission stage target: { x, z, r } where r is the arrival radius.
