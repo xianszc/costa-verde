@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-21T18:20:01.950Z",
-  "commit": "395425a",
+  "generated": "2026-11-21T19:03:11.356Z",
+  "commit": "unknown",
   "missions": {
     "M1": {
       "mission": "M1",
@@ -21,6 +21,62 @@
       "fails": 0,
       "maxStage": 2,
       "evidence": "/tmp/missions-run-20261122-0130.log (HEAD f7a574e), not re-run in this pass"
+    },
+    "M4": {
+      "mission": "M4",
+      "result": "PASS",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 149637,
+      "money": 2050,
+      "xp": 1755.3450000000003,
+      "errors": 0,
+      "how": "human-like",
+      "commit": "unknown"
+    },
+    "M5": {
+      "mission": "M5",
+      "result": "TIMEOUT",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 593309,
+      "errors": 0,
+      "commit": "unknown"
+    },
+    "M6": {
+      "mission": "M6",
+      "result": "TIMEOUT",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 616618,
+      "errors": 0,
+      "commit": "unknown"
+    },
+    "M7": {
+      "mission": "M7",
+      "result": "PASS",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 41883,
+      "money": 2350,
+      "xp": 1890,
+      "errors": 0,
+      "how": "human-like",
+      "commit": "unknown"
+    },
+    "M8": {
+      "mission": "M8",
+      "result": "TIMEOUT",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 562966,
+      "errors": 0,
+      "commit": "unknown"
     }
   },
   "saveLoad": {
