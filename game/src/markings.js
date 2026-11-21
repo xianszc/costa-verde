@@ -50,13 +50,60 @@ export function segmentsAlong(a, b, gaps) {
   return out.filter(([s, e]) => e - s > 0.05);
 }
 
+// --- Global placement guard (all registries share it) -----------------
+// The CBD, the ring and the zones are built by three registries, but
+// their roads meet at the boundaries — a zone zebra can land on a ring
+// stop, a ring edge on a CBD zebra. A marking is recorded ONLY when
+// its rect overlaps nothing placed by ANY registry so far (epsilon
+// 0.001, touching edges do not count). The first system to claim an
+// area keeps it (CBD, then ring, then zones). Skipped markings are
+// counted per registry (audit().skipped); the audit stays at 0 by
+// construction, and the page audit verifies it independently.
+const GLOBAL_CELL = 4, GLOBAL_EPS = 0.001;
+const globalGrid = new Map();
+function globalOverlaps(x0, z0, x1, z1) {
+  for (let cx = Math.floor(x0 / GLOBAL_CELL); cx <= Math.floor(x1 / GLOBAL_CELL); cx++) {
+    for (let cz = Math.floor(z0 / GLOBAL_CELL); cz <= Math.floor(z1 / GLOBAL_CELL); cz++) {
+      const list = globalGrid.get(cx + ',' + cz);
+      if (!list) continue;
+      for (const it of list) {
+        if (x0 < it.x1 - GLOBAL_EPS && x1 > it.x0 + GLOBAL_EPS && z0 < it.z1 - GLOBAL_EPS && z1 > it.z0 + GLOBAL_EPS) return true;
+      }
+    }
+  }
+  return false;
+}
+function globalClaim(it) {
+  for (let cx = Math.floor(it.x0 / GLOBAL_CELL); cx <= Math.floor(it.x1 / GLOBAL_CELL); cx++) {
+    for (let cz = Math.floor(it.z0 / GLOBAL_CELL); cz <= Math.floor(it.z1 / GLOBAL_CELL); cz++) {
+      const k = cx + ',' + cz;
+      if (!globalGrid.has(k)) globalGrid.set(k, []);
+      globalGrid.get(k).push(it);
+    }
+  }
+}
+
 export function createMarkings() {
   const items = []; // {type, x0, z0, x1, z1}
   const parts = { dash: [], edge: [], yellow: [], bus: [], zebra: [], stop: [], arrow: [], box: [] };
+  const seenRects = new Set();
+  let deduped = 0;
+  let skipped = 0;
   function add(type, geo) {
     geo.computeBoundingBox();
     const bb = geo.boundingBox;
-    items.push({ type, x0: +bb.min.x.toFixed(3), z0: +bb.min.z.toFixed(3), x1: +bb.max.x.toFixed(3), z1: +bb.max.z.toFixed(3) });
+    const it = { type, x0: +bb.min.x.toFixed(3), z0: +bb.min.z.toFixed(3), x1: +bb.max.x.toFixed(3), z1: +bb.max.z.toFixed(3) };
+    // Identical rects (the same crossing built by two districts — the
+    // zone defs list some streets twice) are recorded once: a duplicate
+    // would z-fight in the merged mesh and count as an overlap.
+    const key = it.type + '|' + it.x0 + '|' + it.z0 + '|' + it.x1 + '|' + it.z1;
+    if (seenRects.has(key)) { deduped++; return geo; }
+    seenRects.add(key);
+    // Cross-system guard: skip a marking that would overlap anything
+    // placed by any registry so far (see above).
+    if (globalOverlaps(it.x0, it.z0, it.x1, it.z1)) { skipped++; return geo; }
+    globalClaim(it);
+    items.push(it);
     parts[type].push(geo);
     return geo;
   }
@@ -70,24 +117,19 @@ export function createMarkings() {
     return add(type, colored(xform(geo, cx, MARK_Y[type], cz, ry, 1, -Math.PI / 2), 0xffffff));
   }
   // Shape, placed ONLY when its rect overlaps nothing already recorded
-  // (turn arrows: the 11.2 grid spacing leaves no room for them on the
-  // short blocks — they appear wherever the approach geometry allows,
-  // and are skipped where they would collide with a neighbour's
-  // zebra/stop/box). Returns true when placed. Skipped shapes are
-  // counted on the registry (audit().skipped).
-  let skipped = 0;
+  // anywhere (same global guard as add() — the 11.2 grid spacing
+  // leaves no room for turn arrows on the short blocks, so they appear
+  // wherever the approach geometry allows and are skipped where they
+  // would collide with a neighbour's zebra/stop/box). Returns true
+  // when placed.
   function shapeIfFree(type, geo, cx, cz, ry) {
     const g = colored(xform(geo, cx, MARK_Y[type], cz, ry, 1, -Math.PI / 2), 0xffffff);
     g.computeBoundingBox();
     const bb = g.boundingBox;
-    const EPS = 0.001;
-    for (const it of items) {
-      if (bb.min.x < it.x1 - EPS && bb.max.x > it.x0 + EPS && bb.min.z < it.z1 - EPS && bb.max.z > it.z0 + EPS) {
-        skipped++;
-        return false;
-      }
-    }
-    items.push({ type, x0: +bb.min.x.toFixed(3), z0: +bb.min.z.toFixed(3), x1: +bb.max.x.toFixed(3), z1: +bb.max.z.toFixed(3) });
+    const it = { type, x0: +bb.min.x.toFixed(3), z0: +bb.min.z.toFixed(3), x1: +bb.max.x.toFixed(3), z1: +bb.max.z.toFixed(3) };
+    if (globalOverlaps(it.x0, it.z0, it.x1, it.z1)) { skipped++; return false; }
+    globalClaim(it);
+    items.push(it);
     parts[type].push(g);
     return true;
   }
@@ -127,11 +169,14 @@ export function createMarkings() {
       }
     }
     const total = Object.values(byPair).reduce((s, v) => s + v, 0);
-    return { total, byPair, samples, count: items.length, skipped };
+    return { total, byPair, samples, count: items.length, skipped, deduped };
   }
   // Merged meshes, one per type, named mark-<type> (the page audit
   // collects them by name). The registry rects are also exposed on
-  // window for the audit when the world runs in a browser.
+  // window for the audit when the world runs in a browser — appended
+  // to window.__markingAudits (one entry per registry: the CBD grid
+  // and the zones each have their own), so no registry overwrites
+  // another's audit.
   function build(group, prefix = 'mark') {
     for (const type of Object.keys(parts)) {
       if (!parts[type].length) continue;
@@ -140,10 +185,42 @@ export function createMarkings() {
       mesh.name = prefix + '-' + type;
       group.add(mesh);
     }
-    if (typeof window !== 'undefined') window.__markingAudit = { items, audit: audit() };
+    if (typeof window !== 'undefined') {
+      window.__markingAudits = window.__markingAudits || [];
+      window.__markingAudits.push({ items, audit: audit() });
+      window.__markingAudit = { items, audit: audit() };
+    }
     return group;
   }
   return { items, parts, add, box, shape, shapeIfFree, audit, build };
+}
+
+// --- Shared longitudinal-gap helpers (ring + zones) -------------------
+// Gaps along a road per crossing (centre c, half h): the intersection
+// box (+0.6) and the zebra bands on both legs ([c +/- (h+0.4),
+// c +/- (h+BAR_LEN+0.4)]). Dashes and strips are cut there; each dash
+// is additionally skipped when it would land on a stop line.
+export function crossingGaps(c, h) {
+  const gaps = [[c - h - 0.6, c + h + 0.6]];
+  for (const s of [-1, 1]) gaps.push([c + s * (h + 0.4), c + s * (h + ZEBRA_BAR_LEN + 0.4)]);
+  return gaps.map(([a, b]) => [Math.min(a, b), Math.max(a, b)]).sort((p, q) => p[0] - q[0]);
+}
+export function allCrossingGaps(crossings) {
+  return crossings.flatMap(({ c, h }) => crossingGaps(c, h)).sort((p, q) => p[0] - q[0]);
+}
+// Stop lines on a road, for the dash skip. `swap` is true for E-W
+// roads (right-hand traffic: the -leg stop is on the +offset half).
+export function stopSpansFor(crossings, swap) {
+  const d = ZEBRA_BAR_LEN + 0.6 + STOP_GAP;
+  return crossings.flatMap(({ c, h }) => [
+    { p: c - (h + d), side: swap ? 1 : -1 },
+    { p: c + (h + d), side: swap ? -1 : 1 },
+  ]);
+}
+export function dashBlockedBy(p, side, off, stops, kind) {
+  const [lo, hi] = kind === 'avenue' ? [0.7, 1.35] : [0.15, 0.5];
+  if (off < lo - 0.06 || off > hi + 0.06) return false;
+  return stops.some((st) => st.side === side && Math.abs(p - st.p) < 0.7);
 }
 
 // --- Placement rules (shared by the three systems) --------------------

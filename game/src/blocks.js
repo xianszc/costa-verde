@@ -29,6 +29,10 @@ import {
 } from './world.js';
 import { seededRandom } from './roads.js';
 import { buildSignAtlas, remapUV, SHOP_NAMES } from './commercial.js';
+import {
+  createMarkings, zebraApproach, stopForApproach,
+  arrowsForApproach, boxJunction, allCrossingGaps, stopSpansFor, dashBlockedBy,
+} from './markings.js';
 
 // --- shared pools ---
 // Every new zone appends geometries here; city.js merges each pool
@@ -65,8 +69,9 @@ export function mergePools(pools, atlas, roadMat) {
   add(pools.neons, new THREE.MeshBasicMaterial({ vertexColors: true }), 'zones-neon', false);
   add(pools.roads, roadMat || new THREE.MeshStandardMaterial({ color: 0x9aa0a4, roughness: 0.92, flatShading: true }), 'zones-roads', false);
   add(pools.sidewalks, new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true }), 'zones-sidewalks', false);
-  add(pools.markingsW, new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.7 }), 'zones-markings-w', false);
-  add(pools.markingsY, new THREE.MeshBasicMaterial({ color: 0xe8c33d, transparent: true, opacity: 0.65 }), 'zones-markings-y', false);
+  // Zone markings live in the shared registry (pools.markings), built
+  // here as zone-*: the old markingsW/markingsY pools are retired.
+  if (pools.markings) pools.markings.build(group, 'zone');
   add(pools.lampPoles, M(0x2b2b2b), 'zones-lamps-pole');
   add(pools.lampGlobes, M(0xffd9a0, { emissive: 0xffc46b, emissiveIntensity: 0.9 }), 'zones-lamps-globe', false);
   for (const [type, list] of Object.entries(pools.trees)) {
@@ -149,8 +154,22 @@ export function zoneRoadsInto(ns, ew, pools, opts = {}) {
   // gaps: streets built elsewhere (roads.js) that cross this zone's
   // streets — used ONLY for segmentation, never rebuilt, so no slab
   // is ever duplicated (duplicates z-fight).
-  const gapNs = opts.gaps?.ns || [];
-  const gapEw = opts.gaps?.ew || [];
+  // The zone defs list some streets twice (residential + outer share
+  // their E-W streets) — dedup by position + width first, or the
+  // slabs, sidewalks, lamps AND markings are all built twice.
+  const dedup = (list, key) => {
+    const seen = new Set();
+    return list.filter((s) => {
+      const k = key(s);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  };
+  ns = dedup(ns, (s) => s.x + ':' + s.w);
+  ew = dedup(ew, (s) => s.z + ':' + s.w);
+  const gapNs = dedup(opts.gaps?.ns || [], (s) => s.x + ':' + s.w);
+  const gapEw = dedup(opts.gaps?.ew || [], (s) => s.z + ':' + s.w);
   const allNs = [...ns, ...gapNs];
   const allEw = [...ew, ...gapEw];
   const sidewalkW = (s) => (s.kind === 'avenue' ? 0.7 : 0.4);
@@ -181,64 +200,98 @@ export function zoneRoadsInto(ns, ew, pools, opts = {}) {
       pools.sidewalks.push(colored(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x + s.w / 2 + sw / 2, 0.12, (a + b) / 2), 0xffffff));
     }
   }
-  // Markings: dashed lane dividers + solid edges + double yellow.
-  const dash = (x, z, w, d) => pools.markingsW.push(colored(xform(new THREE.BoxGeometry(w, 0.01, d), x, 0.22, z), 0xffffff));
+  // Markings (registry — the shared one on pools, built once in
+  // mergePools as zone-*: one zebra per approach outside the box, a
+  // stop line 1.0 behind it, arrows where they fit, dashes cut at
+  // intersections + zebra bands and skipped at stop lines).
+  const reg = pools.markings || (pools.markings = createMarkings());
+  const edgeOf = (s) => (s.kind === 'avenue' ? 1.7 : 0.6);
+  const crossingsNS = allEw.map((e) => ({ c: e.z, h: e.w / 2 }));
+  const crossingsEW = allNs.map((n) => ({ c: n.x, h: n.w / 2 }));
   for (const s of ns) {
-    const gaps = allEw.map((e) => [e.z - e.w / 2 - 0.6, e.z + e.w / 2 + 0.6]);
-    for (const [a, b] of segmentsAlong(s.z0, s.z1, gaps)) {
-      const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
+    const segs = segmentsAlong(s.z0, s.z1, allCrossingGaps(crossingsNS));
+    const stops = stopSpansFor(crossingsNS, false);
+    const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
+    for (const [a, b] of segs) {
       for (const off of divs) {
         for (const side of [-1, 1]) {
-          for (let z = a + 1; z <= b - 1; z += 4) dash(s.x + side * off, z, 0.12, 2);
+          for (let z = a + 0.5; z <= b - 0.5; z += 2.5) {
+            if (dashBlockedBy(z, side, off, stops, s.kind)) continue;
+            reg.box('dash', s.x + side * off, z, 0.12, 1);
+          }
         }
       }
       for (const side of [-1, 1]) {
-        const e = s.kind === 'avenue' ? 1.7 : 0.6;
-        pools.markingsW.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, b - a), s.x + side * e, 0.22, (a + b) / 2), 0xffffff));
-        if (s.kind !== 'avenue') pools.markingsY.push(colored(xform(new THREE.BoxGeometry(0.08, 0.01, b - a), s.x + side * 0.08, 0.22, (a + b) / 2), 0xffffff));
+        const e = edgeOf(s);
+        reg.box('edge', s.x + side * e, (a + b) / 2, 0.12, b - a);
+        if (s.kind !== 'avenue') reg.box('yellow', s.x + side * 0.08, (a + b) / 2, 0.08, b - a);
+        else reg.box('bus', s.x + side * 1.45, (a + b) / 2, 0.08, b - a);
       }
     }
   }
   for (const s of ew) {
-    const gaps = allNs.map((n) => [n.x - n.w / 2 - 0.6, n.x + n.w / 2 + 0.6]);
-    for (const [a, b] of segmentsAlong(s.x0, s.x1, gaps)) {
-      const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
+    const segs = segmentsAlong(s.x0, s.x1, allCrossingGaps(crossingsEW));
+    const stops = stopSpansFor(crossingsEW, true);
+    const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
+    for (const [a, b] of segs) {
       for (const off of divs) {
         for (const side of [-1, 1]) {
-          for (let x = a + 1; x <= b - 1; x += 4) dash(x, s.z + side * off, 2, 0.12);
+          for (let x = a + 0.5; x <= b - 0.5; x += 2.5) {
+            if (dashBlockedBy(x, side, off, stops, s.kind)) continue;
+            reg.box('dash', x, s.z + side * off, 1, 0.12);
+          }
         }
       }
       for (const side of [-1, 1]) {
-        const e = s.kind === 'avenue' ? 1.7 : 0.6;
-        pools.markingsW.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.12), (a + b) / 2, 0.22, s.z + side * e), 0xffffff));
-        if (s.kind !== 'avenue') pools.markingsY.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.08), (a + b) / 2, 0.22, s.z + side * 0.08), 0xffffff));
+        const e = edgeOf(s);
+        reg.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.12);
+        if (s.kind !== 'avenue') reg.box('yellow', (a + b) / 2, s.z + side * 0.08, b - a, 0.08);
+        else reg.box('bus', (a + b) / 2, s.z + side * 1.45, b - a, 0.08);
       }
     }
   }
-  // Zebras at avenue crossings + lamps, one side only.
+  // Zebras + stops + arrows at EVERY crossing (not just avenues), and
+  // the box junction where an avenue meets. Arrows go in a second pass
+  // (shapeIfFree must see the boxes of later crossings too).
+  const zoneLegs = [];
   for (const n of ns) {
     for (const e of ew) {
-      if (n.kind !== 'avenue' && e.kind !== 'avenue') continue;
-      const cx = n.x, cz = e.z;
-      for (const dz of [-0.45, -0.15, 0.15, 0.45]) {
-        pools.markingsW.push(colored(xform(new THREE.BoxGeometry(n.w + 0.4, 0.01, 0.35), cx, 0.22, cz + dz), 0xffffff));
+      const cx = n.x, cz = e.z, hn = n.w / 2, he = e.w / 2;
+      const ave = n.kind === 'avenue' || e.kind === 'avenue';
+      for (const leg of ['W', 'E']) {
+        const band = zebraApproach(reg, cx, cz, leg, he, hn, edgeOf(e));
+        const stop = stopForApproach(reg, band, leg, e.kind);
+        zoneLegs.push({ stop, leg, kind: e.kind });
       }
-      for (const dx of [-0.45, -0.15, 0.15, 0.45]) {
-        pools.markingsW.push(colored(xform(new THREE.BoxGeometry(0.35, 0.01, e.w + 0.4), cx + dx, 0.22, cz), 0xffffff));
+      for (const leg of ['S', 'N']) {
+        const band = zebraApproach(reg, cx, cz, leg, hn, he, edgeOf(n));
+        const stop = stopForApproach(reg, band, leg, n.kind);
+        zoneLegs.push({ stop, leg, kind: n.kind });
       }
+      if (ave) boxJunction(reg, cx, cz, hn, he);
     }
   }
+  for (const { stop, leg, kind } of zoneLegs) arrowsForApproach(reg, stop, leg, kind);
+  // Lamps, one side only — in the furniture strip next to the kerb
+  // (0.04 out from the road edge), never in the middle of the sidewalk
+  // and never at a crossing (a lamp in a crossing stands on the
+  // crossing road's asphalt).
   const lampAt = (x, z) => {
     pools.lampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), x, 1.2, z));
     pools.lampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), x, 2.5, z));
   };
+  const inCrossing = (p, list) => list.some((c) => Math.abs(p - c) < 1.2);
   for (const s of ns) {
-    const sw = sidewalkW(s);
-    for (let z = s.z0 + 4; z <= s.z1 - 4; z += 8) lampAt(s.x + s.w / 2 + sw / 2, z);
+    for (let z = s.z0 + 4; z <= s.z1 - 4; z += 8) {
+      if (inCrossing(z, allEw.map((e) => e.z))) continue;
+      lampAt(s.x + s.w / 2 + 0.04, z);
+    }
   }
   for (const s of ew) {
-    const sw = sidewalkW(s);
-    for (let x = s.x0 + 4; x <= s.x1 - 4; x += 8) lampAt(x, s.z - s.w / 2 - sw / 2);
+    for (let x = s.x0 + 4; x <= s.x1 - 4; x += 8) {
+      if (inCrossing(x, allNs.map((n) => n.x))) continue;
+      lampAt(x, s.z - s.w / 2 - 0.04);
+    }
   }
   void opts;
 }
@@ -522,6 +575,39 @@ export function buildZoneInto(def, pools, atlas) {
     else fillBlockPerimeter(b, def, rnd, pools, atlas, state);
   });
   if (def.roadsNs || def.roadsEw) zoneRoadsInto(def.roadsNs || [], def.roadsEw || [], pools, { gaps: def.gaps });
+  const reg = pools.markings || (pools.markings = createMarkings());
+  // Old town: no roadsNs/roadsEw (the cobble alleys are hand-built) —
+  // basic markings are zebras + stops at the alley crossings (2-wide
+  // streets, 9 apart — the bands fit, the arrows are skipped where
+  // they would collide with the neighbour's zebra).
+  if (def.allNs && def.allEw) {
+    const legs = [];
+    for (const n of def.allNs) {
+      for (const e of def.allEw) {
+        const cx = n.x, cz = e.z;
+        for (const leg of ['W', 'E']) {
+          const band = zebraApproach(reg, cx, cz, leg, e.w / 2, n.w / 2, 0.6);
+          const stop = stopForApproach(reg, band, leg, 'street');
+          legs.push({ stop, leg, kind: 'street' });
+        }
+        for (const leg of ['S', 'N']) {
+          const band = zebraApproach(reg, cx, cz, leg, n.w / 2, e.w / 2, 0.6);
+          const stop = stopForApproach(reg, band, leg, 'street');
+          legs.push({ stop, leg, kind: 'street' });
+        }
+      }
+    }
+    for (const { stop, leg, kind } of legs) arrowsForApproach(reg, stop, leg, kind);
+  }
+  // Promenade: zebras across the quay (z 12.7..14.5) at each N-S
+  // street — peds crossing from the shop rows to the waterfront.
+  if (def.id === 'promenade-ext') {
+    for (const r of def.rects) {
+      for (const s of r.ns) {
+        for (const dx of [-1.4, -0.7, 0, 0.7, 1.4]) reg.box('zebra', s.x + dx, 13.6, 0.35, 1.8);
+      }
+    }
+  }
   const lanes = (def.lanes || []).map((l) => ({
     name: l.name, speed: l.speed || 7,
     pts: loopPath(l.x0, l.z0, l.x1, l.z1, l.r || 2),

@@ -398,8 +398,14 @@ export function buildCBDGrid(opts = {}) {
   }
   for (const s of CBD_EW) {
     const crossings = CBD_NS.map((n) => ({ c: n.x, h: n.w / 2 }));
-    // The boulevard also meets the ring connectors at x +/-40.
-    if (s.z === 0) for (const cx of CONNECTOR_X) crossings.push({ c: cx, h: CONNECTOR_HALF });
+    // The boulevard also meets the ring connectors at x +/-40, and the
+    // ring's N-S streets east/west of the grid (roads.js RING_STREETS:
+    // x -63/-54/-44/44/53/62, 2 wide) — the boulevard's dashes/edges
+    // are gapped there too, and the grid draws those crossings below.
+    if (s.z === 0) {
+      for (const cx of CONNECTOR_X) crossings.push({ c: cx, h: CONNECTOR_HALF });
+      for (const rx of [-63, -54, -44, 44, 53, 62]) crossings.push({ c: rx, h: 1 });
+    }
     crossings.sort((p, q) => p.c - q.c);
     const segs = segmentsAlong(s.x0, s.x1, allGaps(crossings));
     const stops = stopSpans(crossings, true);
@@ -465,6 +471,10 @@ export function buildCBDGrid(opts = {}) {
   // The boulevard x the ring connectors (x +/-40, 7 wide). The inner
   // leg of each faces a grid street 6.4 away (VIA DEL FARO / DEL
   // PORTO) — that leg is skipped; the street's own zebra covers it.
+  // (The boulevard x the ring's N-S streets get NO crossing furniture:
+  // their S legs would reach the residential streets 6.0 north and
+  // their W legs the connectors — the dashes/edges are still gapped
+  // at those crossings, above.)
   for (const cx of CONNECTOR_X) {
     intersectionMarkings(cx, 0, CONNECTOR_HALF, 2.4, 'street', 'avenue', { len: 2.8, c: 1.6 }, cx < 0 ? ['E'] : ['W']);
   }

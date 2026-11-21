@@ -16,6 +16,10 @@
 // horizon (hills + skyline).
 import * as THREE from '../vendor/three.module.min.js';
 import { M, mergedMesh, colored, xform, vertexColorMat, buildSkylineCluster } from './world.js';
+import {
+  createMarkings, segmentsAlong, zebraApproach, stopForApproach,
+  arrowsForApproach, boxJunction, allCrossingGaps,
+} from './markings.js';
 import { buildTrafficCar, buildPoliceCruiser } from './vehicles.js';
 import { makeFigure, CIVILIANS } from './people.js';
 import {
@@ -673,106 +677,99 @@ export function buildRoadNetwork() {
   // ---------- boulevard median ----------
   // Built by cbd-grid.js now (median + planters along the boulevard,
   // with gaps at every intersection). Nothing to add here.
-  // ---------- markings (worn, never crisp) ----------
-  // Widened + brightened (Xian 21 Nov 15:02): the old 0.12-0.15-wide
-  // markings at 0.5 opacity washed out from above — the streets must
-  // READ from a top-down view, so the dashes and edges are wider and
-  // more opaque now. CBD/boulevard markings live in cbd-grid.js.
-  const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.75 });
-  const dashes = [];
+  // ---------- markings (registry) ----------
+  // The CBD grid owns the boulevard (z 0) markings, including its
+  // crossings with the ring connectors (x +/-40) — this module draws
+  // NO boulevard zebras/stops/arrows. It owns the ring roads, the
+  // connectors and the ring avenue x connector intersections.
+  const m = createMarkings();
+  const WIDE_LANE = { len: 2.8, c: 1.6 }; // 7-wide roads, 1 lane per direction
+  const wideArrowRy = { W: -Math.PI / 2, E: Math.PI / 2, S: Math.PI, N: 0 };
+  // Centre dash (0.12 x 1.0, every 2.5) + edges for one road, cut at
+  // the crossings. `road` is {axis:'x'|'z', at, from, to, kind} and
+  // `crossings` is [{c, h}] along the road. Centre dashes sit on the
+  // centreline, so stops (which span the lanes) never touch them.
+  const centreDashRoad = (road, crossings) => {
+    const segs = segmentsAlong(road.from, road.to, allCrossingGaps(crossings));
+    for (const [a, b] of segs) {
+      if (road.axis === 'z') {
+        for (let p = a + 0.5; p <= b - 0.5; p += 2.5) m.box('dash', road.at, p, 0.12, 1);
+        for (const side of [-1, 1]) m.box('edge', road.at + side * 0.85, (a + b) / 2, 0.12, b - a);
+      } else {
+        for (let p = a + 0.5; p <= b - 0.5; p += 2.5) m.box('dash', p, road.at, 1, 0.12);
+        for (const side of [-1, 1]) m.box('edge', (a + b) / 2, road.at + side * 0.85, b - a, 0.12);
+      }
+    }
+  };
+  // --- connectors (N-S, x +/-40, 7 wide, z -42..6) ---
+  // Crossings: the ring avenue (z -42, half 3.5) + the boulevard (z 0,
+  // half 2.4 — the grid's intersection; the dashes/edges are gapped
+  // there even though the grid draws the crossing furniture).
   for (const cx of CROSS_X) {
-    for (let z = -40; z <= 4; z += 5) dashes.push(colored(xform(new THREE.BoxGeometry(0.22, 0.01, 3), cx, 0.22, z), 0xffffff));
-  }
-  // Ring avenue dashes (split west/east) + ring street dashes.
-  for (let x = -56; x <= -38; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, -42), 0xffffff));
-  for (let x = 38; x <= 56; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, -42), 0xffffff));
-  for (const s of RING_STREETS) {
-    for (let z = s.z0 + 2; z <= s.z1 - 2; z += 4) dashes.push(colored(xform(new THREE.BoxGeometry(0.15, 0.01, 2), s.x, 0.22, z), 0xffffff));
-  }
-  // Ring boundary street dashes (E-W streets dash along x).
-  for (const s of RING_STREETS_EW) {
-    for (let x = s.x0 + 2; x <= s.x1 - 2; x += 4) dashes.push(colored(xform(new THREE.BoxGeometry(2, 0.01, 0.15), x, 0.22, s.z), 0xffffff));
-  }
-  for (const s of RING_BOUNDARY_NS) {
-    for (let z = s.z0 + 2; z <= s.z1 - 2; z += 4) dashes.push(colored(xform(new THREE.BoxGeometry(0.15, 0.01, 2), s.x, 0.22, z), 0xffffff));
-  }
-  const dashMesh = mergedMesh(dashes, dashMat);
-  dashMesh.name = 'dashes';
-  g.add(dashMesh);
-  const yellowMat = new THREE.MeshBasicMaterial({ color: 0xe8c33d, transparent: true, opacity: 0.65 });
-  const edges = [];
-  for (const cx of CROSS_X) {
-    edges.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 48), cx - 3.2, 0.22, -18), 0xffffff));
-    edges.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 48), cx + 3.2, 0.22, -18), 0xffffff));
-  }
-  // Ring avenue edges (split west/east) + ring street edges.
-  for (const seg of [RING_AVENUE_W, RING_AVENUE_E]) {
-    const w = seg.x1 - seg.x0, xc = (seg.x0 + seg.x1) / 2;
-    edges.push(colored(xform(new THREE.BoxGeometry(w, 0.01, 0.3), xc, 0.22, -45.2), 0xffffff));
-    edges.push(colored(xform(new THREE.BoxGeometry(w, 0.01, 0.3), xc, 0.22, -38.8), 0xffffff));
-  }
-  for (const s of RING_STREETS) {
-    const len = s.z1 - s.z0;
-    const zc = (s.z0 + s.z1) / 2;
-    edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, len), s.x - 0.85, 0.22, zc), 0xffffff));
-    edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, len), s.x + 0.85, 0.22, zc), 0xffffff));
-  }
-  // Ring boundary street edges.
-  for (const s of RING_STREETS_EW) {
-    const len = s.x1 - s.x0, xc = (s.x0 + s.x1) / 2;
-    edges.push(colored(xform(new THREE.BoxGeometry(len, 0.01, 0.12), xc, 0.22, s.z - 0.85), 0xffffff));
-    edges.push(colored(xform(new THREE.BoxGeometry(len, 0.01, 0.12), xc, 0.22, s.z + 0.85), 0xffffff));
-  }
-  for (const s of RING_BOUNDARY_NS) {
-    const len = s.z1 - s.z0, zc = (s.z0 + s.z1) / 2;
-    edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, len), s.x - 0.85, 0.22, zc), 0xffffff));
-    edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, len), s.x + 0.85, 0.22, zc), 0xffffff));
-  }
-  const edgeMesh = mergedMesh(edges, yellowMat);
-  edgeMesh.name = 'edges';
-  g.add(edgeMesh);
-  // Zebra crossings — narrow (3.6 wide), 6 short stripes, only where a
-  // ring connector meets the boulevard (real intersections), so they
-  // read as crossings instead of dominating the whole road. The grid
-  // builds its own zebras at its 42 intersections.
-  const zebraMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.65 });
-  const zebras = [];
-  for (const cx of CROSS_X) {
-    for (let dz = -1.4; dz <= 1.4; dz += 0.7) {
-      zebras.push(colored(xform(new THREE.BoxGeometry(0.28, 0.01, 3.6), cx, 0.22, dz), 0xffffff));
+    const crossings = [{ c: -42, h: 3.5 }, { c: 0, h: 2.4 }];
+    const segs = segmentsAlong(CROSS.z0, CROSS.z1, allCrossingGaps(crossings));
+    for (const [a, b] of segs) {
+      for (let z = a + 0.5; z <= b - 0.5; z += 2.5) m.box('dash', cx, z, 0.12, 1);
+      for (const side of [-1, 1]) m.box('edge', cx + side * 3.2, (a + b) / 2, 0.12, b - a);
     }
   }
-  const zebraMesh = mergedMesh(zebras, zebraMat);
-  zebraMesh.name = 'zebras';
-  g.add(zebraMesh);
-  // Stop lines at the connector intersections (on the boulevard lanes,
-  // 4.6 out from the connector centreline, facing the crossing).
-  const stopMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.55 });
-  const stops = [];
-  for (const cx of CROSS_X) {
-    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx - 4.6, 0.22, -0.725), 0xffffff));
-    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx + 4.6, 0.22, 0.725), 0xffffff));
+  // --- ring avenue (E-W, z -42, 7 wide) ---
+  // Crossings: the connectors (x +/-40, half 3.5). The middle (x
+  // -34.7..34.7) is the grid's VIA DEL NORD — no ring markings there.
+  for (const seg of [RING_AVENUE_W, RING_AVENUE_E]) {
+    const crossings = CROSS_X.map((cx) => ({ c: cx, h: 3.5 })).filter(({ c }) => c >= seg.x0 && c <= seg.x1);
+    const segs = segmentsAlong(seg.x0, seg.x1, allCrossingGaps(crossings));
+    for (const [a, b] of segs) {
+      for (let x = a + 0.5; x <= b - 0.5; x += 2.5) m.box('dash', x, -42, 1, 0.12);
+      for (const side of [-1, 1]) m.box('edge', (a + b) / 2, -42 + side * 3.2, b - a, 0.12);
+    }
   }
-  const stopMesh = mergedMesh(stops, stopMat);
-  stopMesh.name = 'stoplines';
-  g.add(stopMesh);
-  // Turn arrows at the connector intersections. The arrow shape points
-  // north (+Y) at ry 0 after flattening (rotateX -PI/2); east is
-  // -PI/2, west +PI/2. Eastbound lane (z +0.725) gets an east arrow,
-  // westbound (z -0.725) a west arrow, 5 units out from the crossing.
-  const arrowGeo = new THREE.Shape();
-  arrowGeo.moveTo(-0.5, 0); arrowGeo.lineTo(0.5, 0); arrowGeo.lineTo(0.5, 1.6);
-  arrowGeo.lineTo(1.1, 1.6); arrowGeo.lineTo(0, 2.8); arrowGeo.lineTo(-1.1, 1.6);
-  arrowGeo.lineTo(-0.5, 1.6); arrowGeo.closePath();
-  const arrowMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.45 });
-  const arrowParts = [];
-  for (const cx of CROSS_X) {
-    arrowParts.push(colored(xform(new THREE.ShapeGeometry(arrowGeo), cx - 5, 0.22, 0.725, -Math.PI / 2, 1, -Math.PI / 2), 0xffffff));
-    arrowParts.push(colored(xform(new THREE.ShapeGeometry(arrowGeo), cx + 5, 0.22, -0.725, Math.PI / 2, 1, -Math.PI / 2), 0xffffff));
+  // --- ring streets (N-S + E-W + boundary, 2 wide) ---
+  // Crossings: every perpendicular street whose range overlaps, plus
+  // the ring avenue (z -42), the boulevard (z 0) and the quay (z 12.7,
+  // a walkway — the streets end there, no crossing furniture).
+  const ewCrossForNS = (s) => {
+    const out = [];
+    for (const e of RING_STREETS_EW) if (s.x >= e.x0 && s.x <= e.x1) out.push({ c: e.z, h: 1 });
+    if (s.z0 <= -42 && s.z1 >= -42) out.push({ c: -42, h: 3.5 });
+    if (s.z0 <= 0 && s.z1 >= 0) out.push({ c: 0, h: 2.4 });
+    if (s.z1 >= 12.7) out.push({ c: 12.7, h: 0.9 });
+    return out.sort((p, q) => p.c - q.c);
+  };
+  const nsCrossForEW = (s) => {
+    const out = [];
+    for (const n of [...RING_STREETS, ...RING_BOUNDARY_NS]) if (n.x >= s.x0 && n.x <= s.x1) out.push({ c: n.x, h: 1 });
+    for (const cx of CROSS_X) if (cx >= s.x0 && cx <= s.x1) out.push({ c: cx, h: 3.5 });
+    return out.sort((p, q) => p.c - q.c);
+  };
+  for (const s of [...RING_STREETS, ...RING_BOUNDARY_NS]) {
+    centreDashRoad({ axis: 'z', at: s.x, from: s.z0, to: s.z1, kind: 'street' }, ewCrossForNS(s));
   }
-  const arrowMesh = mergedMesh(arrowParts, arrowMat);
-  arrowMesh.name = 'arrows';
-  g.add(arrowMesh);
+  for (const s of RING_STREETS_EW) {
+    centreDashRoad({ axis: 'x', at: s.z, from: s.x0, to: s.x1, kind: 'street' }, nsCrossForEW(s));
+  }
+  // --- ring avenue x connector intersections (x +/-40, z -42) ---
+  // Both roads are 7 wide, one lane per direction: one zebra per leg,
+  // a stop spanning the inbound lane, one straight arrow, box junction.
+  const allLegs = [];
+  for (const cx of CROSS_X) {
+    const cz = -42, hn = 3.5, he = 3.5;
+    for (const leg of ['W', 'E']) {
+      const band = zebraApproach(m, cx, cz, leg, he, hn, 3.2);
+      const stop = stopForApproach(m, band, leg, 'street', WIDE_LANE);
+      allLegs.push({ stop, leg, wide: true });
+    }
+    for (const leg of ['S', 'N']) {
+      const band = zebraApproach(m, cx, cz, leg, hn, he, 3.2);
+      const stop = stopForApproach(m, band, leg, 'street', WIDE_LANE);
+      allLegs.push({ stop, leg, wide: true });
+    }
+    boxJunction(m, cx, cz, hn, he);
+  }
+  for (const { stop, leg } of allLegs) {
+    arrowsForApproach(m, stop, leg, 'street', [{ off: 1.6, ry: wideArrowRy[leg] }]);
+  }
+  m.build(g, 'ring');
   // ---------- furniture ----------
   // GRID REBUILD: the boulevard curbs, manholes, hydrants, lamps and
   // signs now live in cbd-grid.js. What stays here is the QUAY
@@ -815,18 +812,20 @@ export function buildRoadNetwork() {
   benchMesh.name = 'benches';
   g.add(benchMesh);
   // Traffic lights at the two main intersections (red/amber/green) —
-  // the boulevard x the x=+/-40 ring connectors. The pole stands on
-  // the boulevard's south sidewalk (z 2.0); the lenses face the
-  // boulevard traffic (west for the x=-40 light, east for x=+40).
-  // WORKING CYCLES (Xian 21 Nov 15:22): the lenses cycle on the same
-  // 40 s rhythm as the grid signals — EW green [20,37), EW amber
-  // [37,40), red [0,20) — exactly one lens bright at a time.
+  // the boulevard x the x=+/-40 ring connectors. The pole stands in the
+  // furniture strip on the boulevard's south sidewalk (z 2.44: the
+  // road edge is 2.4, the strip is 0.08 wide) — never on the asphalt.
+  // The lenses face the boulevard traffic (west for the x=-40 light,
+  // east for x=+40). WORKING CYCLES (Xian 21 Nov 15:22): the lenses
+  // cycle on the same 40 s rhythm as the grid signals — EW green
+  // [20,37), EW amber [37,40), red [0,20) — exactly one lens bright
+  // at a time.
   const tlMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 });
   const tlParts = [];
   const tlLights = [];
   for (const cx of [-40, 40]) {
-    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), cx + 4.4, 1.7, 2.0), 0xffffff));
-    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), cx + 4.4, 3.6, 2.0), 0xffffff));
+    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), cx + 4.4, 1.7, 2.44), 0xffffff));
+    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), cx + 4.4, 3.6, 2.44), 0xffffff));
     const faceX = cx < 0 ? -1 : 1; // lens side: west face / east face
     const faceRy = cx < 0 ? -Math.PI / 2 : Math.PI / 2;
     for (let i = 0; i < 3; i++) {
