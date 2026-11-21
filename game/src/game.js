@@ -1457,8 +1457,10 @@ export function createGame(container) {
       // directly, and frame the new CBD core. view=street (default):
       // Elio on foot on the boulevard inside the CBD, facing the
       // Azzura Tower; view=bay: from the water looking north at the
-      // skyline; view=top: straight down over the CBD grid. The test
-      // waits for window.__ready before screenshotting.
+      // skyline; view=top: straight down over the CBD grid (ortho);
+      // view=oblique: 3/4 oblique map shot, 30-40 deg; view=avenue:
+      // street level on CORSO AZZURRA with traffic + peds on the
+      // zebra. The test waits for window.__ready before screenshotting.
       const view = params.view || 'street';
       state.mode = 'play';
       showHUD();
@@ -1467,6 +1469,30 @@ export function createGame(container) {
       updateLighting();
       let shotCamera = camera; // the top view renders with an ortho camera instead
       let restoreTopFog = null; // the top view disables fog (restored after render)
+      let restoreTopShadow = null; // the map views widen the shadow camera (restored after render)
+      // Long soft shadows for the map shots (Xian 21 Nov 16:04): the
+      // default shadow camera (+-70/+-60, 1024) clips the towers'
+      // shadows at low sun, so the map views widen it to +-160 at
+      // 2048 and use an earlier golden-hour sun (17.0, ~19 deg) whose
+      // shadows differentiate tower heights instead of all clipping.
+      const widenShadowsForMap = () => {
+        const sc = sun.shadow.camera;
+        const saved = {
+          left: sc.left, right: sc.right, top: sc.top, bottom: sc.bottom,
+          mapSize: sun.shadow.mapSize.x,
+        };
+        sc.left = -160; sc.right = 160; sc.top = 160; sc.bottom = -160;
+        sc.updateProjectionMatrix();
+        sun.shadow.mapSize.set(2048, 2048);
+        if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+        restoreTopShadow = () => {
+          sc.left = saved.left; sc.right = saved.right;
+          sc.top = saved.top; sc.bottom = saved.bottom;
+          sc.updateProjectionMatrix();
+          sun.shadow.mapSize.set(saved.mapSize, saved.mapSize);
+          if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+        };
+      };
       if (view === 'bay') {
         state.onFoot = false;
         playerMesh.visible = false;
@@ -1484,8 +1510,9 @@ export function createGame(container) {
         state.onFoot = false;
         playerMesh.visible = false;
         run(150, {});
-        state.time = 18.7;
+        state.time = 17.0;
         updateLighting();
+        widenShadowsForMap();
         // TRUE orthographic top-down (Xian 21 Nov 15:22): a perspective
         // camera — even a telephoto fov 18 — still leans the 60-floor
         // towers over the streets. An orthographic camera shows the
@@ -1522,6 +1549,22 @@ export function createGame(container) {
         camLook.set(0, 0, -16.8);
         shotCamera = topCam;
         window.__topCam = topCam; // exposed for the draw-call probe
+      } else if (view === 'oblique') {
+        // 3/4 oblique map shot (Xian 21 Nov 16:04): 30-40 deg elevation,
+        // no distortion — the tower heights read directly in
+        // perspective. Camera south-east of the CBD, looking north-west
+        // at the centre; the bay sits behind the camera, the skyline
+        // rises against the hills.
+        state.onFoot = false;
+        playerMesh.visible = false;
+        run(150, {});
+        state.time = 17.0;
+        updateLighting();
+        widenShadowsForMap();
+        camera.position.set(55, 75, 55);
+        camera.lookAt(0, 8, -16.8);
+        camPos.copy(camera.position);
+        camLook.set(0, 8, -16.8);
       } else if (view === 'avenue') {
         // Avenue street-level shot (Xian 21 Nov 15:22): from the middle
         // of CORSO AZZURRA, just north of the boulevard, looking north
@@ -1566,6 +1609,7 @@ export function createGame(container) {
       renderer.render(scene, shotCamera);
       renderer.render(scene, shotCamera);
       if (restoreTopFog) restoreTopFog();
+      if (restoreTopShadow) restoreTopShadow();
     } else { // walk
       state.mode = 'play';
       showHUD();
