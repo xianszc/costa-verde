@@ -1643,10 +1643,10 @@ export function createGame(container) {
       // Two peds on the avenue's south sidewalk (z -37.5).
       peds[0].mesh.position.set(-4, 0, -37.5);
       peds[1].mesh.position.set(4, 0, -37.5);
-      camera.position.set(-25, 3.2, -41);
-      camera.lookAt(15, 4.0, -48);
+      camera.position.set(-45, 5.0, -40);
+      camera.lookAt(10, 4.0, -48);
       camPos.copy(camera.position);
-      camLook.set(15, 4.0, -48);
+      camLook.set(10, 4.0, -48);
       renderer.render(scene, camera);
       renderer.render(scene, camera);
     } else { // walk
