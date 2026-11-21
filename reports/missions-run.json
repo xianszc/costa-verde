@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-21T20:10:56.086Z",
-  "commit": "a4db13f",
+  "generated": "2026-11-21T20:38:13.132Z",
+  "commit": "unknown",
   "missions": {
     "M1": {
       "mission": "M1",
@@ -58,16 +58,19 @@
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "ms": 348602,
+      "ms": 249238,
       "abortReason": "hard cap 240s reached",
       "trace": [
-        "[trace] M6 stage=0 MEET player=(-2.0,-1.5) car=(-8.0,-0.7) target=(35,30) distPlayer=48.6u distCar=52.8u wanted=0 onFoot=true",
-        "[trace] M6 stage=2 VANISH player=(35.0,27.0) car=(-8.0,-0.7) target=(-50,0) distPlayer=89.2u distCar=42.0u wanted=0 onFoot=true",
-        "[trace] M6 stage=2 VANISH player=(-10.5,4.1) car=(-11.6,-3.0) target=(-50,0) distPlayer=39.7u distCar=38.5u wanted=0 onFoot=true"
+        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-43.3,-1.1) target=(-50,0) distPlayer=44.2u distCar=6.8u wanted=0 onFoot=false",
+        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-44.7,-1.4) target=(-50,0) distPlayer=44.2u distCar=5.4u wanted=0 onFoot=false",
+        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-41.2,-2.7) target=(-50,0) distPlayer=44.2u distCar=9.2u wanted=0 onFoot=false",
+        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-44.7,-1.7) target=(-50,0) distPlayer=44.2u distCar=5.5u wanted=0 onFoot=false",
+        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-42.1,-1.1) target=(-50,0) distPlayer=44.2u distCar=7.9u wanted=0 onFoot=false",
+        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-42.4,-2.3) target=(-50,0) distPlayer=44.2u distCar=7.9u wanted=0 onFoot=false"
       ],
-      "lastTrace": "[trace] M6 stage=2 VANISH player=(-10.5,4.1) car=(-11.6,-3.0) target=(-50,0) distPlayer=39.7u distCar=38.5u wanted=0 onFoot=true",
+      "lastTrace": "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-42.4,-2.3) target=(-50,0) distPlayer=44.2u distCar=7.9u wanted=0 onFoot=false",
       "errors": 0,
-      "commit": "a4db13f"
+      "commit": "unknown"
     },
     "M7": {
       "mission": "M7",
