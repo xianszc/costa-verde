@@ -162,9 +162,9 @@ export function createGame(container) {
 
   // --- traffic: 3 civilian cars + 2 Harbor Guard cruisers on the D4
   // lanes, plus 2 civilian cars on the old-town lanes (M3) so the new
-  // district reads as lived-in. Lanes are found by name — the new
-  // districts append their lanes after the D4 ones, so indices would
-  // shift as districts land.
+  // district reads as lived-in, plus 3 cars on the ring-ext loops
+  // (2a). Lanes are found by name — the new districts append their
+  // lanes after the D4 ones, so indices would shift as districts land.
   const laneIdx = (name) => {
     const i = district.lanes.findIndex((l) => l.name === name);
     return i < 0 ? 0 : i;
@@ -179,6 +179,11 @@ export function createGame(container) {
     { lane: laneIdx('oldtown-plaza'), color: 0xf2f0ea, kind: 'van' },
     { lane: laneIdx('promenade-boulevard'), color: 0xe8a33d, kind: 'sedan' },
     { lane: laneIdx('promenade-west'), color: 0x3e7cb1, kind: 'van' },
+    // NEW PLAN 2a: one car on each ring-ext loop so the new streets
+    // read as driven, not empty (9 loop cars total now).
+    { lane: laneIdx('ringext-north'), color: 0x2e7f8f, kind: 'sedan' },
+    { lane: laneIdx('ringext-east'), color: 0xe8b93c, kind: 'pickup' },
+    { lane: laneIdx('ringext-west'), color: 0xd9553a, kind: 'van' },
   ]);
   for (const t of traffic) scene.add(t.mesh);
 
@@ -186,9 +191,8 @@ export function createGame(container) {
   // 7 cars on the grid's own lanes (5 civilian + 2 police patrol):
   // CORSO AZZURRA both ways (3 cars — the avenue is the busiest
   // street), LUNGOMARE both ways, a patrol on VIA DEL SOLE and one
-  // on the z 11.2 street. Total cars in the world: 6 loop + 7 graph
-  // = 13 (was 10 loop cars). The 7th car fits the top-down budget
-  // because the monorail slimming freed 15 draw calls.
+  // on the z 11.2 street. Total cars in the world: 9 loop + 7 graph
+  // = 16 (was 13 before the ring-ext cars).
   const cbdTraffic = createCbdTraffic([
     { axis: 'NS', index: 3, dir: -1, lane: 0, kind: 'sedan', color: 0xd9553a },
     { axis: 'NS', index: 3, dir: 1, lane: 1, kind: 'van', color: 0x3a6fd9 },
@@ -1549,6 +1553,42 @@ export function createGame(container) {
         camLook.set(0, 0, -16.8);
         shotCamera = topCam;
         window.__topCam = topCam; // exposed for the draw-call probe
+      } else if (view === 'city') {
+        // Whole-city orthographic top-down (NEW PLAN 2a, Xian 21 Nov
+        // 17:58): halfW 110 covers x -110..110, z -92..32 at 16:9
+        // (centre z -30) — the north ext (z -89), the outer columns
+        // (x +/-96) and the bay shore (z 30). Fog disabled for this
+        // shot only, shadows widened, same as the CBD top view.
+        state.onFoot = false;
+        playerMesh.visible = false;
+        run(150, {});
+        state.time = 17.0;
+        updateLighting();
+        widenShadowsForMap();
+        const savedFog = scene.fog;
+        const foggedWater = [];
+        scene.traverse((o) => {
+          if (o.material && o.material.uniforms && o.material.uniforms.uFogFar) {
+            foggedWater.push([o.material.uniforms, o.material.uniforms.uFogFar.value]);
+            o.material.uniforms.uFogFar.value = 100000;
+          }
+        });
+        scene.fog = null;
+        restoreTopFog = () => {
+          scene.fog = savedFog;
+          for (const [u, v] of foggedWater) u.uFogFar.value = v;
+        };
+        const aspect = renderer.domElement.width / renderer.domElement.height;
+        const halfW = 110;
+        const topCam = new THREE.OrthographicCamera(-halfW, halfW, halfW / aspect, -halfW / aspect, 1, 1000);
+        topCam.up.set(0, 0, -1);
+        topCam.position.set(0, 420, -30);
+        topCam.lookAt(0, 0, -30);
+        topCam.updateProjectionMatrix();
+        camPos.copy(topCam.position);
+        camLook.set(0, 0, -30);
+        shotCamera = topCam;
+        window.__topCam = topCam;
       } else if (view === 'oblique') {
         // 3/4 oblique map shot (Xian 21 Nov 16:04): 30-40 deg elevation,
         // no distortion — the tower heights read directly in
@@ -1689,6 +1729,43 @@ export function createGame(container) {
         renderer.render(scene, camera);
         renderer.render(scene, camera);
       }
+    } else if (name === 'ringext') {
+      // Ring-extension street shots (NEW PLAN 2a, Xian 21 Nov 17:58):
+      // view=north: street level on the new z -79 street, looking east
+      // along it at the north-ext shopfronts; view=east: street level
+      // on the new x 84 street, looking north along the outer columns.
+      // Stella + 2 peds staged in frame, full HUD.
+      state.mode = 'play';
+      showHUD();
+      state.onFoot = false;
+      playerMesh.visible = false;
+      run(120, {});
+      state.time = 18.7;
+      updateLighting();
+      const view = params.view || 'north';
+      if (view === 'east') {
+        car.x = 84; car.z = -10; car.angle = Math.PI / 2; car.speed = 0;
+        car.mesh.position.set(car.x, ROAD_Y, car.z);
+        car.mesh.rotation.y = car.angle;
+        peds[0].mesh.position.set(85.2, 0, -8);
+        peds[1].mesh.position.set(85.2, 0, -5);
+        camera.position.set(84, 4.0, 5);
+        camera.lookAt(84, 3.0, -28);
+        camPos.copy(camera.position);
+        camLook.set(84, 3.0, -28);
+      } else { // north
+        car.x = -40; car.z = -79; car.angle = 0; car.speed = 0;
+        car.mesh.position.set(car.x, ROAD_Y, car.z);
+        car.mesh.rotation.y = car.angle;
+        peds[0].mesh.position.set(-38, 0, -80.2);
+        peds[1].mesh.position.set(-35, 0, -80.2);
+        camera.position.set(-60, 4.0, -79);
+        camera.lookAt(20, 3.0, -79);
+        camPos.copy(camera.position);
+        camLook.set(20, 3.0, -79);
+      }
+      renderer.render(scene, camera);
+      renderer.render(scene, camera);
     } else { // walk
       state.mode = 'play';
       showHUD();
