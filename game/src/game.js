@@ -1561,10 +1561,10 @@ export function createGame(container) {
         state.time = 17.0;
         updateLighting();
         widenShadowsForMap();
-        camera.position.set(55, 75, 55);
-        camera.lookAt(0, 8, -16.8);
+        camera.position.set(70, 95, 70);
+        camera.lookAt(0, 5, -16.8);
         camPos.copy(camera.position);
-        camLook.set(0, 8, -16.8);
+        camLook.set(0, 5, -16.8);
       } else if (view === 'avenue') {
         // Avenue street-level shot (Xian 21 Nov 15:22): from the middle
         // of CORSO AZZURRA, just north of the boulevard, looking north
@@ -1574,24 +1574,29 @@ export function createGame(container) {
         // the boulevard median, z 0) stay behind it, never dead-centre.
         state.onFoot = false;
         playerMesh.visible = false;
-        car.x = 0.725; car.z = -14; car.angle = Math.PI / 2; car.speed = 0;
+        car.x = 0.725; car.z = -22; car.angle = Math.PI / 2; car.speed = 0;
         car.mesh.position.set(car.x, ROAD_Y, car.z);
         car.mesh.rotation.y = car.angle;
         run(120, {});
         state.time = 18.7;
         updateLighting();
         // Stage traffic into the frame AFTER the sim ran: three CBD
-        // cars in three different avenue lanes.
-        placeCbdCar(cbdTraffic[0], 'NS', 3, -1, 0, 0, 0.2); // northbound inner, z ~-19
+        // cars in three different avenue lanes. Stella sits 18 units
+        // up the avenue (inner northbound lane), so the northbound
+        // inner car goes further up (z ~-30) to leave a gap.
+        placeCbdCar(cbdTraffic[0], 'NS', 3, -1, 0, 0, 0.6); // northbound inner, z ~-30
         placeCbdCar(cbdTraffic[2], 'NS', 3, -1, 2, 0, 0.45); // northbound outer, z ~-27
         placeCbdCar(cbdTraffic[1], 'NS', 3, 1, 0, 0, 0.85); // southbound inner, z ~-18, approaching
         // Two peds mid-crosswalk on the zebra at z -11.2.
         peds[0].mesh.position.set(0.4, 0, -11.2);
         peds[1].mesh.position.set(-0.6, 0, -11.2);
-        camera.position.set(0, 2.6, -4);
-        camera.lookAt(0, 1.5, -40);
+        // Camera a touch higher than before (y 3.0) so the avenue,
+        // the towers and a strip of sky all read, with Stella no
+        // longer filling the bottom of the frame.
+        camera.position.set(0, 3.0, -4);
+        camera.lookAt(0, 2.0, -40);
         camPos.copy(camera.position);
-        camLook.set(0, 1.5, -40);
+        camLook.set(0, 2.0, -40);
       } else { // street
         state.onFoot = true;
         playerMesh.visible = true;
