@@ -191,6 +191,59 @@ export function makeFigure(spec) {
   return root;
 }
 
+// ---------- background walkers (cheap crowd) ----------
+// Same proportions and pivots as makeFigure (so findLimbs/animateWalk
+// work unchanged) but 7 meshes instead of ~13: one cylinder per leg
+// (no shoe), one cylinder per arm, one torso box, head sphere + hair
+// cap. The 6 named civilians keep the full figure; the generated
+// walkers fill the sidewalks without blowing the draw-call budget
+// (34 walkers x 7 = ~240 calls vs ~450 for full figures).
+export function makeWalker(spec) {
+  const a = ARCHETYPES[spec.archetype || 'lean'];
+  const H = a.h;
+  const g = a.girth;
+  const legLen = H * 0.52;
+  const torsoH = H * 0.30;
+  const torsoW = 0.34 * g;
+  const headR = H * 0.058;
+  const skin = spec.skin || 0xe8b88a;
+  const root = new THREE.Group();
+  root.name = 'walker';
+  const hipY = legLen;
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.position.set(side * torsoW * 0.28, hipY, 0);
+    leg.add(part(new THREE.CylinderGeometry(0.075 * g, 0.06 * g, legLen, 8),
+      spec.bottom || 0x2b2b2b, 0, -legLen / 2, 0));
+    root.add(leg);
+  }
+  const torso = new THREE.Group();
+  torso.position.set(0, hipY, 0);
+  torso.add(part(new THREE.BoxGeometry(torsoW, torsoH, 0.20 * g),
+    spec.top || 0xf2f0ea, 0, torsoH / 2, 0));
+  root.add(torso);
+  const shoulderY = hipY + torsoH * 0.92;
+  const arms = {};
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Group();
+    arm.position.set(side * torsoW * 0.58, shoulderY, 0);
+    arm.rotation.z = side * 0.14;
+    arm.add(part(new THREE.CylinderGeometry(0.055 * g, 0.05 * g, H * 0.31, 8),
+      spec.top || 0xf2f0ea, 0, -H * 0.155, 0));
+    root.add(arm);
+    arms[side < 0 ? 'L' : 'R'] = { arm };
+  }
+  const head = new THREE.Group();
+  head.position.set(0, shoulderY + headR * 1.5, 0);
+  head.add(part(new THREE.SphereGeometry(headR, 14, 12), skin, 0, headR * 0.55, 0));
+  head.add(part(new THREE.SphereGeometry(headR * 1.06, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
+    spec.hairColor || 0x2b2b2b, 0, headR * 0.62, -headR * 0.08));
+  root.add(head);
+  root.userData.height = H;
+  root.userData.arms = arms;
+  return root;
+}
+
 // ---------- the cast ----------
 // 10 main characters (see GAME_BIBLE.md §4).
 export const CAST = [

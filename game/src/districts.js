@@ -461,16 +461,21 @@ export function buildOldTown() {
     { name: 'oldtown-plaza', pts: loopPath(-51, -42, -43, -36, 2), speed: 5 },
   ];
   const pedPaths = [
-    { a: { x: -70, z: -43.5 }, b: { x: -36, z: -43.5 } },
+    // EW path on the ring avenue's SOUTH sidewalk (z -37.5, centre of
+    // the -38.5..-36.5 strip) — the old z -43.5 line ran mid-avenue.
+    { a: { x: -70, z: -37.5 }, b: { x: -36, z: -37.5 } },
     { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
     { a: { x: -67.5, z: -50 }, b: { x: -67.5, z: -28 } },
     { a: { x: -57.5, z: -50 }, b: { x: -57.5, z: -28 } },
     { a: { x: -47.5, z: -50 }, b: { x: -47.5, z: -28 } },
-    { a: { x: -37.5, z: -50 }, b: { x: -37.5, z: -28 } },
+    // NS paths on the ring connector's sidewalks: the old x -37.5 /
+    // -42 lines ran ON the connector road (x -43.5..-36.5) — west
+    // sidewalk centre -44.5, east sidewalk centre -35.5.
+    { a: { x: -35.5, z: -50 }, b: { x: -35.5, z: -28 } },
     { a: { x: -52, z: -50 }, b: { x: -52, z: -28 } },
     { a: { x: -47, z: -50 }, b: { x: -47, z: -28 } },
-    { a: { x: -42, z: -50 }, b: { x: -42, z: -28 } },
-    { a: { x: -51, z: -39 }, b: { x: -43, z: -39 } },
+    { a: { x: -44.5, z: -50 }, b: { x: -44.5, z: -28 } },
+    { a: { x: -51, z: -37.5 }, b: { x: -43, z: -37.5 } },
   ];
   return { group, colliders, lanes, pedPaths, tickers };
 }

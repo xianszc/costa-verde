@@ -889,8 +889,11 @@ export const RESIDENTIAL_DEF = {
     { a: { x: 117.8, z: -87 }, b: { x: 117.8, z: 3 } },
     { a: { x: -117.8, z: -87 }, b: { x: -117.8, z: 30 } },
     { a: { x: -98.2, z: -87 }, b: { x: -98.2, z: 30 } },
-    { a: { x: 97, z: -42 }, b: { x: 119, z: -42 } },
-    { a: { x: -119, z: -42 }, b: { x: -97, z: -42 } },
+    // EW paths on the z -42 street's SOUTH sidewalk (centre -40.75:
+    // road -43..-41, sidewalk -41..-40.5) — the old z -42 line ran
+    // mid-street.
+    { a: { x: 97, z: -40.75 }, b: { x: 119, z: -40.75 } },
+    { a: { x: -119, z: -40.75 }, b: { x: -97, z: -40.75 } },
     { a: { x: -95, z: -102.8 }, b: { x: 95, z: -102.8 } },
     { a: { x: -95, z: -93.8 }, b: { x: 95, z: -93.8 } },
   ],

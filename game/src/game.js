@@ -10,7 +10,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { buildDistrict4, windowMat } from './city.js';
 import { groundHeightAt } from './districts.js';
-import { makeFigure, CAST, CIVILIANS } from './people.js';
+import { makeFigure, makeWalker, CAST, CIVILIANS } from './people.js';
 import {
   buildStella, buildTrafficCar, createCar, stepCar,
   createTraffic, stepTraffic, collideCircleAABBs, ROAD_Y,
@@ -211,38 +211,64 @@ export function createGame(container) {
   ]);
   for (const c of cbdTraffic) scene.add(c.mesh);
 
-  // --- pedestrians: 8 civilians walking the sidewalks ---
+  // --- pedestrians: 40 walkers on the sidewalks ---
   const peds = [];
   const pedPaths = [
-    // GRID REBUILD: the boulevard sidewalks are at z -2.0 / +2.0 now
-    // (the road is 3.5 wide); the old z +/-7.2 sidewalks are CBD
-    // blocks. The N-S paths run on real sidewalks too — the ring
-    // connectors' sidewalks (x +/-44.5) and the grid streets' east
-    // sidewalks (x -21.0, 2.0, 23.8) — from the ring avenue to the
-    // boulevard, never through a block.
-    { a: { x: -56, z: -2.0 }, b: { x: 56, z: -2.0 } },
-    { a: { x: -56, z: 2.0 }, b: { x: 56, z: 2.0 } },
-    { a: { x: -44.5, z: -37 }, b: { x: -44.5, z: -9 } },
+    // Lungomare sidewalks: the avenue road is 4.8 wide (edge |z| 2.4),
+    // the 0.7 sidewalks sit at |z| 2.4..3.1 — centre 2.75. The old
+    // z +/-2.0 lines were ON the asphalt. The N-S paths run on real
+    // sidewalks too: the ring roads' outer sidewalks (x +/-45.35,
+    // beside the x +/-44 ring roads) and the grid streets' east
+    // sidewalks (x -21.0, 23.8) and CORSO's east sidewalk (x 2.75).
+    { a: { x: -56, z: -2.75 }, b: { x: 56, z: -2.75 } },
+    { a: { x: -56, z: 2.75 }, b: { x: 56, z: 2.75 } },
+    { a: { x: -45.35, z: -37 }, b: { x: -45.35, z: -9 } },
     { a: { x: -21.0, z: -37 }, b: { x: -21.0, z: -9 } },
-    { a: { x: 2.0, z: -37 }, b: { x: 2.0, z: -9 } },
+    { a: { x: 2.75, z: -37 }, b: { x: 2.75, z: -9 } },
     { a: { x: 23.8, z: -37 }, b: { x: 23.8, z: -9 } },
-    { a: { x: 44.5, z: -37 }, b: { x: 44.5, z: -9 } },
-    { a: { x: -56, z: 2.0 }, b: { x: -20, z: 2.0 } },
+    { a: { x: 45.35, z: -37 }, b: { x: 45.35, z: -9 } },
+    { a: { x: -56, z: 2.75 }, b: { x: -20, z: 2.75 } },
     // Crosswalks on the CBD zebras (Xian 21 Nov 15:22): peds cross
     // the boulevard on the zebra at VIA DEL SOLE, and CORSO AZZURRA
     // on the zebra at z -11.2, instead of walking only the sidewalks.
     { a: { x: -11.2, z: -2.2 }, b: { x: -11.2, z: 2.2 } },
     { a: { x: -2.2, z: -11.2 }, b: { x: 2.2, z: -11.2 } },
   ];
-  CIVILIANS.forEach((c, i) => {
-    const fig = makeFigure(c.spec);
+  // 40 walkers: the 6 named civilians (full figures) plus 34 generated
+  // neighbours (same archetypes, varied tops/bottoms/skins, cheap
+  // 7-mesh walkers) so every district's paths get walkers instead of
+  // all 6 crowding a few sidewalks.
+  const WALKER_TOPS = [0xf2f0ea, 0xff5c8a, 0x7a8b5a, 0x4a5560, 0xb4552d, 0xa8cbb0, 0xe8b88a, 0x3ed6d6, 0xd9b96a, 0x2e7f8f];
+  const WALKER_BOTTOMS = [0x2e7f8f, 0xf2de9b, 0x6b4a2a, 0x2b2b2b, 0x2e4a5e, 0x1a1a1a];
+  const WALKER_SKINS = [0xe8b88a, 0xf2c9a0, 0xc98d64, 0x8a5a3b];
+  const WALKER_HAIR = [0x2b2b2b, 0x6b4a2a, 0xd9b96a, 0xd9d9d9, 0x1a1a1a];
+  const walkers = [];
+  for (let i = 0; i < 40; i++) {
+    const base = CIVILIANS[i % CIVILIANS.length];
+    walkers.push({
+      ...base,
+      name: i < CIVILIANS.length ? base.name : `Walker ${i + 1}`,
+      role: 'Civilian · walker',
+      spec: {
+        archetype: base.spec.archetype,
+        skin: WALKER_SKINS[i % WALKER_SKINS.length],
+        hairColor: WALKER_HAIR[i % WALKER_HAIR.length],
+        top: WALKER_TOPS[i % WALKER_TOPS.length],
+        bottom: WALKER_BOTTOMS[i % WALKER_BOTTOMS.length],
+        shoes: base.spec.shoes,
+        accent: base.spec.accent,
+      },
+    });
+  }
+  walkers.forEach((c, i) => {
+    const fig = i < CIVILIANS.length ? makeFigure(c.spec) : makeWalker(c.spec);
     scene.add(fig);
-    // Pedestrian paths: the D4 sidewalks plus every new district's
+    // Pedestrian paths: the CBD sidewalks plus every new district's
     // paths (old town first; promenade + skyline join as they land).
-    // Spread the 8 civilians across the whole pool so each district
-    // gets walkers instead of all 8 crowding the D4 sidewalks.
+    // Spread the 40 walkers across the whole pool so each district
+    // gets walkers instead of all 40 crowding the CBD sidewalks.
     const allPedPaths = [...pedPaths, ...(district.pedPaths || [])];
-    const path = allPedPaths[Math.floor((i * allPedPaths.length) / CIVILIANS.length)];
+    const path = allPedPaths[Math.floor((i * allPedPaths.length) / walkers.length)];
     peds.push({
       mesh: fig, path, t: (i * 0.13) % 1, dir: 1,
       speed: 1.1 + (i % 3) * 0.35, phase: i * 1.7, spec: c,
