@@ -351,7 +351,7 @@ export const RING_STREETS = [
   { x: 36, z0: -68, z1: -45.5 }, { x: 46, z0: -68, z1: -45.5 },
   { x: -47, z0: -68, z1: -54 }, { x: -34, z0: -68, z1: -54 },
   { x: 41, z0: -54, z1: -30 }, { x: 44, z0: -30, z1: 14 },
-  { x: -44, z0: -30, z1: 22 },
+  { x: -44, z0: -25, z1: 22 }, // M10: line must end south of the (-45,-27) house row (spans z -28.5..-25.5); D2 car wedged at (-44.9,-25.0) on the -29.5 tip
   { x: 53, z0: -31, z1: 14 }, { x: 62, z0: -31, z1: 14 },
   { x: -63, z0: -26, z1: 12 }, { x: -54, z0: -26, z1: 12 },
 ];
@@ -509,7 +509,28 @@ export function trafficLanes() {
 }
 export function minimapLines() {
   const lines = [{ x1: BOULEVARD.x0, z1: 0, x2: BOULEVARD.x1, z2: 0, w: 3.5 }];
-  for (const cx of CROSS_X) lines.push({ x1: cx, z1: CROSS.z0, x2: cx, z2: CROSS.z1, w: 7 });
+  // M10 GAME fix: the west connector (x -40) is NOT a through-road —
+  // its minimap line ran z -42..6 straight through three old-town
+  // house rows (hx -40, hz -35/-31/-27) and BFS routed the race car
+  // down it into the houses (D2: wedged (-42.1,-29.5)). Only the
+  // pocket's south part (z -26..6) is a real road; north of that the
+  // pocket is reached via the ring avenue + its real cross streets.
+  // The east connector (x 40) keeps its full length.
+  for (const cx of CROSS_X) {
+    if (cx < 0) lines.push({ x1: cx, z1: -26, x2: cx, z2: CROSS.z1, w: 7 });
+    else lines.push({ x1: cx, z1: CROSS.z0, x2: cx, z2: CROSS.z1, w: 7 });
+  }
+  // M10 GAME fix: the old-town pocket's REAL streets were missing
+  // from the minimap, so BFS had no route to the fortress plaza
+  // (-47,-39) except the fake x -40/-44 lines. The cobbled cross
+  // streets (x -67.5/-57.5/-47.5/-37.5, z -50..-28, in the gaps
+  // between the 3-wide house columns) and the main street (z -39,
+  // x -72.5..-35) are the pocket's actual drivable roads. The x -47.5
+  // street runs south to z -25 (clear ground in the column gap) so
+  // BFS can turn off the trimmed x -44 line (tip (-44,-25), 3.5u).
+  for (const cx of [-67.5, -57.5, -37.5]) lines.push({ x1: cx, z1: -50, x2: cx, z2: -28, w: 2 });
+  lines.push({ x1: -47.5, z1: -50, x2: -47.5, z2: -25, w: 2 });
+  lines.push({ x1: -72.5, z1: -39, x2: -35, z2: -39, w: 7 });
   lines.push(...cbdGridMinimap());
   lines.push({ x1: RING_AVENUE_W.x0, z1: -42, x2: RING_AVENUE_W.x1, z2: -42, w: 7 });
   lines.push({ x1: RING_AVENUE_E.x0, z1: -42, x2: RING_AVENUE_E.x1, z2: -42, w: 7 });
