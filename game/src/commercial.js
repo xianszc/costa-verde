@@ -14,39 +14,72 @@ import {
 import { seededRandom } from './roads.js';
 
 // --- blocks (x0,z0,x1,z1, kind) ---
-// GRID REBUILD (Xian 21 Nov 15:22): the CBD grew to x -34.7..34.7,
-// z -45.9..12.3, so the ring blocks that overlapped it are gone or
-// trimmed. North strip (z -54..-30), split by the ring avenue
-// (z -45.5..-38.5) into two rows — the south row's west blocks are
-// CBD blocks now, only the x 45..59 block survives. East strip
-// (x 43.5..60, z -30..14) starts east of the x 40 ring connector.
-// West strip (x -60..-45, z -26..22) — the x -43..-29 blocks are CBD /
-// connector land now, and the remaining west block's north edge clears
-// the old town (z -52..-26). The old town (x -60..-34, z -52..-26)
-// and the promenade (x 8..60, z 14..30) / marina (x -30..8, z 22..30)
-// are NOT blocks here — parts 4 and 5 build them.
+// ITEM 2 (D, Xian 21 Nov 16:04): the ring is rebuilt as small blocks
+// (7–12 wide, 8–12 deep) bounded by streets on all four sides, so the
+// perimeter fill gives ~4–6 buildings per block instead of the old
+// 13 big blocks' overlapping pairs. North band: two deep rows
+// (z -67..-58 + z -56..-47.5, the second only east of the old town
+// at x -34 — the old town x -60..-34, z -52..-26 covers the west).
+// East band: 4 rows x 3 columns (x 44..72). West band: 4 rows x 3
+// columns (x -72..-44). South row: only the x 45..59 block survives
+// (the west blocks are old-town land). The old town (x -60..-34,
+// z -52..-26), promenade (x 8..60, z 14..30) and marina (x -30..8,
+// z 22..30) are NOT blocks here — parts 4 and 5 build them.
 const BLOCKS = [
-  // North strip, north row (z -53..-47.5).
-  { x0: -33, z0: -53, x1: -21, z1: -47.5, kind: 'commercial' },
-  { x0: -17, z0: -53, x1: -6, z1: -47.5, kind: 'commercial' },
-  { x0: -2, z0: -53, x1: 9, z1: -47.5, kind: 'hotel' },
-  { x0: 13, z0: -53, x1: 24, z1: -47.5, kind: 'commercial' },
-  { x0: 28, z0: -53, x1: 39, z1: -47.5, kind: 'commercial' },
-  { x0: 43, z0: -53, x1: 59, z1: -47.5, kind: 'market' },
+  // North band, row 1 (z -67..-58 east of x -34, z -67..-55.2 west).
+  { x0: -71.5, z0: -67, x1: -61.5, z1: -55.2, kind: 'commercial' },
+  { x0: -59.5, z0: -67, x1: -48, z1: -55.2, kind: 'commercial' },
+  { x0: -46, z0: -67, x1: -35, z1: -55.2, kind: 'commercial' },
+  { x0: -33, z0: -67, x1: -25, z1: -58, kind: 'commercial' },
+  { x0: -23, z0: -67, x1: -15, z1: -58, kind: 'commercial' },
+  { x0: -13, z0: -67, x1: -5, z1: -58, kind: 'commercial' },
+  { x0: -3, z0: -67, x1: 5, z1: -58, kind: 'commercial' },
+  { x0: 7, z0: -67, x1: 15, z1: -58, kind: 'commercial' },
+  { x0: 17, z0: -67, x1: 25, z1: -58, kind: 'commercial' },
+  { x0: 27, z0: -67, x1: 35, z1: -58, kind: 'commercial' },
+  { x0: 37, z0: -67, x1: 45, z1: -58, kind: 'commercial' },
+  { x0: 47, z0: -67, x1: 59.5, z1: -58, kind: 'commercial' },
+  { x0: 61.5, z0: -67, x1: 71.5, z1: -58, kind: 'commercial' },
+  // North band, row 2 (z -56..-47.5, east of the old town only).
+  { x0: -33, z0: -56, x1: -25, z1: -47.5, kind: 'commercial' },
+  { x0: -23, z0: -56, x1: -15, z1: -47.5, kind: 'commercial' },
+  { x0: -13, z0: -56, x1: -5, z1: -47.5, kind: 'commercial' },
+  { x0: -3, z0: -56, x1: 5, z1: -47.5, kind: 'hotel' },
+  { x0: 7, z0: -56, x1: 15, z1: -47.5, kind: 'commercial' },
+  { x0: 17, z0: -56, x1: 25, z1: -47.5, kind: 'commercial' },
+  { x0: 27, z0: -56, x1: 35, z1: -47.5, kind: 'commercial' },
+  { x0: 37, z0: -56, x1: 45, z1: -47.5, kind: 'commercial' },
+  { x0: 47, z0: -56, x1: 59.5, z1: -47.5, kind: 'market' },
+  { x0: 61.5, z0: -56, x1: 71.5, z1: -47.5, kind: 'commercial' },
   // North strip, south row (z -38.5..-32) — only the x 45..59 block
-  // survives; the four west blocks are CBD blocks now. The south edge
-  // (-32) leaves room for the z -30.9 east stub street below.
+  // survives; the west blocks are old-town land.
   { x0: 45, z0: -38.5, x1: 59, z1: -32, kind: 'commercial' },
-  // East strip (x 43.5..59, z -30..14) — east of the x 40 connector.
-  // The big block is SPLIT by the z -18 street (Xian 21 Nov 15:22):
-  // 12 buildings in one block becomes two ~8-building blocks, each
-  // bounded by streets on all four sides.
-  { x0: 43.5, z0: -29, x1: 59, z1: -19, kind: 'commercial' },
-  { x0: 43.5, z0: -17, x1: 59, z1: -7, kind: 'commercial' },
-  { x0: 43.5, z0: 7, x1: 59, z1: 13, kind: 'commercial' },
-  // West strip (x -59..-45, z -26..22).
-  { x0: -59, z0: -26, x1: -45, z1: -7, kind: 'commercial' },
-  { x0: -59, z0: 7, x1: -45, z1: 21, kind: 'commercial' },
+  // East band (x 44..72, z -31..13) — 4 rows x 3 columns.
+  { x0: 45, z0: -29.9, x1: 52, z1: -21, kind: 'commercial' },
+  { x0: 54, z0: -29.9, x1: 61, z1: -21, kind: 'commercial' },
+  { x0: 63, z0: -29.9, x1: 71.5, z1: -21, kind: 'commercial' },
+  { x0: 45, z0: -19, x1: 52, z1: -11, kind: 'commercial' },
+  { x0: 54, z0: -19, x1: 61, z1: -11, kind: 'commercial' },
+  { x0: 63, z0: -19, x1: 71.5, z1: -11, kind: 'commercial' },
+  { x0: 45, z0: -9, x1: 52, z1: -1, kind: 'commercial' },
+  { x0: 54, z0: -9, x1: 61, z1: -1, kind: 'commercial' },
+  { x0: 63, z0: -9, x1: 71.5, z1: -1, kind: 'commercial' },
+  { x0: 45, z0: 1, x1: 52, z1: 11.7, kind: 'commercial' },
+  { x0: 54, z0: 1, x1: 61, z1: 11.7, kind: 'commercial' },
+  { x0: 63, z0: 1, x1: 71.5, z1: 11.7, kind: 'commercial' },
+  // West band (x -72..-44, z -26..12.7) — 4 rows x 3 columns.
+  { x0: -71.5, z0: -25, x1: -64, z1: -17, kind: 'commercial' },
+  { x0: -62, z0: -25, x1: -55, z1: -17, kind: 'commercial' },
+  { x0: -53, z0: -25, x1: -45, z1: -17, kind: 'commercial' },
+  { x0: -71.5, z0: -15, x1: -64, z1: -7, kind: 'commercial' },
+  { x0: -62, z0: -15, x1: -55, z1: -7, kind: 'commercial' },
+  { x0: -53, z0: -15, x1: -45, z1: -7, kind: 'commercial' },
+  { x0: -71.5, z0: -5, x1: -64, z1: 3, kind: 'commercial' },
+  { x0: -62, z0: -5, x1: -55, z1: 3, kind: 'commercial' },
+  { x0: -53, z0: -5, x1: -45, z1: 3, kind: 'commercial' },
+  { x0: -71.5, z0: 5, x1: -64, z1: 11.7, kind: 'commercial' },
+  { x0: -62, z0: 5, x1: -55, z1: 11.7, kind: 'commercial' },
+  { x0: -53, z0: 5, x1: -45, z1: 11.7, kind: 'commercial' },
 ];
 
 const PALETTE = [
@@ -191,22 +224,42 @@ export function buildCommercialRing() {
   let shopIdx = 0;
 
   // --- fill each block along its perimeter ---
+  // ITEM 2 (D): the old fill stacked a north AND a south row in blocks
+  // only 5.5 deep — the two rows (each ~4.5 deep) overlapped almost
+  // completely, so the ring read as one continuous mass. Shallow
+  // blocks (bd < 7.5) now get ONE row down the middle, alternating
+  // facing north/south so both streets get shopfronts; deep blocks
+  // get two rows placed by their actual depth (dRow), so no row
+  // overhangs the block edge. Side buildings only fit when the gap
+  // between the two rows is >= 4 (bd >= 13) — none of the D blocks
+  // are that deep, so nZ is 0 here (kept for future deeper blocks).
   for (const b of BLOCKS) {
     const bw = b.x1 - b.x0;
     const bd = b.z1 - b.z0;
-    // Buildings along the north + south edges (spacing ~5, 4–5 wide).
+    // Buildings along the north + south edges (spacing ~3.5, 3–4 wide).
     // They face OUTWARD, toward the street — shop fronts, awnings and
     // signs on the street side, not the courtyard. (The original fill
     // faced them inward, so the avenue saw only blank backs.)
     const spots = [];
-    const nX = Math.max(2, Math.floor(bw / 5));
-    for (let i = 0; i < nX; i++) {
-      const x = b.x0 + (i + 0.5) * (bw / nX);
-      spots.push({ x, z: b.z0 + 2.2, ry: Math.PI, edge: 'north' });
-      spots.push({ x, z: b.z1 - 2.2, ry: 0, edge: 'south' });
+    const nX = Math.max(1, Math.floor(bw / 3.5));
+    const twoRows = bd >= 7.5;
+    const dRow = twoRows ? Math.min(4.4, (bd - 0.4) / 2) : Math.min(5, bd - 0.4);
+    if (twoRows) {
+      for (let i = 0; i < nX; i++) {
+        const x = b.x0 + (i + 0.5) * (bw / nX);
+        spots.push({ x, z: b.z0 + dRow / 2 + 0.2, ry: Math.PI, edge: 'north' });
+        spots.push({ x, z: b.z1 - dRow / 2 - 0.2, ry: 0, edge: 'south' });
+      }
+    } else {
+      const zc = (b.z0 + b.z1) / 2;
+      for (let i = 0; i < nX; i++) {
+        const x = b.x0 + (i + 0.5) * (bw / nX);
+        spots.push({ x, z: zc, ry: i % 2 ? 0 : Math.PI, edge: i % 2 ? 'south' : 'north' });
+      }
     }
-    // Buildings along the east + west edges (skip the corners).
-    const nZ = Math.max(1, Math.floor(bd / 5) - 1);
+    // Buildings along the east + west edges (only when the middle gap
+    // between the two rows is wide enough for a building).
+    const nZ = bd >= 13 ? Math.max(1, Math.floor((bd - 8.8) / 5)) : 0;
     for (let i = 0; i < nZ; i++) {
       const z = b.z0 + (i + 1) * (bd / (nZ + 1));
       spots.push({ x: b.x0 + 2.2, z, ry: -Math.PI / 2, edge: 'west' });
@@ -254,12 +307,17 @@ export function buildCommercialRing() {
       buildingCount += 1;
       continue;
     }
-    // Perimeter buildings.
+    // Perimeter buildings. Width fits the column (bw/nX) with a
+    // 0.2 gap so neighbours never intersect; depth fits the row
+    // (dRow) so no building overhangs the block edge. (Side
+    // buildings, when nZ > 0, use the same w — their width runs
+    // along z, so a future deeper block should clamp w to the side
+    // spacing instead.)
     for (const [i, s] of spots.entries()) {
       const isCorner = i === 0 || i === 1;
       const floors = b.kind === 'hotel' ? 15 : 6 + Math.floor(rnd() * 10);
-      const w = 4 + rnd() * 1;
-      const d = 4 + rnd() * 1.5;
+      const w = Math.min(3.2 + rnd() * 0.8, bw / nX - 0.2);
+      const d = Math.min(4 + rnd() * 1.5, dRow);
       const color = PALETTE[Math.floor(rnd() * PALETTE.length)];
       // Named signs only on the north/south edges (the buildings facing
       // the main east-west streets); side-street shops keep awning +
@@ -335,20 +393,23 @@ export function buildCommercialRing() {
   glassMesh.name = 'commercial-glass';
   group.add(glassMesh);
 
-  // --- billboards on 4 rooftops (fictional ads, atlas plates) ---
+  // --- billboards on 2 fixed-height rooftops (fictional ads, atlas plates) ---
+  // They sit on the market hall (5 tall) and the hotel (30 tall) so
+  // they are never buried inside a random-height building — the old
+  // spots (x 51/-51, z -18) sat inside 12–30-tall buildings.
   const billboards = [
-    { x: 3.5, z: -50, text: 'AZZURA' },
-    { x: 52, z: -50, text: 'SOL' },
-    { x: 51, z: -18, text: 'VELA' },
-    { x: -51, z: -18, text: 'PORTO' },
+    { x: 50, z: -51.75, y: 7, ry: Math.PI / 2, text: 'SOL' },
+    { x: 56, z: -51.75, y: 7, ry: -Math.PI / 2, text: 'VELA' },
+    { x: 1, z: -51.75, y: 32, ry: 0, text: 'AZZURA' },
+    { x: 1, z: -51.75, y: 32, ry: Math.PI, text: 'PORTO' },
   ];
   for (const bb of billboards) {
     const plate = atlas.plates.get(bb.text);
     const sq = remapUV(new THREE.PlaneGeometry(6, 2.4), plate);
-    sq.rotateY(bb.x < 0 ? Math.PI / 2 : -Math.PI / 2);
-    sq.translate(bb.x, 26, bb.z);
+    sq.rotateY(bb.ry);
+    sq.translate(bb.x, bb.y, bb.z);
     signGeos.push(sq);
-    const post = colored(xform(new THREE.BoxGeometry(0.3, 4, 0.3), bb.x, 22, bb.z), 0x2b2b2b);
+    const post = colored(xform(new THREE.BoxGeometry(0.3, 2, 0.3), bb.x, bb.y - 1, bb.z), 0x2b2b2b);
     concrete.push(post);
   }
 

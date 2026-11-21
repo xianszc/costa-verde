@@ -335,10 +335,21 @@ export const RING_STREETS = [
   // tower-vs-road overlaps). They still split the north-strip north
   // row (z -53..-47.5). The x 41 street (east of the CBD) keeps its
   // full length; x -44 keeps its (west of the CBD).
-  { x: -19, z0: -54, z1: -45.9 }, { x: -4, z0: -54, z1: -45.9 },
-  { x: 11, z0: -54, z1: -45.9 }, { x: 26, z0: -54, z1: -45.9 },
+  // ITEM 2 (D): smaller blocks for the 247+ target — the north band
+  // is split by x -24/-4/16/36 (all ~8-10 apart, no slivers) into
+  // 13 columns; the east band gets a third column (x 53, 62) and the
+  // west band a third column (x -63, -54). The north band's N-S
+  // streets run z -68..-45.5 (to the ring avenue); x -47/-34 end at
+  // z -54 (the old town's north edge — they do not cut into it).
+  { x: -24, z0: -68, z1: -45.5 }, { x: -14, z0: -68, z1: -45.5 },
+  { x: -4, z0: -68, z1: -45.5 }, { x: 6, z0: -68, z1: -45.5 },
+  { x: 16, z0: -68, z1: -45.5 }, { x: 26, z0: -68, z1: -45.5 },
+  { x: 36, z0: -68, z1: -45.5 }, { x: 46, z0: -68, z1: -45.5 },
+  { x: -47, z0: -68, z1: -54 }, { x: -34, z0: -68, z1: -54 },
   { x: 41, z0: -54, z1: -30 }, { x: 44, z0: -30, z1: 14 },
   { x: -44, z0: -30, z1: 22 },
+  { x: 53, z0: -31, z1: 14 }, { x: 62, z0: -31, z1: 14 },
+  { x: -63, z0: -26, z1: 12 }, { x: -54, z0: -26, z1: 12 },
 ];
 export const RING_STREET_HALF = 1;
 // Ring boundary streets (Xian 21 Nov 15:22 — every ring block must be
@@ -347,17 +358,36 @@ export const RING_STREET_HALF = 1;
 // (the north row's north side), the east stub (between the south-row
 // block and the east block), the east-block split (the 12-building
 // block becomes two ~8-building blocks).
+// ITEM 2 (D): deep rows so the perimeter fill fits two rows of
+// buildings without the north/south pairs overlapping (the old
+// 5.5-deep blocks stacked both rows on top of each other). The north
+// band is two deep rows (z -67..-58 + z -56..-47.5, the second only
+// east of the old town at x -34); the east band is 4 deep rows
+// (z -31..13); the west band is 4 deep rows (z -26..12.7, bounded
+// south by the quay). z -57 splits the north rows (east of the old
+// town); z -54.2 bounds the old town's north side.
 export const RING_STREETS_EW = [
-  { z: -54.2, x0: -60, x1: 60 },
-  { z: -30.9, x0: 34.7, x1: 60 },
-  { z: -18, x0: 43.5, x1: 59 },
+  { z: -68, x0: -72, x1: 72 },
+  { z: -57, x0: -34, x1: 72 },
+  { z: -54.2, x0: -72, x1: -34 },
+  { z: -30.9, x0: 34.7, x1: 72 },
+  { z: -20, x0: 43.5, x1: 72 },
+  { z: -10, x0: 43.5, x1: 72 },
+  { z: 0, x0: 43.5, x1: 72 },
+  { z: -26, x0: -72, x1: -45 },
+  { z: -16, x0: -72, x1: -45 },
+  { z: -6, x0: -72, x1: -45 },
+  { z: 4, x0: -72, x1: -45 },
 ];
 // N-S boundary streets { x, z0, z1 } (2 wide): the west boundary
 // (the west strip's west side) and the east boundary (the east
-// strip's east side).
+// strip's east side). ITEM 2 (D): outer boundaries move to x +/-72.5
+// and run the full north band (z -68).
 export const RING_BOUNDARY_NS = [
-  { x: -60.5, z0: -30, z1: 22 },
-  { x: 60.5, z0: -54, z1: 14 },
+  { x: -72.5, z0: -68, z1: 22 },
+  { x: -60.5, z0: -68, z1: 22 },
+  { x: 60.5, z0: -68, z1: 14 },
+  { x: 72.5, z0: -68, z1: 14 },
 ];
 // The quay (the waterfront walkway, z 12.7..14.5): south of the CBD's
 // south street (z 11.2, sidewalks to 12.7), north of the promenade

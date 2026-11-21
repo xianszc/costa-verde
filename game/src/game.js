@@ -1637,23 +1637,58 @@ export function createGame(container) {
       updateLighting();
       // Stella staged eastbound on the ring avenue, in frame.
       // (Local forward is +x: angle 0 = east, PI/2 = north.)
-      car.x = 0; car.z = -42; car.angle = 0; car.speed = 0;
+      car.x = 45; car.z = -42; car.angle = 0; car.speed = 0;
       car.mesh.position.set(car.x, ROAD_Y, car.z);
       car.mesh.rotation.y = car.angle;
-      // Two peds on the avenue's south sidewalk (z -37.5).
-      peds[0].mesh.position.set(10, 0, -37.5);
-      peds[1].mesh.position.set(14, 0, -37.5);
-      // Along the avenue, due east: the camera sits IN the avenue at
-      // its west end, looking east — the shop row recedes on the left,
-      // the CBD towers on the right, Stella + the peds mid-frame. (A
-      // camera south of the avenue is inside the CBD towers; a camera
-      // north of the shops sees only their backs.)
-      camera.position.set(-20, 3.2, -44);
-      camera.lookAt(25, 3.5, -46);
+      // Two peds on the avenue's NORTH sidewalk (z -46.5, in frame
+      // on the left, in front of the north-row shopfronts) — the old
+      // south-sidewalk spots (z -37.5) were behind the camera's
+      // look direction and never read.
+      peds[0].mesh.position.set(48, 0, -46.5);
+      peds[1].mesh.position.set(51, 0, -46.5);
+      // Straight east along the avenue's EAST segment (x 34.7..60):
+      // the middle segment (x -34.7..34.7) is the CBD's own north
+      // street (z -44.8) and its north-row towers face it from
+      // z -42 — a camera there stares at a tower's blank north face
+      // (the beige wall in the first two captures). The east segment
+      // is a real 7-wide avenue: north-row shops on the left, the
+      // south-row block on the right, the avenue receding east.
+      camera.position.set(36, 4.0, -42);
+      camera.lookAt(58, 3.0, -42);
       camPos.copy(camera.position);
-      camLook.set(25, 3.5, -46);
-      renderer.render(scene, camera);
-      renderer.render(scene, camera);
+      camLook.set(58, 3.0, -42);
+      if (params.view === 'top') {
+        // Wide orthographic top-down of the whole ring (Xian 21 Nov
+        // 16:04, item 2): halfW 78 covers x -72..72, z -68..14 at
+        // 16:9 (centre z -27). Fog disabled for this shot only (as
+        // in the CBD top view) and restored right after.
+        const savedFog = scene.fog;
+        const foggedWater = [];
+        scene.traverse((o) => {
+          if (o.material && o.material.uniforms && o.material.uniforms.uFogFar) {
+            foggedWater.push([o.material.uniforms, o.material.uniforms.uFogFar.value]);
+            o.material.uniforms.uFogFar.value = 100000;
+          }
+        });
+        scene.fog = null;
+        const aspect = renderer.domElement.width / renderer.domElement.height;
+        const halfW = 78;
+        const topCam = new THREE.OrthographicCamera(-halfW, halfW, halfW / aspect, -halfW / aspect, 1, 1000);
+        topCam.up.set(0, 0, -1);
+        topCam.position.set(0, 420, -27);
+        topCam.lookAt(0, 0, -27);
+        topCam.updateProjectionMatrix();
+        camPos.copy(topCam.position);
+        camLook.set(0, 0, -27);
+        window.__topCam = topCam;
+        renderer.render(scene, topCam);
+        renderer.render(scene, topCam);
+        scene.fog = savedFog;
+        for (const [u, v] of foggedWater) u.uFogFar.value = v;
+      } else {
+        renderer.render(scene, camera);
+        renderer.render(scene, camera);
+      }
     } else { // walk
       state.mode = 'play';
       showHUD();
