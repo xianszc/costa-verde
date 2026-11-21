@@ -68,6 +68,23 @@ leaves **4 components**, i.e. 3 real gaps the split cannot fix:
 4. Re-run this test: required = 1 component, all 16 zone anchors in
    the harbor component, plus the drive-time matrix.
 
+## Post-fix result (21 Nov 23:20 WIB — all three fixes in)
+
+- **COMPONENTS: 1** — 695 segments, 284 nodes, bbox x -127..127,
+  z -104..30. 0 near-miss pairs, 0 crossings across components.
+- **All 16 zone anchors in the harbor component** (harbor, marina,
+  quay_end, oldtown, fortress, promenade, CBD, boulevard_mid, ring
+  W/E, commercial, residential, hills, lighthouse, countryside,
+  quarry). `allZonesOneComponent: true`.
+- Longest drive: lighthouse → quarry 392.3u, 56.0 s game-time
+  (~280 s headless real). Full matrix in `/tmp/connectivity.json`.
+- Zone overlap test (`node game/test/zone-overlap.mjs`): PASS, 0
+  problems in all 5 zones — the hills extension and the bridges put
+  no road through any building. CBD overlap PASS (0), CBD blocks
+  PASS (30/30).
+- Commits: `06b2f95` junction-split, hills link, east/west bridges
+  (each "GAME fix:", see `git log`).
+
 ## Notes
 
 - The old-town pocket interior and the central promenade have no
