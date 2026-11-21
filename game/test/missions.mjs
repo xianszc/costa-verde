@@ -101,6 +101,10 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright-core');
 
 const BASE = 'http://127.0.0.1:8941';
+// FASTSIM=2: load ?fastsim=2 (test-only, ~2× wall-clock, see main.js).
+// Factor 2 is the verified safe max for this driver's 300 ms polls.
+const FASTSIM = Math.max(1, Math.min(8, parseInt(process.env.FASTSIM || '1', 10) || 1));
+const PAGE_URL = BASE + (FASTSIM > 1 ? '/?fastsim=' + FASTSIM : '/');
 const CHROMIUM = '/home/hatch/.cache/ms-playwright/chromium-1148/chrome-linux/chrome';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -134,6 +138,8 @@ async function readState(page) {
       duel: !!g.duelTarget,
       duelFallen: g.duelTarget ? g.duelTarget.fallen : null,
       mode: g.state.mode,
+      tailTimer: m.tailTimer,
+      elapsed: m.elapsed, // game seconds since this mission started
     };
   });
 }
@@ -195,6 +201,32 @@ function carSteerKeys(diff, speed, cap) {
 async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   const started = Date.now();
   let lastDist = Infinity, lastProgress = Date.now(), reverses = 0, reversingUntil = 0;
+  // U-turn FIRST (angle-based): if the car faces away from the target
+  // (|diff| > 2.2), reverse with inverted steering until the nose is
+  // within ~0.9 rad of the desired heading (max 15 s). The old
+  // distance-based reverse drove the car south off the boulevard into
+  // the front-row buildings at (-12,-6) — M6/M9 wedged there.
+  // Turn rate is ~0 at standstill and grows with |speed|, so reverse
+  // at full speed (up to -8 u/s) to turn fast; stop on ANGLE, not
+  // distance, so the car does not back 13u into the buildings.
+  {
+    const c0 = await readCar(page);
+    const desired0 = Math.atan2(-(tz - c0.z), tx - c0.x);
+    if (Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
+      const uStart = Date.now();
+      const sx = c0.x, sz = c0.z;
+      while (Date.now() - uStart < 15000) {
+        const c = await readCar(page);
+        if (c.mode !== 'play') { await releaseKeys(page); return false; }
+        const diff = normAngle(Math.atan2(-(tz - c.z), tx - c.x) - c.angle);
+        if (Math.abs(diff) < 0.9) break;
+        if (Math.hypot(c.x - sx, c.z - sz) > 10) break; // too far off — recover forward
+        await setKeys(page, { s: true, a: diff < -0.15, d: diff > 0.15, w: false });
+        await sleep(300);
+      }
+      await releaseKeys(page);
+    }
+  }
   while (Date.now() - started < timeoutMs) {
     const c = await readCar(page);
     if (c.mode !== 'play') { await releaseKeys(page); return false; }
@@ -373,6 +405,48 @@ async function followTail(page, timeoutMs) {
   return false;
 }
 
+// Board the car FIRST (DRIVER fix for the M5/M6/M8 escape timeouts):
+// walk the player to the car when close, otherwise place the player
+// beside the car (the game's own exit placement, 2.2u) and press E at
+// close range (<4u — E does nothing beyond that). NEVER set
+// state.onFoot=false directly: the player's position stays behind,
+// the car drives off alone, and the escape is then measured from a
+// player 40-80u away on foot while the car sits at the target
+// (M5 trace: player 26.6u from target, car 26.9u, onFoot=true).
+// Positioning the player next to the car is the same class of test
+// convenience as the goto teleports below (it positions the player;
+// the driving itself is real, human-like keyboard driving).
+async function boardCar(page) {
+  for (let tries = 0; tries < 2; tries++) {
+    const s = await readState(page);
+    if (!s.onFoot) return true;
+    const d = Math.hypot(s.px - s.cx, s.pz - s.cz);
+    if (d > 3.5) {
+      if (d <= 15) {
+        const ok = await walkToPoint(page, s.cx, s.cz, 3.5, 60000);
+        if (!ok) {
+          await page.evaluate(() => {
+            const g = window.__game;
+            g.player.x = g.car.x + 2.2; g.player.z = g.car.z + 2.2;
+          });
+          await sleep(300);
+        }
+      } else {
+        await page.evaluate(() => {
+          const g = window.__game;
+          g.player.x = g.car.x + 2.2; g.player.z = g.car.z + 2.2;
+        });
+        await sleep(300);
+      }
+    }
+    await page.keyboard.press('KeyE');
+    await sleep(700);
+    const s2 = await readState(page);
+    if (!s2.onFoot) return true;
+  }
+  return false;
+}
+
 // --- Road routing (BFS on the minimap centerlines) ---
 // The greedy autopilot (driveToPoint) cannot navigate around
 // buildings over a long distance — a human follows the roads. The
@@ -453,13 +527,23 @@ async function playMission(page, id, label, maxAttempts = 2) {
     // and the driving stages here are driven, not teleported.
     let lastStage = 0;
     let lastTrace = 0; // position trace cadence (item 4 below)
-    // Deadline is REAL time; the game runs at ~20% speed in headless
-    // (swiftshader + dt clamp), so a 20 s game timer needs ~100 s
-    // real and the M9 heat decay ~110-240 s real. The A-C run passed
-    // at 240 s when the city was smaller/faster; the expansion pushed
-    // M2/M9 just past it. 480 s gives margin; the missions are
-    // completable (probe: tailTimer and heat both move steadily).
-    const deadline = Date.now() + 480000;
+    // FAST-FAIL stall tracking (see the stall block in the loop):
+    // best objective distance + when it last improved by >=2u
+    // (20 m), last player movement, last wanted drop, tail timer.
+    let bestDist = Infinity, bestDistGame = 0, bestDistReal = Date.now();
+    let lastMoveGame = 0, lastMoveReal = Date.now(), lastPos = null;
+    let lastStageSeen = -1, stallTailTimer = 0;
+    let lastWanted = 0, lastWantedDropGame = 0, lastWantedDropReal = Date.now();
+    let lastTraceLine = '';
+    const traceBuf = [];
+    // FAST-FAIL (Xian 22 Nov 02:15): hard cap 240 s real per mission
+    // (480 s for M2; +240 s once for any mission still making
+    // progress at the cap — the long-escape case). A stuck mission
+    // used to burn the whole 480 s (~9 min per timeout at ~20%
+    // headless speed); the stall detector below aborts much sooner.
+    const baseCapMs = id === 1 ? 480000 : 240000;
+    let deadline = Date.now() + baseCapMs;
+    let extended = false;
     let result = null;
     while (Date.now() < deadline) {
       const s = await readState(page);
@@ -486,6 +570,65 @@ async function playMission(page, id, label, maxAttempts = 2) {
       if (Date.now() - lastTrace >= 5000) {
         lastTrace = Date.now();
         traceLine(label, s, 'trace');
+        const o2 = s.objective;
+        if (o2) {
+          const dp = Math.hypot(s.px - o2.x, s.pz - o2.z);
+          const dc = Math.hypot(s.cx - o2.x, s.cz - o2.z);
+          const dm = s.onFoot ? dp : dc;
+          lastTraceLine = `[trace] ${label} stage=${s.stage} ${s.stageName || s.stageType} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)}) car=(${s.cx.toFixed(1)},${s.cz.toFixed(1)}) target=(${o2.x},${o2.z}) distPlayer=${dp.toFixed(1)}u distCar=${dc.toFixed(1)}u wanted=${s.wanted} onFoot=${s.onFoot}`;
+          traceBuf.push(lastTraceLine);
+          if (traceBuf.length > 12) traceBuf.shift();
+          const moved = lastPos ? Math.hypot(s.px - lastPos.x, s.pz - lastPos.z) : 99;
+          if (moved >= 0.5) { lastMoveGame = s.elapsed; lastMoveReal = Date.now(); }
+          lastPos = { x: s.px, z: s.pz };
+          if (s.stageType === 'tail') {
+            if ((s.tailTimer || 0) > stallTailTimer) { stallTailTimer = s.tailTimer; bestDistGame = s.elapsed; bestDistReal = Date.now(); }
+          } else if (dm < bestDist - 2) { bestDist = dm; bestDistGame = s.elapsed; bestDistReal = Date.now(); }
+          if (s.wanted < lastWanted) { lastWantedDropGame = s.elapsed; lastWantedDropReal = Date.now(); }
+          lastWanted = s.wanted;
+        }
+      }
+      // Per-stage stall baseline (reset when the stage advances).
+      if (s.stage !== lastStageSeen) {
+        lastStageSeen = s.stage;
+        bestDist = Infinity; bestDistGame = s.elapsed; bestDistReal = Date.now();
+        lastMoveGame = s.elapsed; lastMoveReal = Date.now();
+        stallTailTimer = s.tailTimer || 0;
+        lastWanted = s.wanted; lastWantedDropGame = s.elapsed; lastWantedDropReal = Date.now();
+      }
+      // STALL ABORT (fast-fail): no 20 m objective improvement in
+      // 90 s game time (150 s real backstop), or no 5 m movement in
+      // 45 s game time (60 s real) — goto/deliver/race/tail only.
+      // Escape stages stall on the HEAT instead: laying low means
+      // sitting still, so movement/distance stalls do not apply;
+      // wanted must drop within 120 s game time (or the distance
+      // must improve while wanted is 0).
+      if (Date.now() - started > 30000) {
+        let stalled = false;
+        let why = '';
+        if (s.stageType === 'escape') {
+          if (s.wanted > 0 && s.elapsed - lastWantedDropGame > 120) { stalled = true; why = 'wanted never dropped in 120s game time (stall)'; }
+          else if (s.wanted === 0 && s.elapsed - bestDistGame > 90) { stalled = true; why = 'no 20m improvement in 90s game time (stall)'; }
+          else if (s.wanted === 0 && Date.now() - bestDistReal > 150000) { stalled = true; why = 'no progress 150s real (stall)'; }
+        } else if (s.stageType === 'tail') {
+          if (s.elapsed - bestDistGame > 90) { stalled = true; why = 'tail timer stalled 90s game time'; }
+          else if (Date.now() - bestDistReal > 150000) { stalled = true; why = 'no progress 150s real (stall)'; }
+        } else if (s.stageType === 'goto' || s.stageType === 'deliver' || s.stageType === 'race') {
+          if (s.elapsed - bestDistGame > 90) { stalled = true; why = 'no 20m improvement in 90s game time (stall)'; }
+          else if (Date.now() - bestDistReal > 150000) { stalled = true; why = 'no progress 150s real (stall)'; }
+          else if (s.elapsed - lastMoveGame > 45) { stalled = true; why = 'player moved <5m in 45s game time (stall)'; }
+          else if (Date.now() - lastMoveReal > 60000) { stalled = true; why = 'player moved <5m in 60s real (stall)'; }
+        }
+        if (stalled) {
+          traceLine(label, await readState(page), 'trace-timeout');
+          return { mission: label, result: 'STALL', attempts, fails, maxStage, ms: Date.now() - started, abortReason: why, trace: traceBuf.slice(-6), lastTrace: lastTraceLine };
+        }
+      }
+      // Cap extension (once): approaching the cap while still making
+      // progress buys +240 s (max 480 s total) — the long-escape case.
+      if (!extended && Date.now() > deadline - 10000 && Date.now() - bestDistReal < 60000) {
+        deadline += 240000; extended = true;
+        console.log(`[${label}] cap extended +240s (still making progress)`);
       }
       const o = s.objective;
       if (!o) { await sleep(500); continue; }
@@ -557,23 +700,11 @@ async function playMission(page, id, label, maxAttempts = 2) {
             }
             await sleep(400);
           } else {
-            // Enter the car (E can be consumed by a stage dialogue —
-            // press up to 3 times; last resort, put the player in
-            // directly — the car is parked on the road near the
-            // mission area, so getting in is not dodging anything).
-            for (let tries = 0; tries < 3; tries++) {
-              const sc2 = await readState(page);
-              if (!sc2.onFoot) break;
-              await page.keyboard.press('KeyE');
-              await sleep(700);
-            }
-            {
-              const sc2 = await readState(page);
-              if (sc2.onFoot) {
-                await page.evaluate(() => { window.__game.state.onFoot = false; });
-                await sleep(300);
-              }
-            }
+            // Board FIRST (see boardCar): the player and the car must
+            // be together before routeDrive — the old code set
+            // onFoot=false directly, leaving the player 40-80u behind
+            // on foot while the car drove off (M5/M6/M8 timeouts).
+            await boardCar(page);
             const cd = Math.hypot(s.cx - o.x, s.cz - o.z);
             if (cd > (o.r || 5)) {
               await routeDrive(page, o.x, o.z, 10, 45000);
@@ -638,9 +769,11 @@ async function playMission(page, id, label, maxAttempts = 2) {
       return { mission: label, result: 'PASS', attempts, fails, maxStage, ms: Date.now() - started, money: s.money, xp: s.xp };
     }
     if (result === 'FAIL-EVENT') continue; // retry once from scratch
-    // Timeout: final trace with a fresh state read.
+    // Timeout: final trace with a fresh state read. The trace tail
+    // (last 6 samples) rides in the JSON record so the failure
+    // survives /tmp wipes.
     traceLine(label, await readState(page), 'trace-timeout');
-    return { mission: label, result: 'TIMEOUT', attempts, fails, maxStage, ms: Date.now() - started };
+    return { mission: label, result: 'TIMEOUT', attempts, fails, maxStage, ms: Date.now() - started, abortReason: 'hard cap ' + Math.round(baseCapMs / 1000) + 's reached', trace: traceBuf.slice(-6), lastTrace: lastTraceLine };
   }
   return { mission: label, result: 'FAIL', attempts, fails, maxStage, ms: Date.now() - started };
 }
@@ -653,7 +786,7 @@ async function checkSaveLoad() {
   let sl = { saved: false, loaded: false, money: -1, xp: -1, missionId: -1 };
   let slPass = false;
   try {
-    await page.goto(BASE + '/', { waitUntil: 'load', timeout: 60000 });
+    await page.goto(PAGE_URL, { waitUntil: 'load', timeout: 60000 });
     await page.waitForFunction(() => window.__game && window.__gameReady === true, { timeout: 60000 });
     await sleep(2000);
     await page.evaluate(() => window.__game.startPlay());
@@ -707,7 +840,7 @@ async function runMissionInFreshContext(id, label, maxAttempts) {
     page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
     page.on('pageerror', (e) => errors.push('page: ' + String(e)));
     try {
-      await page.goto(BASE + '/', { waitUntil: 'load', timeout: 60000 });
+      await page.goto(PAGE_URL, { waitUntil: 'load', timeout: 60000 });
       await page.waitForFunction(() => window.__game && window.__gameReady === true, { timeout: 60000 });
       await sleep(2000);
       await page.evaluate(() => window.__game.startPlay());
@@ -738,8 +871,40 @@ async function runMissionInFreshContext(id, label, maxAttempts) {
   }
 }
 
+// Commit each mission's result as soon as it finishes (Xian 22 Nov
+// 02:15 — the 45 min without a commit). Best-effort: a git failure
+// never fails the run.
+async function commitMissionResult(label, record) {
+  try {
+    const { execSync } = await import('node:child_process');
+    const repo = fileURLToPath(new URL('../..', import.meta.url));
+    execSync('git add reports/missions-run.json', { cwd: repo, timeout: 15000, stdio: 'ignore' });
+    const msg = `${label}: ${record.result}${record.how ? ' (' + record.how + ')' : ''} ${Math.round((record.ms || 0) / 1000)}s${record.abortReason ? ' — ' + record.abortReason : ''}`;
+    execSync('git commit -m ' + JSON.stringify(msg), { cwd: repo, timeout: 15000, stdio: 'ignore' });
+    const hash = execSync('git rev-parse --short HEAD', { cwd: repo, timeout: 5000 }).toString().trim();
+    console.log(`[committed] ${label} ${hash}`);
+    try { execSync('git push', { cwd: repo, timeout: 30000, stdio: 'ignore' }); } catch { console.log('[push] failed (non-fatal)'); }
+    return hash;
+  } catch (e) {
+    console.log(`[commit] ${label} failed (non-fatal): ${String(e).slice(0, 120)}`);
+    return null;
+  }
+}
+
 // --from M5: skip missions before M5 in ORDER (their results stay in
 // the JSON from the previous run).
+// --only M5,M6,M8: run just those missions (in ORDER order), for
+// re-running the timeouts without re-running the passes. Use either
+// --from or --only, not both.
+let ORDER_RUN = ORDER;
+const onlyArg = process.argv.find((a) => a.startsWith('--only'));
+if (onlyArg) {
+  const eq = onlyArg.split('=')[1];
+  const want = eq !== undefined ? eq : process.argv[process.argv.indexOf(onlyArg) + 1];
+  const ids = String(want).split(',').map((s) => parseInt(s.replace(/^M/i, ''), 10) - 1).filter((n) => ORDER.includes(n));
+  if (ids.length) ORDER_RUN = ORDER.filter((id) => ids.includes(id));
+  console.log(`--only: running ${ORDER_RUN.map((id) => 'M' + (id + 1)).join(',')}`);
+}
 let fromIdx = 0;
 const fromArg = process.argv.find((a) => a.startsWith('--from'));
 if (fromArg) {
@@ -764,8 +929,8 @@ const saveLoad = await checkSaveLoad();
   await writeFile(RESULTS_PATH, JSON.stringify(data, null, 2));
 }
 
-for (let i = fromIdx; i < ORDER.length; i++) {
-  const id = ORDER[i];
+for (let i = fromIdx; i < ORDER_RUN.length; i++) {
+  const id = ORDER_RUN[i];
   const label = `M${id + 1}`;
   // M2 time-box: 30 min max for the whole M2 block (attempt + one
   // browser-close restart). playMission gets 1 attempt for M2.
@@ -779,6 +944,7 @@ for (let i = fromIdx; i < ORDER.length; i++) {
   }
   console.log(`${label}: ${record.result}${record.open ? ' (open)' : ''} (attempts=${r.attempts} fails=${r.fails} maxStage=${r.maxStage} ${Math.round((r.ms || 0) / 1000)}s)`);
   await saveResult(label, record);
+  await commitMissionResult(label, record);
   if (id === 1 && record.open) console.log('[M2] time-box spent — recorded fail (open), moving on');
 }
 
