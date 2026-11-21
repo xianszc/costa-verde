@@ -142,9 +142,10 @@ export const ANCHORS = {
   // face; the along-the-boulevard angle reads as a street.)
   cbd_street: { x: -24, z: 3.4, angle: 0, district: 'cbd' },
   // CBD camera vantages for ?shot=cbd.
-  // Street: low behind Elio on the boulevard, looking east down the
-  // tower rows toward the CBD centre.
-  vantage_cbd_street: { x: -32, y: 3, z: 3.4, look: { x: 0, y: 12, z: -3.4 }, district: 'cbd' },
+  // Street: higher and further back (south sidewalk edge), looking
+  // east down the tower rows — Elio centre-frame, the boulevard
+  // receding, the monorail deck overhead (not a ceiling).
+  vantage_cbd_street: { x: -34, y: 5, z: 9, look: { x: -2, y: 8, z: -6 }, district: 'cbd' },
   // Bay: over the water south of the quay, looking north at the skyline.
   vantage_cbd_bay: { x: 0, y: 9, z: 48, look: { x: 0, y: 35, z: -9 }, district: 'cbd' },
   // Top: straight down over the CBD grid.
