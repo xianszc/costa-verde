@@ -178,7 +178,7 @@ html, body {
   padding: 9px 2px; border-top: 1px solid rgba(247, 235, 215, 0.15);
 }
 .unit:first-of-type { border-top: 0; }
-.unit b { letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unit b { letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .unit .dist { opacity: 0.75; white-space: nowrap; text-align: right; min-width: 52px; }
 .unit .st { font-weight: 800; font-size: 10px; letter-spacing: 1px; white-space: nowrap; text-align: right; }
 .unit .st.hot { color: #ff8a7a; }
