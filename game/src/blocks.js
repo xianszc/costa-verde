@@ -57,7 +57,7 @@ export function mergePools(pools, atlas, roadMat) {
   add(pools.concrete, vertexColorMat, 'zones-concrete');
   add(pools.glass, new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.25, metalness: 0.4,
-    emissive: 0xffffff, emissiveIntensity: 0.25,
+    emissive: 0xffffff, emissiveIntensity: 0.08,
   }), 'zones-glass');
   if (pools.signs.length && atlas) {
     add(pools.signs, new THREE.MeshBasicMaterial({ map: atlas.texture }), 'zones-signs', false);
@@ -269,7 +269,7 @@ function windowsForFace(face, w, h, d, rnd) {
       const col = lit ? 0xffc46b : 0x1e2a32;
       const wx = (c - (cols - 1) / 2) * (w / cols);
       const wy = 4.5 + r * 2;
-      const q = new THREE.PlaneGeometry(0.9, 1.2);
+      const q = new THREE.PlaneGeometry(0.7, 1.0);
       if (face === 'front') q.translate(wx, wy, d / 2 + 0.06);
       else if (face === 'back') { q.rotateY(Math.PI); q.translate(wx, wy, -d / 2 - 0.06); }
       else if (face === 'left') { q.rotateY(-Math.PI / 2); q.translate(-w / 2 - 0.06, wy, wx); }
@@ -316,8 +316,15 @@ function zoneBuilding(rnd, style, floors, w, d, color, isCorner) {
     g.add(box(0.7, 0.5, 0.7, 0x9a9a9a, -w / 4, h + 0.9, d / 4));
     return { group: g, height: h + 1.2 };
   }
-  // Commercial (same vocabulary as commercial.js).
+  // Commercial (same vocabulary as commercial.js). The roof cap is a
+  // separate slab in a roof color (grey / terracotta / dark) so the
+  // roofs read as roofs from above instead of one orange mass — the
+  // top-down barcode the D shots showed. The awning is shallower
+  // (0.6) so the awnings on a 2-wide street leave open sky instead
+  // of meeting overhead as a tunnel.
   g.add(box(w, h, d, color, 0, h / 2, 0));
+  const roofColors = [0x8a8a8a, 0x9a8a7a, 0x4a4a4a, 0xb4552d, 0x7a7a72];
+  g.add(box(w, 0.15, d, roofColors[Math.floor(rnd() * roofColors.length)], 0, h + 0.07, 0));
   g.add(box(w + 0.3, 0.35, d + 0.3, 0x8a7a5a, 0, h + 0.17, 0));
   g.add(box(w * 0.7, 0.4, d * 0.7, color, 0, h + 0.5, 0));
   g.add(box(0.9, 0.7, 0.9, 0x9a9a9a, -w / 4, h + 1.0, -d / 4));
@@ -327,8 +334,9 @@ function zoneBuilding(rnd, style, floors, w, d, color, isCorner) {
     g.add(box(w + 0.1, 2, d + 0.1, color, 0, h + 1.4, 0));
     g.add(box(w + 0.4, 0.25, d + 0.4, 0xe8a33d, 0, h + 2.5, 0));
   }
-  const awn = rnd() < 0.5 ? 0xf7ebd7 : 0xc93a6b;
-  g.add(box(w * 0.9, 0.12, 1.0, awn, 0, 2.6, d / 2 + 0.5));
+  const awnColors = [0xf7ebd7, 0xc93a6b, 0x2e7f8f, 0x7a8a4a, 0xd9553a];
+  const awn = awnColors[Math.floor(rnd() * awnColors.length)];
+  g.add(box(w * 0.9, 0.12, 0.6, awn, 0, 2.6, d / 2 + 0.3));
   g.add(box(w * 0.9, 1.8, 0.1, 0x1e2a32, 0, 1.2, d / 2 + 0.05));
   g.add(box(w * 0.9, 0.5, 0.12, 0x2e4a5e, 0, 2.3, d / 2 + 0.06));
   return { group: g, height: h + (isCorner ? 2.6 : 0.7) };

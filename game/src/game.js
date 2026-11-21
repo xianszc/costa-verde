@@ -1555,10 +1555,10 @@ export function createGame(container) {
         window.__topCam = topCam; // exposed for the draw-call probe
       } else if (view === 'city') {
         // Whole-city orthographic top-down (NEW PLAN 2a, Xian 21 Nov
-        // 17:58): halfW 110 covers x -110..110, z -92..32 at 16:9
-        // (centre z -30) — the north ext (z -89), the outer columns
-        // (x +/-96) and the bay shore (z 30). Fog disabled for this
-        // shot only, shadows widened, same as the CBD top view.
+        // 17:58): halfW 115 covers x -115..115, z -92..37 at 16:9
+        // (centre z -27) — the north ext (z -89), the outer columns
+        // (x +/-96) and a strip of the bay (z 30+). Fog disabled for
+        // this shot only, shadows widened, same as the CBD top view.
         state.onFoot = false;
         playerMesh.visible = false;
         run(150, {});
@@ -1579,14 +1579,14 @@ export function createGame(container) {
           for (const [u, v] of foggedWater) u.uFogFar.value = v;
         };
         const aspect = renderer.domElement.width / renderer.domElement.height;
-        const halfW = 110;
+        const halfW = 115;
         const topCam = new THREE.OrthographicCamera(-halfW, halfW, halfW / aspect, -halfW / aspect, 1, 1000);
         topCam.up.set(0, 0, -1);
-        topCam.position.set(0, 420, -30);
-        topCam.lookAt(0, 0, -30);
+        topCam.position.set(0, 420, -27);
+        topCam.lookAt(0, 0, -27);
         topCam.updateProjectionMatrix();
         camPos.copy(topCam.position);
-        camLook.set(0, 0, -30);
+        camLook.set(0, 0, -27);
         shotCamera = topCam;
         window.__topCam = topCam;
       } else if (view === 'oblique') {
@@ -1754,15 +1754,18 @@ export function createGame(container) {
         camPos.copy(camera.position);
         camLook.set(84, 3.0, -28);
       } else { // north
+        // Camera high (y 6.5) and pulled back so Stella, the
+        // shopfronts and a strip of sky all read — at y 4 the
+        // 2-wide street was a tunnel of awnings and blank facades.
         car.x = -40; car.z = -79; car.angle = 0; car.speed = 0;
         car.mesh.position.set(car.x, ROAD_Y, car.z);
         car.mesh.rotation.y = car.angle;
         peds[0].mesh.position.set(-38, 0, -80.2);
         peds[1].mesh.position.set(-35, 0, -80.2);
-        camera.position.set(-60, 4.0, -79);
-        camera.lookAt(20, 3.0, -79);
+        camera.position.set(-62, 6.5, -79);
+        camera.lookAt(10, 2.5, -79);
         camPos.copy(camera.position);
-        camLook.set(20, 3.0, -79);
+        camLook.set(10, 2.5, -79);
       }
       renderer.render(scene, camera);
       renderer.render(scene, camera);
