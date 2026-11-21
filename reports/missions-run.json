@@ -1,0 +1,34 @@
+{
+  "generated": "2026-11-21T18:20:01.950Z",
+  "commit": "395425a",
+  "missions": {
+    "M1": {
+      "mission": "M1",
+      "result": "PASS",
+      "how": "human-like",
+      "ms": 134000,
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "evidence": "/tmp/missions-run-20261122-0200.log (HEAD f7a574e), not re-run in this pass"
+    },
+    "M3": {
+      "mission": "M3",
+      "result": "PASS",
+      "how": "human-like",
+      "ms": 61000,
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "evidence": "/tmp/missions-run-20261122-0130.log (HEAD f7a574e), not re-run in this pass"
+    }
+  },
+  "saveLoad": {
+    "saved": true,
+    "loaded": true,
+    "money": 7777,
+    "xp": 1234,
+    "missionId": 4,
+    "pass": true
+  }
+}
