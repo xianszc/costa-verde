@@ -1,0 +1,21 @@
+{
+  "furnitureTotal": 1556,
+  "onAsphaltCount": 0,
+  "onAsphalt": [],
+  "quayFurniture": 77,
+  "aveTreeCount": 25,
+  "canopyOverhangMax": 0.012,
+  "canopyOverhangMean": 0.002,
+  "canopyOverhangGt003": 0,
+  "canopyOverhangSamples": [],
+  "monorailPillarCount": 8,
+  "monorailPillarsInIntersection": [],
+  "pedCount": 40,
+  "pedPathsOnAsphalt": [],
+  "sidewalkW": {
+    "street": 0.5,
+    "avenue": 0.7
+  },
+  "zoneRoadRects": 94,
+  "roadRects": 50
+}
