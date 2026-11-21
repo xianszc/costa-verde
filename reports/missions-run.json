@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T20:05:11.912Z",
+  "generated": "2026-11-21T20:10:56.086Z",
   "commit": "a4db13f",
   "missions": {
     "M1": {
@@ -88,9 +88,16 @@
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "ms": 562966,
+      "ms": 308504,
+      "abortReason": "hard cap 240s reached",
+      "trace": [
+        "[trace] M8 stage=0 QUAY player=(-2.0,-1.5) car=(-8.0,-0.7) target=(0,33) distPlayer=34.6u distCar=34.7u wanted=0 onFoot=true",
+        "[trace] M8 stage=2 HARBOR player=(0.0,33.0) car=(-8.0,-0.7) target=(3,26) distPlayer=7.6u distCar=28.9u wanted=0 onFoot=true",
+        "[trace] M8 stage=2 HARBOR player=(-8.2,10.3) car=(-2.3,8.2) target=(3,26) distPlayer=19.3u distCar=18.6u wanted=0 onFoot=true"
+      ],
+      "lastTrace": "[trace] M8 stage=2 HARBOR player=(-8.2,10.3) car=(-2.3,8.2) target=(3,26) distPlayer=19.3u distCar=18.6u wanted=0 onFoot=true",
       "errors": 0,
-      "commit": "unknown"
+      "commit": "a4db13f"
     },
     "M9": {
       "mission": "M9",
