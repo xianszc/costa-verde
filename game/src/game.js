@@ -173,6 +173,8 @@ export function createGame(container) {
     { lane: 2, color: 0xc93a6b, kind: 'sedan' },
     { lane: laneIdx('oldtown-main'), color: 0x3e7cb1, kind: 'sedan' },
     { lane: laneIdx('oldtown-plaza'), color: 0xf2f0ea, kind: 'van' },
+    { lane: laneIdx('promenade-boulevard'), color: 0xe8a33d, kind: 'sedan' },
+    { lane: laneIdx('promenade-west'), color: 0x3e7cb1, kind: 'van' },
     { lane: 0, police: true },
     { lane: 1, police: true },
   ]);
@@ -675,7 +677,10 @@ export function createGame(container) {
       sunDisc.lookAt(camera.position);
       sunDisc.material.color.setHex(0xfff2c0);
       hemi.intensity = 1.15 + elev * 0.35;
-      rim.intensity = 0.4 + elev * 0.4;
+      // East-facing facades read near-black at golden hour (sun low in
+      // the west, rim only 0.4): lift the warm east fill so the
+      // promenade + old town east faces keep their colour.
+      rim.intensity = 0.75 + elev * 0.4;
       scene.fog.color.setHex(phase === 'dusk' ? 0xe8836b : 0xf2a35e);
     } else {
       sun.color.setHex(0x8aa8d8);
@@ -1157,6 +1162,12 @@ export function createGame(container) {
         // looking west down the cobbles: the Stella mid-street, the
         // old-town traffic car, the stair-houses and the plaza beyond.
         camFrom = [-2, 8, -62]; camTo = [-48, 1, -56];
+      } else if (d === 'promenade') {
+        // West end of the boulevard, above the quay, looking east:
+        // the boulevard runs away to the Casino Azzura + the hotel
+        // tower, palms + lamps lining it, the quay + sailboats right.
+        car.x = 84; car.z = -3.4; car.angle = Math.PI; car.speed = 0;
+        camFrom = [58, 7, 10]; camTo = [102, 2, -14];
       } else {
         car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
         camFrom = [-6, 6, -38]; camTo = [-44, 1, -58];
@@ -1164,6 +1175,10 @@ export function createGame(container) {
       car.mesh.position.set(car.x, 0, car.z);
       car.mesh.rotation.y = car.angle;
       run(150, {});
+      // The sim advances the clock past 18:49 — pin it back to golden
+      // hour before the render so the moon never shows at 18:49.
+      state.time = 18.7;
+      updateLighting();
       camera.position.set(camFrom[0], camFrom[1], camFrom[2]);
       camera.lookAt(camTo[0], camTo[1], camTo[2]);
       camPos.copy(camera.position);

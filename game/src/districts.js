@@ -13,6 +13,7 @@ import {
   xform, vertexColorMat, fountain, lampPost, makeTree,
 } from './world.js';
 import { roadTexture, seededRandom } from './roads.js';
+import { makePalmFull } from './vegetation.js';
 
 // Ground height for the player / pedestrians: the skyline landmass and
 // its bridge sit 0.75 above the roads (above the bay waves); everywhere
@@ -370,6 +371,251 @@ export function buildOldTown() {
   return { group, colliders, lanes, pedPaths, tickers };
 }
 
+// ---------- (b) Seaside Promenade & Casino ----------
+// Cream #F3E6C8, deco gold #E8A33D, neon pink #FF5C8A, neon cyan
+// #3ED6D6, palm green #3F7A4E, sea blue #2E7F8F. Art Deco facades with
+// stepped crowns, curved corners, neon signs, striped awnings; a wide
+// palm-lined esplanade; the Casino Azzura hero with a fountain
+// forecourt; the Grand Hotel Azzura tower at the east end. The
+// boulevard + quay continue east from District 4 (x 60..108).
+const PR = {
+  cream: 0xf3e6c8, gold: 0xe8a33d, pink: 0xff5c8a, cyan: 0x3ed6d6,
+  palm: 0x3f7a4e, sea: 0x2e7f8f, ink: 0x2b2b2b, white: 0xf7f3e8,
+  peach: 0xf2c49b, mint: 0xa8cbb0,
+};
+
+// Emissive neon bar (a sign, no text geometry in this engine).
+function neonBar(w, h, color, x, y, z) {
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, 0.15),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.9, roughness: 0.4 }),
+  );
+  m.position.set(x, y, z);
+  return m;
+}
+
+// Art Deco facade: cream slab, stepped gold crown, gold fins, dark
+// glass window grid, neon sign bar, striped awning over the ground
+// floor. Built facing +z (toward the boulevard / the water).
+function decoFacade(w, d, h, accent) {
+  const g = new THREE.Group();
+  g.add(box(w, h, d, PR.cream, 0, h / 2, 0));
+  g.add(box(w * 0.8, 0.8, d * 0.8, PR.gold, 0, h + 0.4, 0));
+  g.add(box(w * 0.55, 0.7, d * 0.55, PR.cream, 0, h + 1.15, 0));
+  for (const fx of [-w / 4, 0, w / 4]) {
+    g.add(box(0.25, h * 0.7, 0.12, PR.gold, fx, h * 0.35 + 0.6, d / 2 + 0.04));
+  }
+  for (let r = 0; r < 2; r++) {
+    for (let i = -1; i <= 1; i++) {
+      g.add(box(0.9, 1.2, 0.08, PR.ink, (i * w) / 3, 1.8 + r * (h / 2.4), d / 2 + 0.03));
+    }
+  }
+  g.add(neonBar(w * 0.6, 0.4, accent, 0, h - 0.9, d / 2 + 0.08));
+  for (let i = 0; i < 5; i++) {
+    const c = i % 2 === 0 ? PR.pink : PR.cream;
+    const s = box(w / 5, 0.08, 1.1, c, -w / 2 + (i + 0.5) * (w / 5), 2.6, d / 2 + 0.55);
+    s.rotation.x = 0.35;
+    g.add(s);
+  }
+  g.add(box(w * 0.5, 0.5, 0.1, PR.gold, 0, 3.3, d / 2 + 0.06));
+  return g;
+}
+
+// Casino Azzura — the promenade hero: 12 m hall with a curved corner
+// tower, stepped gold crown, pink neon vertical sign + cyan band,
+// striped awning over the entrance, fountain forecourt in front.
+function casinoAzzura() {
+  const g = new THREE.Group();
+  g.add(box(12, 6, 14, PR.cream, 0, 3, 0));
+  g.add(cyl(3.0, 3.0, 9, PR.cream, 5.2, 4.5, 5.5, 20));
+  g.add(box(10, 0.9, 12, PR.gold, 0, 6.45, 0));
+  g.add(box(7, 0.8, 9, PR.cream, 0, 7.3, 0));
+  g.add(box(4, 0.7, 6, PR.gold, 0, 8.05, 0));
+  // Pink neon vertical sign on the tower's south face + cyan band.
+  g.add(neonBar(0.5, 4.2, PR.pink, 5.2, 6.5, 8.6));
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(3.15, 3.15, 0.5, 20, 1, true),
+    new THREE.MeshStandardMaterial({ color: PR.cyan, emissive: PR.cyan, emissiveIntensity: 1.8, roughness: 0.4, side: THREE.DoubleSide }),
+  );
+  band.position.set(5.2, 7.8, 5.5);
+  g.add(band);
+  // Window grid on the hall front + gold fins.
+  for (let i = -2; i <= 2; i++) {
+    if (i === 2) continue; // the tower owns the east corner
+    g.add(box(0.9, 1.6, 0.08, PR.ink, i * 2.2, 2.2, 7.03));
+    g.add(box(0.9, 1.2, 0.08, PR.ink, i * 2.2, 4.4, 7.03));
+  }
+  for (const fx of [-4.4, -2.2, 0, 2.2]) {
+    g.add(box(0.25, 4.2, 0.12, PR.gold, fx, 3.0, 7.04));
+  }
+  // Striped awning over the entrance.
+  for (let i = 0; i < 6; i++) {
+    const c = i % 2 === 0 ? PR.pink : PR.cream;
+    const s = box(1.6, 0.08, 1.4, c, -4 + i * 1.6, 2.7, 7.7);
+    s.rotation.x = 0.35;
+    g.add(s);
+  }
+  // Entrance doors + gold brand plate.
+  g.add(box(2.2, 2.4, 0.12, PR.ink, 0, 1.2, 7.05));
+  g.add(box(4.5, 0.5, 0.1, PR.gold, 0, 3.4, 7.08));
+  return g;
+}
+
+// Grand Hotel Azzura — tall stepped deco tower at the east end.
+function hotelAzzura() {
+  const g = new THREE.Group();
+  g.add(box(10, 6, 14, PR.cream, 0, 3, 0));
+  g.add(box(8, 4, 11, PR.white, 0, 8, 0));
+  g.add(box(6, 3.5, 8, PR.cream, 0, 11.75, 0));
+  g.add(box(4, 0.8, 5, PR.gold, 0, 13.9, 0));
+  // Gold fins + window grid on every tier.
+  for (const fx of [-3.5, 0, 3.5]) {
+    g.add(box(0.25, 4.5, 0.12, PR.gold, fx, 3.2, 7.04));
+  }
+  for (let r = 0; r < 2; r++) {
+    for (let i = -1; i <= 1; i++) {
+      g.add(box(0.9, 1.2, 0.08, PR.ink, i * 3, 2.0 + r * 2.2, 7.03));
+    }
+  }
+  for (let r = 0; r < 2; r++) {
+    for (let i = -1; i <= 1; i++) {
+      g.add(box(0.8, 1.1, 0.08, PR.ink, i * 2.5, 7.2 + r * 2.0, 5.53));
+    }
+  }
+  // Neon crown: pink bar + cyan bar on the top tier.
+  g.add(neonBar(3.2, 0.45, PR.pink, 0, 12.6, 4.06));
+  g.add(neonBar(2.4, 0.4, PR.cyan, 0, 13.4, 2.56));
+  // Striped awning + entrance.
+  for (let i = 0; i < 5; i++) {
+    const c = i % 2 === 0 ? PR.cyan : PR.cream;
+    const s = box(1.8, 0.08, 1.3, c, -3.6 + i * 1.8, 2.6, 7.65);
+    s.rotation.x = 0.35;
+    g.add(s);
+  }
+  g.add(box(2.0, 2.4, 0.12, PR.ink, 0, 1.2, 7.05));
+  return g;
+}
+
+// Pastel deco villa for the back row: flat roof, rounded corner,
+// gold trim, small neon bar.
+function decoVilla(w, d, h, color) {
+  const g = new THREE.Group();
+  g.add(box(w, h, d, color, 0, h / 2, 0));
+  g.add(cyl(1.6, 1.6, h, color, w / 2 - 0.4, h / 2, d / 2 - 0.4, 14));
+  g.add(box(w + 0.3, 0.35, d + 0.3, PR.gold, 0, h + 0.15, 0));
+  for (const wx of [-w / 4, w / 4]) {
+    g.add(box(0.8, 1.2, 0.08, PR.ink, wx, 1.8, d / 2 + 0.03));
+    g.add(box(0.8, 1.0, 0.08, PR.ink, wx, 3.4, d / 2 + 0.03));
+  }
+  g.add(neonBar(w * 0.5, 0.35, PR.cyan, 0, h - 0.6, d / 2 + 0.08));
+  return g;
+}
+
+export function buildPromenade() {
+  const rnd = seededRandom(20261121);
+  const group = new THREE.Group();
+  group.name = 'promenade';
+  const colliders = [];
+  const tickers = [];
+
+  // --- road surfaces (the D4 network stops at x 60; the promenade
+  // lays its own, like the old town did) ---
+  const surf = (texName, seed, w, d, x, z, y, rx, rz) => {
+    const tex = roadTexture(texName, seed);
+    tex.repeat.set(rx, rz);
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, flatShading: true });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), mat);
+    m.position.set(x, y, z);
+    group.add(m);
+  };
+  // Boulevard extension (asphalt) + esplanade + south walkway (light
+  // pavers) + quay boardwalk at the water edge.
+  surf('asphalt', 41, 48, 12, 84, 0, 0.05, 6, 2);
+  surf('plaza', 42, 48, 8, 84, -10, 0.12, 6, 1);
+  surf('plaza', 44, 48, 2.5, 84, 7.25, 0.12, 6, 1);
+  surf('boardwalk', 43, 48, 4.5, 84, 10.75, 0.05, 6, 1);
+
+  // --- buildings (merged, one draw call per material) ---
+  const buildings = new THREE.Group();
+  const collidersLocal = [];
+  const addPlot = (x, z, w, d, builder) => {
+    const b = builder();
+    b.position.set(x, 0, z);
+    buildings.add(b);
+    collidersLocal.push({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, id: 'promenade' });
+  };
+  // Front row (z -28..-14): deco row, Casino Azzura hero, hotel tower.
+  addPlot(66, -21, 8, 14, () => decoFacade(8, 14, 7, PR.pink));
+  addPlot(76, -21, 8, 14, () => decoFacade(8, 14, 8, PR.cyan));
+  addPlot(88, -21, 12, 14, () => casinoAzzura());
+  addPlot(101, -21, 10, 14, () => hotelAzzura());
+  // Back row (z -40..-31): pastel deco villas.
+  addPlot(68, -35.5, 8, 9, () => decoVilla(8, 9, 5, PR.peach));
+  addPlot(100, -35.5, 8, 9, () => decoVilla(8, 9, 5.5, PR.mint));
+  group.add(mergeStatic(buildings));
+  colliders.push(...collidersLocal);
+
+  // --- fountains: casino forecourt (hero) + hotel forecourt ---
+  const f1 = fountain(1.4);
+  f1.position.set(88, 0.24, -10);
+  group.add(f1);
+  tickers.push(f1);
+  const f2 = fountain(0.9);
+  f2.position.set(101, 0.24, -10);
+  group.add(f2);
+  tickers.push(f2);
+  colliders.push({ x0: 86.8, z0: -11.2, x1: 89.2, z1: -8.8, id: 'casino-fountain' });
+  colliders.push({ x0: 100.1, z0: -10.9, x1: 101.9, z1: -9.1, id: 'hotel-fountain' });
+
+  // --- palms (fuller makePalmFull, not the starburst classic) along
+  // the esplanade + the quay; lamps on both walks ---
+  for (const [px, pz, s] of [
+    [64, -8, 1.2], [76, -8, 1.0], [94, -8, 1.3], [104, -8, 1.1],
+    [66, 12, 1.1], [78, 12, 1.25], [90, 12, 1.0], [102, 12, 1.2],
+  ]) {
+    const p = makePalmFull(2.2 + s * 1.2);
+    p.position.set(px, 0.24, pz);
+    p.rotation.y = rnd() * Math.PI * 2;
+    group.add(p);
+  }
+  for (const lx of [68, 80, 92, 104]) {
+    group.add(lampPost(lx, -7));
+  }
+  for (const lx of [62, 74, 86, 98, 106]) {
+    group.add(lampPost(lx, 11.5));
+  }
+
+  // --- quay: bollards + cleats + moored sailboats on the water ---
+  const quayProps = new THREE.Group();
+  for (let x = 62; x <= 106; x += 4) {
+    quayProps.add(cyl(0.18, 0.22, 0.7, PR.sea, x, 0.35, 12.6, 8));
+  }
+  for (const cx of [66, 82, 98]) {
+    quayProps.add(box(0.9, 0.25, 0.4, PR.ink, cx, 0.3, 12.6));
+  }
+  group.add(mergeStatic(quayProps));
+  for (const [sx, sz, sc] of [[70, 18, 1.0], [98, 18, 1.2]]) {
+    const boat = sailboat(sc, 0xf2f0ea, sx);
+    boat.position.set(sx, 0, sz);
+    group.add(boat);
+  }
+
+  // --- traffic lanes + pedestrian paths ---
+  const lanes = [
+    { name: 'promenade-boulevard', pts: loopPath(62, -4, 106, 4, 2), speed: 7 },
+    { name: 'promenade-west', pts: loopPath(62, -4, 84, 4, 2), speed: 6 },
+  ];
+  const pedPaths = [
+    { a: { x: 62, z: -8 }, b: { x: 106, z: -8 } },
+    { a: { x: 62, z: 7.2 }, b: { x: 106, z: 7.2 } },
+    { a: { x: 62, z: 11 }, b: { x: 106, z: 11 } },
+    { a: { x: 88, z: -28 }, b: { x: 88, z: -7 } },
+    { a: { x: 70, z: -28 }, b: { x: 70, z: -7 } },
+    { a: { x: 101, z: -28 }, b: { x: 101, z: -7 } },
+  ];
+  return { group, colliders, lanes, pedPaths, tickers };
+}
+
 // ---------- combined builder (grows as districts land) ----------
 export function buildNewDistricts() {
   const group = new THREE.Group();
@@ -384,5 +630,11 @@ export function buildNewDistricts() {
   lanes.push(...ot.lanes);
   pedPaths.push(...ot.pedPaths);
   tickers.push(...ot.tickers);
+  const pr = buildPromenade();
+  group.add(pr.group);
+  colliders.push(...pr.colliders);
+  lanes.push(...pr.lanes);
+  pedPaths.push(...pr.pedPaths);
+  tickers.push(...pr.tickers);
   return { group, colliders, lanes, pedPaths, tickers };
 }
