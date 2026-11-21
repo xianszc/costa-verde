@@ -14,8 +14,8 @@ import { buildTrafficCar, buildPoliceCruiser, createCar, ROAD_Y } from './vehicl
 import { updateCarWheels } from './wheels.js';
 
 // Lane offsets from the street centreline (matches the painted
-// markings in cbd-grid.js): avenue 0.375/0.725/1.075, street 0.15/0.45.
-const LANE_OFFS = { avenue: [0.375, 0.725, 1.075], street: [0.15, 0.45] };
+// markings in cbd-grid.js): avenue 0.825/1.175/1.525, street 0.15/0.45.
+const LANE_OFFS = { avenue: [0.825, 1.175, 1.525], street: [0.15, 0.45] };
 const CRUISE = { avenue: 9, street: 7 };
 
 // Direction unit vectors, keyed by axis + dir.

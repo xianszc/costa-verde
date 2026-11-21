@@ -9,12 +9,13 @@
 // 1 unit = 10 m).
 //
 // Geometry (units; 1 unit = 10 m):
-//   Main avenues: 3.5 wide (35 m) — 6 lanes x 0.35 (3.5 m), raised
-//     median 0.4 (4 m), sidewalks 0.5 (5 m) both sides.
+//   Main avenues: 4.8 wide (48 m) — 6 lanes x 0.35 (3.5 m), landscaped
+//     median 1.3 (13 m, trees + planters; the monorail pillars stand
+//     in the LUNGOMARE median), sidewalks 0.7 (7 m) both sides.
 //   Secondary streets: 2.2 wide (22 m) — 4 lanes x 0.3 (3 m), double
 //     yellow centre, sidewalks 0.4 both sides.
 //   Blocks: ~9.0 x 9.0 (90 m) between streets; the two centre columns
-//     are 8.35 wide (the avenue takes the middle).
+//     are 7.7 wide (the avenue takes the middle).
 //   CBD extent: x -34.7..34.7, z -45.9..12.3 — 69.4 x 58.2 = 4,039 units².
 //     (Xian's ~3,500 target cannot hold 36 towers on 90 m blocks with
 //     22 m streets: 30 blocks x 81 units² of block + ~35% street share
@@ -28,20 +29,20 @@
 //     row (z -37.5..-31) is gone — those are CBD blocks now.
 import * as THREE from '../vendor/three.module.min.js';
 import {
-  box, mergedMesh, colored, xform, vertexColorMat, M,
+  box, mergedMesh, colored, xform, vertexColorMat, M, treeInstanced,
 } from './world.js';
 import { seededRandom } from './world.js';
 
 // --- the street list (the single source of truth) ---
 // axis 'x': a north-south street (constant x, runs along z).
 // axis 'z': an east-west street (constant z, runs along x).
-// kind 'avenue': 3.5 wide, 6 lanes, median. kind 'street': 2.2 wide,
-// 4 lanes, double yellow centre. from/to: the road's extent.
+// kind 'avenue': 4.8 wide, 6 lanes, landscaped median. kind 'street':
+// 2.2 wide, 4 lanes, double yellow centre. from/to: the road's extent.
 export const CBD_NS = [
   { x: -33.6, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL FARO' },
   { x: -22.4, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DELLE VELA' },
   { x: -11.2, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL SOLE' },
-  { x: 0, w: 3.5, kind: 'avenue', z0: -45.9, z1: 12.3, name: 'CORSO AZZURRA' },
+  { x: 0, w: 4.8, kind: 'avenue', z0: -45.9, z1: 12.3, name: 'CORSO AZZURRA' },
   { x: 11.2, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL MARE' },
   { x: 22.4, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEI LIMONI' },
   { x: 33.6, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL PORTO' },
@@ -51,19 +52,24 @@ export const CBD_EW = [
   { z: -33.6, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DELLE ROSE' },
   { z: -22.4, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL CASTELLO' },
   { z: -11.2, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL MERCATO' },
-  { z: 0, w: 3.5, kind: 'avenue', x0: -60, x1: 60, name: 'LUNGOMARE' },
+  { z: 0, w: 4.8, kind: 'avenue', x0: -60, x1: 60, name: 'LUNGOMARE' },
   { z: 11.2, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL MOLO' },
 ];
-// Sidewalk width beside each road (avenue 0.5 = 5 m, street 0.4 = 4 m).
-export function sidewalkW(s) { return s.kind === 'avenue' ? 0.5 : 0.4; }
+// Sidewalk width beside each road (avenue 0.7 = 7 m, street 0.4 = 4 m).
+export function sidewalkW(s) { return s.kind === 'avenue' ? 0.7 : 0.4; }
 // Road surface half-width (lanes + median, no sidewalks).
+// Avenue: 3 lanes/direction x 0.35 + median 1.3 = 3.4 (half 1.7).
+// Street: 2 lanes/direction x 0.3 + double yellow = 1.4 (half 0.7).
 export function roadHalf(s) {
-  return s.kind === 'avenue' ? 1.25 : 0.7;
+  return s.kind === 'avenue' ? 1.7 : 0.7;
 }
+// Avenue lane centres from the centreline (median half 0.65 +
+// half a lane 0.175, then +0.35 per lane).
+export const AVE_LANES = [0.825, 1.175, 1.525];
 
 // --- blocks (derived from the streets: between consecutive roads) ---
 // kind: 'single' | 'twin' | 'park' | 'plaza'. The two centre columns
-// are 8.35 wide (avenue in the middle); the rest are 9.0.
+// are 7.7 wide (avenue in the middle); the rest are 9.0.
 const BLOCK_KINDS = [
   // row 0 (north edge, z -43.7..-34.7)
   ['park', 'twin', 'single', 'single', 'twin', 'single'],
@@ -141,7 +147,7 @@ export function cbdGridMedianSegments() {
   const segs = [];
   for (let i = 0; i < bounds.length; i += 2) {
     const x0 = bounds[i], x1 = bounds[i + 1];
-    if (x1 - x0 > 1) segs.push({ x0, z0: -0.2, x1, z1: 0.2 });
+    if (x1 - x0 > 1) segs.push({ x0, z0: -0.65, x1, z1: 0.65 });
   }
   return segs;
 }
@@ -153,7 +159,7 @@ export function cbdAvenueMedianSegments() {
   const segs = [];
   for (let i = 0; i < bounds.length; i += 2) {
     const z0 = bounds[i], z1 = bounds[i + 1];
-    if (z1 - z0 > 1) segs.push({ x0: -0.2, z0, x1: 0.2, z1 });
+    if (z1 - z0 > 1) segs.push({ x0: -0.65, z0, x1: 0.65, z1 });
   }
   return segs;
 }
@@ -178,9 +184,9 @@ export function cbdGridLanes() {
   return [
     // The boulevard loop (the main east-west avenue, both directions
     // on the centreline — slice B splits it into directed lanes).
-    { name: 'boulevard', pts: loopPath(-56, -0.7, 56, 0.7, 4), speed: 9 },
+    { name: 'boulevard', pts: loopPath(-56, -0.825, 56, 0.825, 4), speed: 9 },
     // The N-S avenue loop (Corso Azzurra, x 0).
-    { name: 'cbd-avenue', pts: loopPath(-0.7, -44, 0.7, 11, 1.2), speed: 8 },
+    { name: 'cbd-avenue', pts: loopPath(-0.825, -44, 0.825, 11, 1.2), speed: 8 },
     // Outer grid loop: the boundary streets (x +/-33.6, z -44.8/11.2).
     { name: 'cbd-outer', pts: loopPath(-33.6, -44.8, 33.6, 11.2, 1.2), speed: 7 },
     // Inner grid loop: the z -22.4 / -11.2 streets + x +/-22.4.
@@ -302,13 +308,16 @@ export function buildCBDGrid(opts = {}) {
   g.add(swMesh);
 
   // ---------- medians (boulevard + N-S avenue) + planters ----------
+  // The landscaped median is 1.3 wide (13 m): a raised stone strip
+  // with planters; cypress trees stand in it (added below, clear of
+  // the monorail pillars and of the avenue-shot camera's foreground).
   const medMat = new THREE.MeshStandardMaterial({ color: 0xb8b2a4, roughness: 0.95, flatShading: true });
   const medParts = [];
   for (const seg of cbdGridMedianSegments()) {
-    medParts.push(colored(xform(new THREE.BoxGeometry(seg.x1 - seg.x0, 0.35, 0.4), (seg.x0 + seg.x1) / 2, 0.175, 0), 0xffffff));
+    medParts.push(colored(xform(new THREE.BoxGeometry(seg.x1 - seg.x0, 0.35, 1.3), (seg.x0 + seg.x1) / 2, 0.175, 0), 0xffffff));
   }
   for (const seg of cbdAvenueMedianSegments()) {
-    medParts.push(colored(xform(new THREE.BoxGeometry(0.4, 0.35, seg.z1 - seg.z0), 0, 0.175, (seg.z0 + seg.z1) / 2), 0xffffff));
+    medParts.push(colored(xform(new THREE.BoxGeometry(1.3, 0.35, seg.z1 - seg.z0), 0, 0.175, (seg.z0 + seg.z1) / 2), 0xffffff));
   }
   const medMesh = mergedMesh(medParts, medMat);
   medMesh.name = 'cbd-medians';
@@ -317,11 +326,11 @@ export function buildCBDGrid(opts = {}) {
   const planterParts = [];
   for (const seg of cbdGridMedianSegments()) {
     const len = seg.x1 - seg.x0;
-    if (len > 4) planterParts.push(colored(xform(new THREE.BoxGeometry(1.6, 0.5, 0.3), (seg.x0 + seg.x1) / 2, 0.6, 0), 0xffffff));
+    if (len > 4) planterParts.push(colored(xform(new THREE.BoxGeometry(2.4, 0.5, 0.8), (seg.x0 + seg.x1) / 2, 0.6, 0), 0xffffff));
   }
   for (const seg of cbdAvenueMedianSegments()) {
     const len = seg.z1 - seg.z0;
-    if (len > 4) planterParts.push(colored(xform(new THREE.BoxGeometry(0.3, 0.5, 1.6), 0, 0.6, (seg.z0 + seg.z1) / 2), 0xffffff));
+    if (len > 4) planterParts.push(colored(xform(new THREE.BoxGeometry(0.8, 0.5, 2.4), 0, 0.6, (seg.z0 + seg.z1) / 2), 0xffffff));
   }
   if (planterParts.length) {
     const planterMesh = mergedMesh(planterParts, planterMat);
@@ -330,8 +339,8 @@ export function buildCBDGrid(opts = {}) {
   }
 
   // ---------- markings ----------
-  // Lane geometry: avenue lanes 0.35 wide (centres +/-0.375/0.725/1.075,
-  // dividers at +/-0.55/0.9, edges at +/-1.25, median +/-0.2);
+  // Lane geometry: avenue lanes 0.35 wide (centres +/-0.825/1.175/1.525,
+  // dividers at +/-1.0/1.35, edges at +/-1.7, median +/-0.65);
   // street lanes 0.3 wide (centres +/-0.15/0.45, dividers at +/-0.3,
   // double yellow at +/-0.08, edges at +/-0.6).
   const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.75 });
@@ -348,7 +357,7 @@ export function buildCBDGrid(opts = {}) {
   for (const s of CBD_NS) {
     const gaps = nsGapAt(s);
     const segs = segmentsAlong(s.z0, s.z1, gaps);
-    const divs = s.kind === 'avenue' ? [0.55, 0.9] : [0.3];
+    const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
     for (const [a, b] of segs) {
       for (const off of divs) {
         for (const side of [-1, 1]) {
@@ -359,9 +368,9 @@ export function buildCBDGrid(opts = {}) {
       }
       // Edge lines (solid white) + double yellow (streets) + bus lane (avenues).
       for (const side of [-1, 1]) {
-        const e = s.kind === 'avenue' ? 1.25 : 0.6;
+        const e = s.kind === 'avenue' ? 1.7 : 0.6;
         whites.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, b - a), s.x + side * e, 0.22, (a + b) / 2), 0xffffff));
-        if (s.kind === 'avenue') greens.push(colored(xform(new THREE.BoxGeometry(0.08, 0.01, b - a), s.x + side * 1.0, 0.22, (a + b) / 2), 0xffffff));
+        if (s.kind === 'avenue') greens.push(colored(xform(new THREE.BoxGeometry(0.08, 0.01, b - a), s.x + side * 1.45, 0.22, (a + b) / 2), 0xffffff));
         else yellows.push(colored(xform(new THREE.BoxGeometry(0.08, 0.01, b - a), s.x + side * 0.08, 0.22, (a + b) / 2), 0xffffff));
       }
     }
@@ -369,7 +378,7 @@ export function buildCBDGrid(opts = {}) {
   for (const s of CBD_EW) {
     const gaps = ewGapAt(s);
     const segs = segmentsAlong(s.x0, s.x1, gaps);
-    const divs = s.kind === 'avenue' ? [0.55, 0.9] : [0.3];
+    const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
     for (const [a, b] of segs) {
       for (const off of divs) {
         for (const side of [-1, 1]) {
@@ -379,9 +388,9 @@ export function buildCBDGrid(opts = {}) {
         }
       }
       for (const side of [-1, 1]) {
-        const e = s.kind === 'avenue' ? 1.25 : 0.6;
+        const e = s.kind === 'avenue' ? 1.7 : 0.6;
         whites.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.12), (a + b) / 2, 0.22, s.z + side * e), 0xffffff));
-        if (s.kind === 'avenue') greens.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.08), (a + b) / 2, 0.22, s.z + side * 1.0), 0xffffff));
+        if (s.kind === 'avenue') greens.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.08), (a + b) / 2, 0.22, s.z + side * 1.45), 0xffffff));
         else yellows.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.08), (a + b) / 2, 0.22, s.z + side * 0.08), 0xffffff));
       }
     }
@@ -413,8 +422,8 @@ export function buildCBDGrid(opts = {}) {
       const ave = ns.kind === 'avenue' || ew.kind === 'avenue';
       // Zebra bars are spaced across the road being crossed (avenues
       // are wider, so their bars spread further apart).
-      const eOffs = ew.kind === 'avenue' ? [-0.9, -0.3, 0.3, 0.9] : [-0.45, -0.15, 0.15, 0.45];
-      const nOffs = ns.kind === 'avenue' ? [-0.9, -0.3, 0.3, 0.9] : [-0.45, -0.15, 0.15, 0.45];
+      const eOffs = ew.kind === 'avenue' ? [-1.35, -0.45, 0.45, 1.35] : [-0.45, -0.15, 0.15, 0.45];
+      const nOffs = ns.kind === 'avenue' ? [-1.35, -0.45, 0.45, 1.35] : [-0.45, -0.15, 0.15, 0.45];
       // Zebra across the E-W road (bars long in x, spaced in z).
       for (const dz of eOffs) {
         zebraParts.push(colored(xform(new THREE.BoxGeometry(2 * hn + 0.4, 0.01, 0.35), cx, 0.22, cz + dz), 0xffffff));
@@ -423,23 +432,26 @@ export function buildCBDGrid(opts = {}) {
       for (const dx of nOffs) {
         zebraParts.push(colored(xform(new THREE.BoxGeometry(0.35, 0.01, 2 * he + 0.4), cx + dx, 0.22, cz), 0xffffff));
       }
-      // Stop lines, one per approach, spanning the approach half.
-      const ewHalf = ew.kind === 'avenue' ? 1.25 : 0.7;
-      const nsHalf = ns.kind === 'avenue' ? 1.25 : 0.7;
+      // Stop lines, one per approach, spanning the approach half
+      // (median edge to road edge): avenue 0.95 long centred 1.175
+      // out, street 0.5 long centred 0.45 out.
+      const stopGeom = (kind) => (kind === 'avenue' ? { len: 0.95, c: 1.175 } : { len: 0.5, c: 0.45 });
+      const ewStop = stopGeom(ew.kind);
+      const nsStop = stopGeom(ns.kind);
       // E-W road, west approach (eastbound, south half): stop at x = cx - hn - 1.4.
-      stopParts.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, ewHalf - 0.2), cx - hn - 1.4, 0.22, cz + ewHalf / 2 + 0.1), 0xffffff));
+      stopParts.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, ewStop.len), cx - hn - 1.4, 0.22, cz + ewStop.c), 0xffffff));
       // E-W road, east approach (westbound, north half).
-      stopParts.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, ewHalf - 0.2), cx + hn + 1.4, 0.22, cz - ewHalf / 2 - 0.1), 0xffffff));
+      stopParts.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, ewStop.len), cx + hn + 1.4, 0.22, cz - ewStop.c), 0xffffff));
       // N-S road, south approach (northbound, east half).
-      stopParts.push(colored(xform(new THREE.BoxGeometry(nsHalf - 0.2, 0.01, 0.4), cx + nsHalf / 2 + 0.1, 0.22, cz - he - 1.4), 0xffffff));
+      stopParts.push(colored(xform(new THREE.BoxGeometry(nsStop.len, 0.01, 0.4), cx + nsStop.c, 0.22, cz - he - 1.4), 0xffffff));
       // N-S road, north approach (southbound, west half).
-      stopParts.push(colored(xform(new THREE.BoxGeometry(nsHalf - 0.2, 0.01, 0.4), cx - nsHalf / 2 - 0.1, 0.22, cz + he + 1.4), 0xffffff));
+      stopParts.push(colored(xform(new THREE.BoxGeometry(nsStop.len, 0.01, 0.4), cx - nsStop.c, 0.22, cz + he + 1.4), 0xffffff));
       // Turn arrows: flatArrow points north at ry 0; east is -PI/2,
       // west +PI/2, south PI (Three.js +Y rotation). Each approach
       // gets a left arrow in its inner (median-side) lane, a straight
       // arrow in the middle lane (avenues), and a right arrow in its
       // outer lane. Placed 3.5 behind the stop line.
-      const lanes = (kind) => (kind === 'avenue' ? [-1.075, -0.725, -0.375, 0.375, 0.725, 1.075] : [-0.45, -0.15, 0.15, 0.45]);
+      const lanes = (kind) => (kind === 'avenue' ? [-1.525, -1.175, -0.825, 0.825, 1.175, 1.525] : [-0.45, -0.15, 0.15, 0.45]);
       // Eastbound (south half of the E-W road): left = north, straight
       // = east, right = south.
       const ewL = lanes(ew.kind).filter((v) => v > 0);
@@ -506,7 +518,9 @@ export function buildCBDGrid(opts = {}) {
     g.add(bumpMesh);
   }
 
-  // ---------- lamp posts (both sidewalks, every ~8 units) ----------
+  // ---------- lamp posts (ONE side only, B — tidy, evenly spaced) ----------
+  // N-S streets: east sidewalk. E-W streets: north sidewalk.
+  // The old double row read as clutter; one row lights the street.
   const lampPoles = [];
   const lampGlobes = [];
   const lampAt = (x, z) => {
@@ -516,15 +530,13 @@ export function buildCBDGrid(opts = {}) {
   for (const s of CBD_NS) {
     const sw = sidewalkW(s);
     for (let z = s.z0 + 4; z <= s.z1 - 4; z += 8) {
-      lampAt(s.x - s.w / 2 - sw / 2, z);
-      lampAt(s.x + s.w / 2 + sw / 2, z + 4);
+      lampAt(s.x + s.w / 2 + sw / 2, z);
     }
   }
   for (const s of CBD_EW) {
     const sw = sidewalkW(s);
     for (let x = s.x0 + 4; x <= s.x1 - 4; x += 8) {
       lampAt(x, s.z - s.w / 2 - sw / 2);
-      lampAt(x + 4, s.z + s.w / 2 + sw / 2);
     }
   }
   const lampGroup = new THREE.Group();
@@ -616,13 +628,14 @@ export function buildCBDGrid(opts = {}) {
     pole.position.set(sp.x, 1.2, sp.z);
     g.add(pole);
   }
-  // Bus stops: shelter + bench on the boulevard (south sidewalk) and
-  // the N-S avenue (east sidewalk). Posts + roof merge dark, bench wood.
+  // Bus stops: shelter + bench on the boulevard (south sidewalk,
+  // z 2.75) and the N-S avenue (east sidewalk, x 2.75) — the widened
+  // avenue's sidewalk centres (the old 1.5 spots are in the road now).
   const busMetal = [];
   const busWood = [];
   const busStops = [
-    { x: -20, z: 1.5, ry: 0 }, { x: 20, z: 1.5, ry: 0 },
-    { x: 1.5, z: -28, ry: Math.PI / 2 }, { x: 1.5, z: 5, ry: Math.PI / 2 },
+    { x: -20, z: 2.75, ry: 0 }, { x: 20, z: 2.75, ry: 0 },
+    { x: 2.75, z: -28, ry: Math.PI / 2 }, { x: 2.75, z: 5, ry: Math.PI / 2 },
   ];
   for (const b of busStops) {
     const cos = Math.cos(b.ry), sin = Math.sin(b.ry);
@@ -644,6 +657,96 @@ export function buildCBDGrid(opts = {}) {
   const busWoodMesh = mergedMesh(busWood, M(0x8a6a4a));
   busWoodMesh.name = 'cbd-busstops-wood';
   g.add(busWoodMesh);
+
+  // ---------- avenue street trees, benches, bins + median cypress (B) ----------
+  // Trees on BOTH sidewalks of the two avenues, evenly spaced, clear
+  // of intersections, bus stops and sign poles; benches + bins a few,
+  // evenly spaced, on the same sidewalks. Cypress in the LUNGOMARE
+  // median only — the avenue-shot camera looks straight down the
+  // CORSO AZZURRA median, so that median keeps low planters only.
+  const busStopPts = busStops.map((b) => ({ x: b.x, z: b.z }));
+  const nearBusStop = (x, z) => busStopPts.some((p) => Math.hypot(p.x - x, p.z - z) < 2.5);
+  const aveTrees = [];
+  // CORSO AZZURRA sidewalks (x +/-2.75), z -42..9, every 6.
+  for (let z = -42; z <= 9; z += 6) {
+    for (const side of [-1, 1]) {
+      const x = side * 2.75;
+      if (nearBusStop(x, z)) continue;
+      aveTrees.push({ x, z, s: 0.75 + rnd() * 0.2, rot: rnd() * Math.PI * 2 });
+    }
+  }
+  // LUNGOMARE sidewalks (z +/-2.75), x -56..56, every 6.
+  for (let x = -56; x <= 56; x += 6) {
+    for (const side of [-1, 1]) {
+      const z = side * 2.75;
+      if (nearBusStop(x, z)) continue;
+      // The direction-sign poles stand at (x +/-8, z +/-2.05) —
+      // keep the trees 1.5 clear of them.
+      if (Math.hypot(x - 8, z - 2.05) < 1.5 || Math.hypot(x + 8, z + 2.05) < 1.5) continue;
+      aveTrees.push({ x, z, s: 0.75 + rnd() * 0.2, rot: rnd() * Math.PI * 2 });
+    }
+  }
+  if (aveTrees.length) {
+    const treeMesh = treeInstanced('round', aveTrees);
+    treeMesh.name = 'cbd-avenue-trees';
+    g.add(treeMesh);
+  }
+  // Median cypress: the LUNGOMARE median only, between the monorail
+  // pillars (pillars at x -30..30 step 6 — trees at the midpoints).
+  // CORSO AZZURRA gets NO median trees: the avenue-shot camera looks
+  // straight down its median, and a cypress there blocks the
+  // vanishing point (B fix — the low planters are the median there).
+  const medTrees = [];
+  for (let x = -27; x <= 27; x += 6) medTrees.push({ x, z: 0, s: 0.9 + rnd() * 0.2, rot: rnd() * Math.PI * 2 });
+  if (medTrees.length) {
+    const medTreeMesh = treeInstanced('cypress', medTrees);
+    medTreeMesh.name = 'cbd-median-trees';
+    g.add(medTreeMesh);
+  }
+  // Benches + bins on the avenue sidewalks, every ~12, alternating
+  // sides, offset from the trees (trees every 6, benches/bins every
+  // 12 at the midpoints) and clear of the bus stops.
+  const benchWood = [];
+  const binParts = [];
+  let bi = 0;
+  for (let z = -39; z <= 9; z += 12, bi++) {
+    const side = bi % 2 === 0 ? 1 : -1;
+    const x = side * 2.75;
+    if (nearBusStop(x, z)) continue;
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.45, 0.1, 1.6), x, 0.55, z), 0xffffff));
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.45, 0.55, 0.1), x, 0.28, z - 0.65), 0xffffff));
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.45, 0.55, 0.1), x, 0.28, z + 0.65), 0xffffff));
+  }
+  for (let z = -33; z <= 3; z += 12, bi++) {
+    const side = bi % 2 === 0 ? 1 : -1;
+    const x = side * 2.75;
+    if (nearBusStop(x, z)) continue;
+    binParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.2, 0.6, 8), x, 0.3, z), 0xffffff));
+  }
+  for (let x = -54; x <= 54; x += 12, bi++) {
+    const side = bi % 2 === 0 ? 1 : -1;
+    const z = side * 2.75;
+    if (nearBusStop(x, z)) continue;
+    benchWood.push(colored(xform(new THREE.BoxGeometry(1.6, 0.1, 0.45), x, 0.55, z), 0xffffff));
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.1, 0.55, 0.45), x - 0.65, 0.28, z), 0xffffff));
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.1, 0.55, 0.45), x + 0.65, 0.28, z), 0xffffff));
+  }
+  for (let x = -48; x <= 48; x += 12, bi++) {
+    const side = bi % 2 === 0 ? 1 : -1;
+    const z = side * 2.75;
+    if (nearBusStop(x, z)) continue;
+    binParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.2, 0.6, 8), x, 0.3, z), 0xffffff));
+  }
+  if (benchWood.length) {
+    const benchMesh = mergedMesh(benchWood, M(0x8a6a4a));
+    benchMesh.name = 'cbd-benches';
+    g.add(benchMesh);
+  }
+  if (binParts.length) {
+    const binMesh = mergedMesh(binParts, M(0x3a3a3a));
+    binMesh.name = 'cbd-bins';
+    g.add(binMesh);
+  }
 
   // ---------- manholes, grates, hydrants (merged metal) ----------
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.6, metalness: 0.7 });

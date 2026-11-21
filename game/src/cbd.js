@@ -200,10 +200,13 @@ export function buildCBD() {
           const wwz = s.z - wx * Math.sin(s.ry) + wz * Math.cos(s.ry);
           parkedGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.5, 0.3), wwx, 0.25, wwz, s.ry), 0x1a1a1a));
         }
+        // The collider is inset 0.3 from the visual car (4.2 long):
+        // on the 7.7-wide plaza the three cars' corners meet, and the
+        // full-size colliders overlapped each other by 0.2 (B).
         const alongZ = Math.abs(Math.sin(s.ry)) > 0.5;
         colliders.push(alongZ
-          ? { x0: s.x - 0.95, z0: s.z - 2.1, x1: s.x + 0.95, z1: s.z + 2.1, id: 'cbd-parked' }
-          : { x0: s.x - 2.1, z0: s.z - 0.95, x1: s.x + 2.1, z1: s.z + 0.95, id: 'cbd-parked' });
+          ? { x0: s.x - 0.8, z0: s.z - 1.8, x1: s.x + 0.8, z1: s.z + 1.8, id: 'cbd-parked' }
+          : { x0: s.x - 1.8, z0: s.z - 0.8, x1: s.x + 1.8, z1: s.z + 0.8, id: 'cbd-parked' });
       });
       continue;
     }
@@ -243,6 +246,12 @@ export function buildCBD() {
       variant = 2; // the Azzura Tower keeps its spire
     }
     addTower(b.cx, b.cz, w, d, floors, variant);
+    // Low podium base (B): a 1-unit plinth, slightly wider than the
+    // tower, so the tower rises from a base with shop fronts (C)
+    // instead of straight from the sidewalk — no canyon feel. (Not
+    // counted in podiumCount: that number is the twin shared podiums.)
+    concGeos.push(colored(xform(new THREE.BoxGeometry(w + 0.8, 1.0, d + 0.8), b.cx, 0.5, b.cz), 0xffffff));
+    colliders.push({ x0: b.cx - (w + 0.8) / 2, z0: b.cz - (d + 0.8) / 2, x1: b.cx + (w + 0.8) / 2, z1: b.cz + (d + 0.8) / 2, id: 'cbd-podium' });
     // ---- block fill (Xian 21 Nov 16:04): no empty tan ground ----
     // The rim between the tower and the block edge is only ~1.2 wide,
     // so the fill is flat paving + small trees / planters / a bench —
@@ -291,7 +300,7 @@ export function buildCBD() {
   if (parkedGeos.length) group.add(mergedMesh(parkedGeos, vertexColorMat));
 
   // Elevated monorail above the boulevard (SLIM guideway, Xian 21 Nov
-  // 16:04): a NARROW beam (0.8 wide) on pillars IN the 0.4-wide median
+  // 16:04): a NARROW beam (0.8 wide) on pillars IN the 1.3-wide median
   // — never a wide dark slab, never covering the roads below or sitting
   // in a driving lane. The car straddles the beam. Guideway + car are
   // each one merged mesh (the old deck was 17 draw calls; this is 2).
