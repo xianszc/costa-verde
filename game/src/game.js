@@ -1518,6 +1518,7 @@ export function createGame(container) {
         camPos.copy(topCam.position);
         camLook.set(0, 0, -16.8);
         shotCamera = topCam;
+        window.__topCam = topCam; // exposed for the draw-call probe
       } else if (view === 'avenue') {
         // Avenue street-level shot (Xian 21 Nov 15:22): from the middle
         // of CORSO AZZURRA, just north of the boulevard, looking north

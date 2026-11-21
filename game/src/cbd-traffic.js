@@ -168,7 +168,7 @@ export function placeCbdCar(car, axis, index, dir, lane, seg, s = 0) {
 export function createCbdTraffic(defs) {
   const cars = [];
   for (const d of defs) {
-    const mesh = d.police ? buildPoliceCruiser() : buildTrafficCar(d.kind, d.color);
+    const mesh = d.police ? buildPoliceCruiser() : buildTrafficCar(d.color, d.kind);
     const car = createCar(mesh, { noMesh: true });
     car.police = !!d.police;
     car.cruise = d.police ? 10 : CRUISE[streetOf(d.axis, d.index).kind];

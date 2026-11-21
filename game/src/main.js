@@ -172,6 +172,16 @@ if (debugSkip && params.get('at') === 'cbd_center') {
   window.__gameReady = true;
 }
 
+// ?hud=0 hides every HUD element (map shots: the whole city must be
+// visible, nothing cropped by the mission card / panels / minimap).
+// Applies after any staging above, so staged shots render HUD-free.
+if (params.get('hud') === '0') {
+  for (const id of ['hud-stage', 'topbar', 'title-card', 'version']) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+}
+
 // Auto-pause when the tab hides mid-game (never run unseen).
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && game.state.mode === 'play') {
