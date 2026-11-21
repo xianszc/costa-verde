@@ -107,3 +107,13 @@ leaves **4 components**, i.e. 3 real gaps the split cannot fix:
   road must be added.
 - The traffic lanes (24 closed loops, 7 components) are NOT the road
   network and are not part of this test.
+
+## Re-verification 22 Nov ~01:00 WIB (HEAD e7c1faf, driver 0d6b337 pending)
+
+  Command: NODE_PATH=/tmp/node_modules node game/test/connectivity.mjs
+  (8941 no-cache server). Result: COMPONENTS: 1, 695 segments,
+  284 nodes, all 16 zone anchors in the harbor component; longest
+  drive lighthouse -> quarry 392.3u / 56.0 s game-time. Identical to
+  the 23:20 and 23:25 results — no regression. The M1–M12 human-like
+  re-run with the fixed driver (no car teleport) started right after
+  (log `/tmp/missions-run-20261122-0100.log`).
