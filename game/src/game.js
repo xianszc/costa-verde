@@ -9,6 +9,7 @@
 // scenes and rewards. Everything procedural, zero network.
 import * as THREE from '../vendor/three.module.min.js';
 import { buildDistrict4, windowMat } from './city.js';
+import { groundHeightAt } from './districts.js';
 import { makeFigure, CAST, CIVILIANS } from './people.js';
 import {
   buildStella, buildTrafficCar, createCar, stepCar,
@@ -758,14 +759,20 @@ export function createGame(container) {
         const nx = player.x + mx * speed * dt;
         const nz = player.z + mz * speed * dt;
         const res = collideCircleAABBs(nx, nz, player.radius, colliders);
+        // M3 (c): the player can walk the whole map north–south now —
+        // the old town (z -86) and the skyline landmass (z 104) — the
+        // bay-water colliders keep them off the water except on the
+        // bridge corridor (x ±4.5).
         player.x = Math.max(-58, Math.min(58, res.x));
-        player.z = Math.max(-41, Math.min(12.4, res.z));
+        player.z = Math.max(-86, Math.min(104, res.z));
         player.speed = speed;
         player.walkPhase += dt * speed * 2.4;
       } else {
         player.speed = 0;
       }
-      playerMesh.position.set(player.x, 0, player.z);
+      // On the skyline landmass / bridge the player stands at its
+      // height (M3 (c)); everywhere else the ground is y 0.
+      playerMesh.position.set(player.x, groundHeightAt(player.x, player.z), player.z);
       // The figure model faces +z at rotation 0; the movement angle uses
       // forward = (cos a, -sin a), so the mesh needs +90 deg to face it.
       playerMesh.rotation.y = player.angle + Math.PI / 2;
@@ -802,7 +809,9 @@ export function createGame(container) {
       const z = p.path.a.z + (p.path.b.z - p.path.a.z) * p.t;
       const dx = (p.path.b.x - p.path.a.x) * p.dir;
       const dz = (p.path.b.z - p.path.a.z) * p.dir;
-      p.mesh.position.set(x, 0, z);
+      // Pedestrians on the skyline landmass / bridge walk at its height
+      // (M3 (c)); everywhere else the ground is y 0.
+      p.mesh.position.set(x, groundHeightAt(x, z), z);
       p.mesh.rotation.y = Math.atan2(-dz, dx) + Math.PI / 2;
       p.phase += dt * p.speed * 2.4;
       animateWalk(p.mesh, p.phase, p.speed);
@@ -980,7 +989,9 @@ export function createGame(container) {
     }
     let street = 'LUNGOMARE';
     let sub = 'VIA DEL FARO · DISTRICT 4';
-    if (Math.abs(pz) <= 6) { street = 'LUNGOMARE'; sub = 'BOULEVARD · DISTRICT 4'; }
+    if (pz >= 62) { street = 'BAIA ALTA'; sub = 'SKYLINE · DISTRICT 9'; }
+    else if (px > 60) { street = 'LUNGOMARE'; sub = 'PROMENADE · DISTRICT 4'; }
+    else if (Math.abs(pz) <= 6) { street = 'LUNGOMARE'; sub = 'BOULEVARD · DISTRICT 4'; }
     else if (pz < -30) { street = 'VIA DEL PORTO'; sub = 'OLD QUARTER · DISTRICT 4'; }
     else if (pz > 8.5) { street = 'QUAY'; sub = 'HARBOR FRONT · DISTRICT 4'; }
     setText('hud-map-district', street);
@@ -1169,6 +1180,14 @@ export function createGame(container) {
         // inside the palm rows — the fronds blocked the casino.)
         car.x = 84; car.z = -3.4; car.angle = Math.PI; car.speed = 0;
         camFrom = [60, 18, 8]; camTo = [100, 0, -12];
+      } else if (d === 'skyline') {
+        // M3 (c): high above the quay's east end, looking north-east
+        // across the bay — the bridge + monorail in the foreground,
+        // the Bay Avenue, the podium row and the 12 towers behind.
+        // The player car is staged on the avenue (teleported, not
+        // driven — the bridge is pedestrian-only).
+        car.x = 0; car.z = 72; car.angle = Math.PI / 2; car.speed = 0;
+        camFrom = [36, 16, 30]; camTo = [-8, 5, 88];
       } else {
         car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
         camFrom = [-6, 6, -38]; camTo = [-44, 1, -58];

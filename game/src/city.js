@@ -462,15 +462,9 @@ export function buildDistrict4() {
     group.add(boat);
     tickers.push(boat);
   }
-  const skyline = buildSkylineCluster('lod');
-  skyline.position.set(0, 0, 88);
-  group.add(skyline);
-  const skyPodium = new THREE.Mesh(
-    new THREE.BoxGeometry(110, 1.0, 8),
-    M(0x3a3a3a),
-  );
-  skyPodium.position.set(0, 0.5, 88);
-  group.add(skyPodium);
+  // --- bay water + moored boats (the skyline across the bay is the
+  // REAL District 9 now — the LOD cluster + podium were removed in M3
+  // (c); the full tower cluster stands on the skyline landmass) ---
 
   // --- hills to the north (moved behind the old-town wall, z -90+) ---
   group.add(buildHills());
