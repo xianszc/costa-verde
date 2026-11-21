@@ -20,6 +20,7 @@ import { skyTexture, skyPhaseForHour } from './water.js';
 import { createRadio, STATIONS } from './radio.js';
 import { createSaveSystem } from './save.js';
 import { createMissionEngine, MISSIONS, PORTRAITS } from './missions.js';
+import { ANCHORS } from './anchors.js';
 import { createWanted } from './wanted.js';
 import { createCombat, WEAPONS } from './combat.js';
 import { createHub } from './hub.js';
@@ -141,9 +142,9 @@ export function createGame(container) {
   scene.add(playerMesh);
   const player = {
     mesh: playerMesh,
-    x: district.spawnPlayer.x,
-    z: district.spawnPlayer.z,
-    angle: district.spawnPlayer.angle,
+    x: ANCHORS.player_spawn.x,
+    z: ANCHORS.player_spawn.z,
+    angle: ANCHORS.player_spawn.angle,
     speed: 0,
     walkPhase: 0,
     radius: 0.5,
@@ -154,7 +155,7 @@ export function createGame(container) {
   const stellaMesh = buildStella();
   scene.add(stellaMesh);
   const car = createCar(stellaMesh, {
-    x: district.spawnCar.x, z: district.spawnCar.z, angle: district.spawnCar.angle,
+    x: ANCHORS.car_spawn.x, z: ANCHORS.car_spawn.z, angle: ANCHORS.car_spawn.angle,
   });
   car.mesh.position.set(car.x, 0, car.z);
 
@@ -544,9 +545,9 @@ export function createGame(container) {
   function respawnAfterEnd() {
     const ov = document.getElementById('busted-overlay');
     if (ov) ov.style.display = 'none';
-    player.x = district.spawnPlayer.x;
-    player.z = district.spawnPlayer.z;
-    player.angle = district.spawnPlayer.angle;
+    player.x = ANCHORS.player_spawn.x;
+    player.z = ANCHORS.player_spawn.z;
+    player.angle = ANCHORS.player_spawn.angle;
     state.onFoot = true;
     playerMesh.visible = true;
     playerMesh.position.set(player.x, 0, player.z);
@@ -574,7 +575,7 @@ export function createGame(container) {
   function spawnDuelTarget() {
     if (duelTarget) return;
     const fig = makeFigure(CAST[2].spec); // Aldo Moretti, white suit, falcon cane
-    fig.position.set(88, 0, -10);
+    fig.position.set(ANCHORS.casino_forecourt.x, 0, ANCHORS.casino_forecourt.z);
     fig.rotation.y = -Math.PI / 2; // face the player coming up the boulevard
     scene.add(fig);
     duelTarget = {
@@ -1247,7 +1248,7 @@ export function createGame(container) {
       state.onFoot = false;
       state.scriptedAccel = true;
       playerMesh.visible = false;
-      car.x = -30; car.z = -3.4; car.angle = 0; car.speed = 0;
+      car.x = ANCHORS.race_start_1.x; car.z = ANCHORS.race_start_1.z; car.angle = 0; car.speed = 0;
       state.time = name === 'night' ? 23.2 : name === 'storm' ? 17.5 : 18.7;
       setStorm(name === 'storm');
       updateLighting();
@@ -1272,29 +1273,33 @@ export function createGame(container) {
       updateLighting();
       let camFrom; let camTo;
       if (d === 'oldtown') {
-        car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
+        car.x = ANCHORS.oldtown_main_street.x; car.z = ANCHORS.oldtown_main_street.z; car.angle = 0; car.speed = 0;
         // East end of the main street, above the north sidewalk,
         // looking west down the cobbles: the Stella mid-street, the
         // old-town traffic car, the stair-houses and the plaza beyond.
-        camFrom = [-2, 8, -62]; camTo = [-48, 1, -56];
+        camFrom = [ANCHORS.vantage_oldtown_cam.x, ANCHORS.vantage_oldtown_cam.y, ANCHORS.vantage_oldtown_cam.z];
+        camTo = [ANCHORS.vantage_oldtown_cam.look.x, ANCHORS.vantage_oldtown_cam.look.y, ANCHORS.vantage_oldtown_cam.look.z];
       } else if (d === 'promenade') {
         // High above the boulevard's west end, looking east-down:
         // the boulevard, the deco row, the Casino Azzura + the hotel
         // tower, the quay + sailboats below. (Lower vantages sat
         // inside the palm rows — the fronds blocked the casino.)
-        car.x = 84; car.z = -3.4; car.angle = Math.PI; car.speed = 0;
-        camFrom = [60, 18, 8]; camTo = [100, 0, -12];
+        car.x = ANCHORS.boulevard_east.x; car.z = ANCHORS.boulevard_east.z; car.angle = ANCHORS.boulevard_east.angle; car.speed = 0;
+        camFrom = [ANCHORS.vantage_promenade_cam.x, ANCHORS.vantage_promenade_cam.y, ANCHORS.vantage_promenade_cam.z];
+        camTo = [ANCHORS.vantage_promenade_cam.look.x, ANCHORS.vantage_promenade_cam.look.y, ANCHORS.vantage_promenade_cam.look.z];
       } else if (d === 'skyline') {
         // M3 (c): high above the quay's east end, looking north-east
         // across the bay — the bridge + monorail in the foreground,
         // the Bay Avenue, the podium row and the 12 towers behind.
         // The player car is staged on the avenue (teleported, not
         // driven — the bridge is pedestrian-only).
-        car.x = 0; car.z = 72; car.angle = Math.PI / 2; car.speed = 0;
-        camFrom = [36, 16, 30]; camTo = [-8, 5, 88];
+        car.x = ANCHORS.skyline_avenue.x; car.z = ANCHORS.skyline_avenue.z; car.angle = ANCHORS.skyline_avenue.angle; car.speed = 0;
+        camFrom = [ANCHORS.vantage_skyline_cam.x, ANCHORS.vantage_skyline_cam.y, ANCHORS.vantage_skyline_cam.z];
+        camTo = [ANCHORS.vantage_skyline_cam.look.x, ANCHORS.vantage_skyline_cam.look.y, ANCHORS.vantage_skyline_cam.look.z];
       } else {
-        car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
-        camFrom = [-6, 6, -38]; camTo = [-44, 1, -58];
+        car.x = ANCHORS.oldtown_main_street.x; car.z = ANCHORS.oldtown_main_street.z; car.angle = 0; car.speed = 0;
+        camFrom = [ANCHORS.vantage_default_cam.x, ANCHORS.vantage_default_cam.y, ANCHORS.vantage_default_cam.z];
+        camTo = [ANCHORS.vantage_default_cam.look.x, ANCHORS.vantage_default_cam.look.y, ANCHORS.vantage_default_cam.look.z];
       }
       car.mesh.position.set(car.x, 0, car.z);
       car.mesh.rotation.y = car.angle;
@@ -1317,7 +1322,7 @@ export function createGame(container) {
       showHUD();
       state.onFoot = false;
       playerMesh.visible = false;
-      car.x = 0; car.z = 3.4; car.angle = 0; car.speed = 0;
+      car.x = ANCHORS.boulevard_mid_south.x; car.z = ANCHORS.boulevard_mid_south.z; car.angle = 0; car.speed = 0;
       car.mesh.position.set(car.x, 0, car.z);
       car.mesh.rotation.y = car.angle;
       state.time = 18.7;
@@ -1336,7 +1341,7 @@ export function createGame(container) {
       showHUD();
       state.onFoot = true;
       playerMesh.visible = true;
-      player.x = -53.5; player.z = 11.5; player.angle = 0;
+      player.x = ANCHORS.quay_cover_spot.x; player.z = ANCHORS.quay_cover_spot.z; player.angle = 0;
       player.crouched = true;
       playerMesh.position.set(player.x, 0, player.z);
       playerMesh.rotation.y = player.angle + Math.PI / 2;
@@ -1358,10 +1363,10 @@ export function createGame(container) {
         // foreshortens the tracer to a dot, this angle shows it.
         // Camera south-east, higher up: the firing line runs diagonally
         // across the frame and the water foreground stays out of it.
-        camera.position.set(-41, 4.5, 19);
-        camera.lookAt(-52, 1.0, 11.5);
+        camera.position.set(ANCHORS.vantage_tracer_cam.x, ANCHORS.vantage_tracer_cam.y, ANCHORS.vantage_tracer_cam.z);
+        camera.lookAt(ANCHORS.vantage_tracer_cam.look.x, ANCHORS.vantage_tracer_cam.look.y, ANCHORS.vantage_tracer_cam.look.z);
         camPos.copy(camera.position);
-        camLook.set(-52, 1.0, 11.5);
+        camLook.set(ANCHORS.vantage_tracer_cam.look.x, ANCHORS.vantage_tracer_cam.look.y, ANCHORS.vantage_tracer_cam.look.z);
       }
       renderer.render(scene, camera);
       renderer.render(scene, camera);
@@ -1395,7 +1400,7 @@ export function createGame(container) {
       handleMissionEvent(missions.advance());
       const t = missions.stageDef().target;
       if (mi === 0) {
-        player.x = 34; player.z = -12; player.angle = Math.PI / 4;
+        player.x = ANCHORS.mission_m1_stage.x; player.z = ANCHORS.mission_m1_stage.z; player.angle = ANCHORS.mission_m1_stage.angle;
       } else {
         const dx = 0 - t.x, dz = 0 - t.z;
         const len = Math.hypot(dx, dz) || 1;
@@ -1420,9 +1425,9 @@ export function createGame(container) {
       // Walk EAST along the south sidewalk (z 7.2): it has no planter
       // palms (the north sidewalk planters sit at z -7.2, right in the
       // chase camera) and it faces the bay, boats and skyline.
-      player.x = -30; player.z = 7.2; player.angle = 0;
-      camPos.set(-35.5, 3, 7.2);
-      camLook.set(-27.5, 1.4, 7.2);
+      player.x = ANCHORS.sidewalk_south.x; player.z = ANCHORS.sidewalk_south.z; player.angle = 0;
+      camPos.set(ANCHORS.vantage_walk_cam.x, ANCHORS.vantage_walk_cam.y, ANCHORS.vantage_walk_cam.z);
+      camLook.set(ANCHORS.vantage_walk_cam.look.x, ANCHORS.vantage_walk_cam.look.y, ANCHORS.vantage_walk_cam.look.z);
       state.time = 18.7;
       setStorm(false);
       updateLighting();

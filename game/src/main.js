@@ -19,6 +19,7 @@
 // visible spoke angle (slight front steer on front34), the camera placed
 // by hand, and the scene rendered twice with __shotReady set.
 import { createGame } from './game.js';
+import { ANCHORS } from './anchors.js';
 import {
   buildTrafficCar, buildPoliceCruiser, createCar, ROAD_Y,
 } from './vehicles.js';
@@ -66,9 +67,18 @@ function stageWheels() {
   }
   // Park everything else out of the frame; the target gets a clean spot.
   // North lane (z -3.4) — the south lane has quay props in the way.
-  const spots = { player: [0, -3.4], pickup: [10, -3.4], police: [-10, -3.4] };
+  // Spots and far spots are named anchors (anchors.js).
+  const spots = {
+    player: [ANCHORS.wheels_spot_player.x, ANCHORS.wheels_spot_player.z],
+    pickup: [ANCHORS.wheels_spot_pickup.x, ANCHORS.wheels_spot_pickup.z],
+    police: [ANCHORS.wheels_spot_police.x, ANCHORS.wheels_spot_police.z],
+  };
   const [tx, tz] = spots[carKind] || spots.player;
-  const far = { player: [-40, -3.4], pickup: [40, 3.4], police: [-40, 3.4] };
+  const far = {
+    player: [ANCHORS.wheels_far_player.x, ANCHORS.wheels_far_player.z],
+    pickup: [ANCHORS.wheels_far_pickup.x, ANCHORS.wheels_far_pickup.z],
+    police: [ANCHORS.wheels_far_police.x, ANCHORS.wheels_far_police.z],
+  };
   game.car.x = carKind === 'player' ? tx : far.player[0];
   game.car.z = carKind === 'player' ? tz : far.player[1];
   game.car.angle = 0;

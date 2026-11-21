@@ -18,6 +18,7 @@ import {
 } from './world.js';
 import { makePalmFull } from './vegetation.js';
 import { makeWater, makeSailboat } from './water.js';
+import { ANCHORS } from './anchors.js';
 import {
   buildRoadNetwork, validatePlots, trafficLanes, minimapLines,
   BOULEVARD, CROSS_X, seededRandom,
@@ -496,8 +497,10 @@ export function buildDistrict4() {
     lanes: [...trafficLanes(), ...nd.lanes],
     pedPaths: nd.pedPaths,
     minimap: minimapLines(),
-    spawnPlayer: { x: -2, z: -7.2, angle: Math.PI },
-    spawnCar: { x: -8, z: -3.4, angle: 0 },
+    // Spawn points live in anchors.js (one source of truth for every
+    // gameplay position) — the district just carries them through.
+    spawnPlayer: { x: ANCHORS.player_spawn.x, z: ANCHORS.player_spawn.z, angle: ANCHORS.player_spawn.angle },
+    spawnCar: { x: ANCHORS.car_spawn.x, z: ANCHORS.car_spawn.z, angle: ANCHORS.car_spawn.angle },
     setNight(on) {
       windowMat.emissiveIntensity = on ? 1.4 : 0.15;
       for (const k in neonMats) neonMats[k].emissiveIntensity = on ? 2.4 : 1.2;
