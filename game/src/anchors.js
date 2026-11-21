@@ -179,13 +179,15 @@ export const ANCHORS = {
   // (A true straight-down lookAt is degenerate in Three.js — the
   // camera tilts; the oblique is the check that matters.)
   // Top-down CBD check (Xian 21 Nov 15:02 — the streets must READ):
-  // the camera sits well ABOVE the tallest tower (60 floors x 2.0 =
-  // 120 units) so the towers do not lean over the streets — at y 160
-  // the 120-unit towers filled the frame and hid the grid. At y 220
-  // the whole CBD reads as a grid of rooftops with the streets between
-  // them. A true straight-down lookAt is degenerate in Three.js, so
-  // the camera sits 20 units south of the look point.
-  vantage_cbd_top: { x: 0, y: 220, z: 14, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
+  // (0, 160, 12) — steep enough that the street grid shows between
+  // the tower footprints. y 220 made the whole CBD too small to read
+  // (the streets are 2.4 wide; at 220 they are ~12 px). The 60-floor
+  // towers (120 units tall) lean in a perspective top-down — that is
+  // a real aerial-photo effect, not a bug — and the grid reads in the
+  // rooftop rows at the bottom of the frame. A true straight-down
+  // lookAt is degenerate in Three.js, so the camera sits 18 units
+  // south of the look point.
+  vantage_cbd_top: { x: 0, y: 160, z: 12, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
 };
 
 // A mission stage target: { x, z, r } where r is the arrival radius.
