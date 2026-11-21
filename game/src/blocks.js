@@ -777,3 +777,50 @@ export const RESIDENTIAL_DEF = {
     { a: { x: -95, z: -93.8 }, b: { x: 95, z: -93.8 } },
   ],
 };
+
+// --- zone definitions: 2e outer countryside (Xian 21 Nov 17:58) ---
+// Farmhouses on the ground aprons (x +/-120..128), west + east of the
+// residential ring. Low (1-2 floors), sparse: narrow 5-wide blocks,
+// one row per block, dirt tracks (not asphalt) — the roads are built
+// here (dirt, same slabs) so the farmhouses are reachable. The
+// quarry (northeast) + lighthouse headland (southwest) are hand-built
+// in city.js (buildOuterZones) — they are special forms, not rows.
+// West x -128..-120, z -88..35 (13 blocks); east x 120..128,
+// z -88..12 (11 blocks). The dressing trees/rocks already on the
+// apron stay — farmhouses sit among them (rural).
+export const OUTER_DEF = {
+  id: 'outer', seed: 20261121, style: 'townhouse', floors: [1, 2],
+  palette: PALETTE_TOWNHOUSE, shopfronts: false, spacing: 3.2,
+  idPrefix: 'out', fill: 'rows', depth: 3.0, houseW: [2.5, 3.5],
+  rects: [
+    {
+      x0: -128, z0: -88, x1: -120, z1: 35,
+      ns: [{ x: -127, w: 2 }, { x: -121, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3, 12, 21, 30].map((z) => ({ z, w: 2, kind: 'street' })),
+    },
+    {
+      x0: 120, z0: -88, x1: 128, z1: 12,
+      ns: [{ x: 121, w: 2 }, { x: 127, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3].map((z) => ({ z, w: 2, kind: 'street' })),
+    },
+  ],
+  parks: [],
+  roadsNs: [
+    { x: -127, w: 2, kind: 'street', z0: -87, z1: 30 },
+    { x: -121, w: 2, kind: 'street', z0: -87, z1: 30 },
+    { x: 121, w: 2, kind: 'street', z0: -87, z1: 3 },
+    { x: 127, w: 2, kind: 'street', z0: -87, z1: 3 },
+  ],
+  roadsEw: [
+    ...[-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3, 12, 21, 30].map((z) => ({ z, w: 2, kind: 'street', x0: -128, x1: -120 })),
+    ...[-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3].map((z) => ({ z, w: 2, kind: 'street', x0: 120, x1: 128 })),
+  ],
+  lanes: [
+    { name: 'outer-west', x0: -127, z0: -87, x1: -121, z1: 30, speed: 6 },
+    { name: 'outer-east', x0: 121, z0: -87, x1: 127, z1: 3, speed: 6 },
+  ],
+  pedPaths: [
+    { a: { x: -124, z: -87 }, b: { x: -124, z: 30 } },
+    { a: { x: 124, z: -87 }, b: { x: 124, z: 3 } },
+  ],
+};
