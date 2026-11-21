@@ -136,11 +136,15 @@ export const ANCHORS = {
   // ?debug=1&skip=1&at=cbd_center to load the world directly.
   cbd_center: { x: 0, z: -6, district: 'cbd' },
   // Street-level spot inside the CBD: Elio on the boulevard south
-  // lane, facing north at the Azzura Tower.
-  cbd_street: { x: 0, z: 3.4, angle: Math.PI / 2, district: 'cbd' },
+  // lane at the CBD's west end, facing east down the boulevard — the
+  // tower rows line both sides and the monorail deck runs overhead.
+  // (A head-on shot from the south fills the frame with one tower
+  // face; the along-the-boulevard angle reads as a street.)
+  cbd_street: { x: -24, z: 3.4, angle: 0, district: 'cbd' },
   // CBD camera vantages for ?shot=cbd.
-  // Street: low behind Elio, looking up the Azzura Tower.
-  vantage_cbd_street: { x: 0.5, y: 2.2, z: 8.5, look: { x: 0, y: 25, z: -9 }, district: 'cbd' },
+  // Street: low behind Elio on the boulevard, looking east down the
+  // tower rows toward the CBD centre.
+  vantage_cbd_street: { x: -32, y: 3, z: 3.4, look: { x: 0, y: 12, z: -3.4 }, district: 'cbd' },
   // Bay: over the water south of the quay, looking north at the skyline.
   vantage_cbd_bay: { x: 0, y: 9, z: 48, look: { x: 0, y: 35, z: -9 }, district: 'cbd' },
   // Top: straight down over the CBD grid.
