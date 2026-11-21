@@ -142,6 +142,7 @@ if (shot === 'wheels') {
     district: params.get('district') || 'oldtown',
     night: params.get('night') || '0',
     storm: params.get('storm') || '0',
+    m: params.get('m') || '1',
   });
   window.__gameReady = true;
 } else {

@@ -300,6 +300,7 @@ export function createGame(container) {
   let dialogueTimer = 0;
   let toastTimer = 0;
   let toastText = '';
+  let stormFromMission = false; // M8 "Storm Warning" owns the storm while active
 
   // --- M2 systems ---
   const radio = createRadio();
@@ -1065,6 +1066,18 @@ export function createGame(container) {
         wanted.level, dt,
       );
       handleMissionEvent(ev);
+      // M8 "Storm Warning": the storm blows while the mission is active
+      // and clears when it ends. Only the mission touches the storm
+      // here, so ?shot=storm staging (which sets it directly) is
+      // unaffected.
+      const mm = missions.mission();
+      if (mm.storm && !missions.done) {
+        if (!state.storm) setStorm(true);
+        stormFromMission = true;
+      } else if (stormFromMission) {
+        setStorm(false);
+        stormFromMission = false;
+      }
       // Wanted: pursuit, heli, roadblocks, lose-the-heat, busted.
       wanted.update(dt, performance.now() / 1000);
       // Combat: tracers, reload, police return fire.
@@ -1272,21 +1285,33 @@ export function createGame(container) {
       renderer.render(scene, camera);
       renderer.render(scene, camera);
     } else if (name === 'mission') {
-      // M1 stage 2 (STEAL) with Vi's dialogue scene at the pavilion.
+      // Any mission: ?shot=mission&m=5 stages M5 at its dialogue stage
+      // (stage 1, the interact). The player stands 6 m from the stage
+      // target toward the map centre, facing the landmark, so it reads
+      // in three dimensions. Default m=1 keeps the verified M1 STEAL
+      // shot (Elio southwest of the pavilion, facing its corner).
+      const mi = Math.max(0, Math.min(MISSIONS.length - 1, (parseInt(params.m || '1', 10) - 1)));
       state.mode = 'play';
       showHUD();
       state.onFoot = true;
       playerMesh.visible = true;
-      // Elio southwest of the pavilion, facing its corner (NE) so the
-      // building reads in three dimensions instead of a flat face.
-      player.x = 34; player.z = -12; player.angle = Math.PI / 4;
+      missions.start(mi);
+      missions.advance();
+      const t = missions.stageDef().target;
+      if (mi === 0) {
+        player.x = 34; player.z = -12; player.angle = Math.PI / 4;
+      } else {
+        const dx = 0 - t.x, dz = 0 - t.z;
+        const len = Math.hypot(dx, dz) || 1;
+        player.x = t.x + (dx / len) * 6;
+        player.z = t.z + (dz / len) * 6;
+        player.angle = Math.atan2(-(t.z - player.z), t.x - player.x);
+      }
       playerMesh.position.set(player.x, 0, player.z);
       playerMesh.rotation.y = player.angle + Math.PI / 2;
       state.time = 18.7;
       setStorm(false);
       updateLighting();
-      missions.start(0);
-      missions.advance();
       showNextDialogue();
       run(60, {});
       updateCamera(1);
