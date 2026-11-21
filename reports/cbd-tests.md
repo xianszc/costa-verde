@@ -125,3 +125,104 @@ density gap is item 2's work (same block rule, 6–8 buildings per block).
 `node cli/makefun.mjs check --repo <costa-verde> --json` → **ok: true**.
 (The only uncommitted item at check time was the untracked
 `.playwright-mcp/` scratch dir, not part of the entry.)
+
+## Item 2 (D) verification — 21 Nov 2026, ~18:00 WIB (HEAD `5b9f37e`)
+
+D build finished by the previous builder (commits `c788c2e` + `5b9f37e`):
+commercial ring 48 small blocks / 188 buildings, old town 32 plots,
+promenade 27, marina 26 structures. The ~17:44 WIB VM swap killed the
+D missions re-run mid-flight and wiped /tmp, so the stats + tests below
+were re-measured from scratch by the continuation builder (recording
+`01a1fdb7`), and the missions re-run follows this commit.
+
+### Tests (re-run on HEAD `5b9f37e` — both exit 0)
+
+```
+CBD overlap test: 36 towers + 8 podiums = 70 footprints, 50 road rects + 8 median segments
+  tower-vs-road overlaps: 0
+  tower-vs-tower overlaps: 0
+PASS: 0 overlaps
+CBD block test: 30 blocks (1 park, 8 twin, 19 single, 1 azzura, 1 plaza), 36 towers + 8 podiums, blocks 2179 units^2 / extent 4,039 units^2
+  blocks bounded on all 4 sides: 30/30
+PASS: every block is bounded by roads on all 4 sides
+```
+
+Note: the overlap test now counts 70 footprints (was 45) and 50 road
+rects (was 25) — D's ring footprints and ring streets are included in
+the test. Blocks area 2,179 units² (was 2,303 — the B/C block fill
+changed the block outlines); extent unchanged at 4,039 units².
+
+### Stats — `reports/stage1.json` (Playwright, no-cache server port 8941)
+
+| View | Draw calls | Triangles |
+|---|---|---|
+| Drive (`?debug=1&skip=1&at=cbd_center`) | 427 | 399,442 |
+| Top-down ortho (`?shot=cbd&view=top&hud=0`) | **549** | 421,020 |
+| Oblique 3/4 (`?shot=cbd&view=oblique&hud=0`) | 699 | 448,654 |
+| Avenue street level (`?shot=cbd&view=avenue`) | 287 | 385,004 |
+
+Top view **549 < 600** ✓ (A-C: 539; +10 calls from the ring density).
+Oblique is 699: the wide perspective sees the whole city + hills
+backdrop; the fix belongs to the ring's merged rebuild, not to D.
+Console errors: 0. Network: 24 resource entries, all same-origin,
+**0 external requests**.
+
+### Building counts (measured live in Playwright, collider ids)
+
+| Zone | Measured | v3 / D target |
+|---|---|---|
+| CBD towers | 36 | 36–44 |
+| CBD podiums | 28 (8 shared + 20 plinths) | 8 shared |
+| Commercial ring | 188 (48 blocks) | 247+ — GAP 59 |
+| Old town plots | 32 | 60 — GAP 28 |
+| Promenade | 27 | 40 — GAP 13 |
+| Marina | 26 (6 piers + 7 boats + 7 sheds + 5 SW + 1 pavilion) | 32 — GAP 6 |
+| Traffic cars (6 loop + 7 graph) | 13 | — |
+| Pedestrians | 6 | — |
+| Lanes / ped paths / minimap lines | 13 / 24 / 51 | — |
+
+Ring gap: the ring area cannot hold 247 at 3–4 units wide without thin
+slabs; closing it needs the x ±84 third column — decision pending with
+Xian. D stays at 188 unless he approves the column.
+
+### Shots (all committed in `cbd-shots/`)
+
+- `ring-top-d.png` (403,653 B) — ortho top-down of the ring, HUD hidden:
+  dense orange/ochre ring blocks with red awnings around the CBD grid,
+  green/ochre terrain at the edges (no orange dune). Weak: ring
+  buildings read as the same orange box repeated in rows; from straight
+  above everything is flat rectangles, no height read; frame crops the
+  ring at the top and bottom edges.
+- `ring-street-d.png` (251,457 B) — ring street level (Via del Porto,
+  full HUD): TABACCHI + LUMERIA shop fronts, magenta awnings, outdoor
+  seating, red Stella centre-frame, 2 peds on the sidewalk. Weak: street
+  empty beyond the one parked car (no moving traffic, no peds crossing);
+  ring facades flat mustard with sparse window dashes; vanishing point is
+  a park, not a continuing street; a cyan billboard is cut off at the
+  left edge; dispatch still lists BOAT/TOWER units.
+- `avenue-d.png` (294,143 B) — CORSO AZZURRA street level, full HUD:
+  curtain-wall facades with tidy window grids + warm lit windows both
+  sides, FARMACIA / PANETTERIA / GELATERIA ground-floor signs, 2 peds on
+  the zebra, red car + blue van in lanes, red traffic lights. Weak: trees
+  still too large and cover the lower shop signs (FARMACIA half-hidden);
+  road empty past the first vehicles; dispatch still BOAT/TOWER; sky a
+  thin strip (canyon feel persists).
+- `oblique-d.png` (770,266 B) — 3/4 oblique from the bay, HUD hidden:
+  turquoise water with depth gradient + sailboats, green/ochre mottled
+  terrain with trees (no orange dune), dense mid-rise ring around the
+  CBD, warm lit tower windows, marina piers + boats + palms in the
+  foreground. Weak: hills backdrop still a pale smooth mound (no terraces
+  visible); ground-plane edge visible at the top right; ring buildings on
+  the right read as flat orange boxes with repetitive dashes.
+- `bay-d.png` (359,225 B) — skyline from the bay, HUD hidden: varied
+  tower silhouettes + spires, warm lit window grids, sky reflection on
+  turquoise water, sailboats with coloured sails, palms + promenade
+  awnings in the foreground. Weak: water flat teal with no wave/foam
+  detail at this distance; promenade ground floors partly hidden behind
+  palms; leftmost towers pale/blank; the water/land edge is a hard
+  straight line.
+
+### Missions 1–12 — RE-RUN PENDING (see stage1.json)
+
+The D missions re-run died with the ~17:44 WIB VM swap. Re-running
+M1–M9 + M6–M12 from scratch after this commit; results land here next.
