@@ -558,9 +558,9 @@ async function playMission(page, id, label, maxAttempts = 2) {
       // BUSTED: the mode leaves 'play' (pursuers caught the on-foot
       // player) — missions.update stops, so the mission can never
       // complete from here. Count it as a fail and retry once.
-      if (s.mode && s.mode !== 'play') { fails += 1; result = 'FAIL-EVENT'; break; }
+      if (s.mode && s.mode !== 'play') { fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-event] ${label} mode=${s.mode} stage=${s.stage} wanted=${s.wanted} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)}) car=(${s.cx.toFixed(1)},${s.cz.toFixed(1)})`); break; }
       // A fail restarts the SAME mission (stage drops back to 0).
-      if (s.missionId === id && s.stage === 0 && lastStage > 0) { fails += 1; result = 'FAIL-EVENT'; break; }
+      if (s.missionId === id && s.stage === 0 && lastStage > 0) { fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-event] ${label} mission restarted at stage 0 (fail) wanted=${s.wanted} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)})`); break; }
       lastStage = s.stage;
       // POSITION TRACE (Xian 21 Nov 23:04, item 4): player + target
       // positions and distance to the objective every 5 s, and at
@@ -578,9 +578,13 @@ async function playMission(page, id, label, maxAttempts = 2) {
           lastTraceLine = `[trace] ${label} stage=${s.stage} ${s.stageName || s.stageType} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)}) car=(${s.cx.toFixed(1)},${s.cz.toFixed(1)}) target=(${o2.x},${o2.z}) distPlayer=${dp.toFixed(1)}u distCar=${dc.toFixed(1)}u wanted=${s.wanted} onFoot=${s.onFoot}`;
           traceBuf.push(lastTraceLine);
           if (traceBuf.length > 12) traceBuf.shift();
-          const moved = lastPos ? Math.hypot(s.px - lastPos.x, s.pz - lastPos.z) : 99;
+          // Movement tracks the ACTIVE position: the car while
+          // driving (the player's position is frozen in the car —
+          // tracking it fired a false stall on M10's race).
+          const ax = s.onFoot ? s.px : s.cx, az = s.onFoot ? s.pz : s.cz;
+          const moved = lastPos ? Math.hypot(ax - lastPos.x, az - lastPos.z) : 99;
           if (moved >= 0.5) { lastMoveGame = s.elapsed; lastMoveReal = Date.now(); }
-          lastPos = { x: s.px, z: s.pz };
+          lastPos = { x: ax, z: az };
           if (s.stageType === 'tail') {
             if ((s.tailTimer || 0) > stallTailTimer) { stallTailTimer = s.tailTimer; bestDistGame = s.elapsed; bestDistReal = Date.now(); }
           } else if (dm < bestDist - 2) { bestDist = dm; bestDistGame = s.elapsed; bestDistReal = Date.now(); }
@@ -685,6 +689,19 @@ async function playMission(page, id, label, maxAttempts = 2) {
         // walks to the target (walkToPoint, wall-follow around the
         // promenade). Guard rams add no heat during an escape, so the
         // heat falls at 2.5/s after 5 s quiet.
+        // Already inside the escape radius on foot? Just WAIT for the
+        // heat to clear — do NOT board the car and drive away from the
+        // safehouse (M9: the player starts the LAY LOW stage AT the
+        // target; boarding moves them 55u away into the Guard's path
+        // and the mission fails busted).
+        {
+          const sc0 = await readState(page);
+          const d0 = Math.hypot(sc0.px - o.x, sc0.pz - o.z);
+          if (sc0.onFoot && d0 < (o.r || 5)) {
+            await sleep(1000);
+            continue;
+          }
+        }
         // If the player is already on foot and the car is already
         // parked at the road nearest the target, skip straight to the
         // walk (a previous walk attempt was interrupted).
@@ -707,7 +724,7 @@ async function playMission(page, id, label, maxAttempts = 2) {
             await boardCar(page);
             const cd = Math.hypot(s.cx - o.x, s.cz - o.z);
             if (cd > (o.r || 5)) {
-              await routeDrive(page, o.x, o.z, 10, 45000);
+              await routeDrive(page, o.x, o.z, 10, 20000);
             }
             // Off-road target: the car cannot reach the radius. Wait
             // for the heat to clear, then walk the final leg.
@@ -743,7 +760,7 @@ async function playMission(page, id, label, maxAttempts = 2) {
             await page.evaluate(() => { window.__game.state.onFoot = false; });
           }
         }
-        await routeDrive(page, o.x, o.z, 12, 45000);
+        await routeDrive(page, o.x, o.z, 12, 20000);
         const s3 = await readState(page);
         if (s3.stageType === 'race') {
           await driveToPoint(page, o.x, o.z, o.r || 5, 12, 30000);
