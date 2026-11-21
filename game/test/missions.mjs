@@ -15,7 +15,9 @@
 //
 // Usage: NODE_PATH=/tmp/node_modules node game/test/missions.mjs
 //   (NODE_PATH must resolve playwright-core from the Playwright
-//   connector; the 8941 server must already be running.)
+//   connector; the 8941 server must already be running. ESM does not
+//   read NODE_PATH, so Playwright is loaded via createRequire, which
+//   does — see the import below.)
 // Writes /tmp/missions-regression.json. Exit 0 = all missions PASS.
 //
 // Causes of the 21 Nov failures (fixed, do not regress):
@@ -31,7 +33,10 @@
 // - Both: the 240 s deadline was too short once the expansion slowed
 //   the headless game. Fix: 480 s per attempt.
 import { writeFile } from 'node:fs/promises';
-import { chromium } from 'playwright-core';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { chromium } = require('playwright-core');
 
 const BASE = 'http://127.0.0.1:8941';
 const CHROMIUM = '/home/hatch/.cache/ms-playwright/chromium-1148/chrome-linux/chrome';
