@@ -199,7 +199,10 @@ export const MISSIONS = [
 // Mission engine: tracks the current mission + stage, the moving tail
 // marker, and the dialogue queue. The game owns the world (positions,
 // wanted level, E-key); the engine only decides stage transitions.
-export function createMissionEngine() {
+// LIST defaults to the story MISSIONS (game.js calls it with no args —
+// unchanged behaviour). The side-content systems pass their own list
+// (side jobs + races), so one engine runs one activity at a time.
+export function createMissionEngine(LIST = MISSIONS) {
   let missionId = 0;
   let stage = 0;
   let done = false;
@@ -212,10 +215,10 @@ export function createMissionEngine() {
   let raceTimes = {}; // mission id -> best race seconds (persisted via save)
   let raceLast = null; // seconds for the last finished race stage
 
-  function mission() { return MISSIONS[missionId]; }
+  function mission() { return LIST[missionId]; }
   function stageDef() { return mission().stages[stage]; }
   function start(id) {
-    missionId = Math.max(0, Math.min(MISSIONS.length - 1, id));
+    missionId = Math.max(0, Math.min(LIST.length - 1, id));
     stage = 0;
     done = false;
     tailTimer = 0;
