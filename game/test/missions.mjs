@@ -726,12 +726,18 @@ async function playMission(page, id, label, maxAttempts = 2) {
             if (cd > (o.r || 5)) {
               await routeDrive(page, o.x, o.z, 10, 20000);
             }
-            // Off-road target: the car cannot reach the radius. Wait
-            // for the heat to clear, then walk the final leg.
+            // Off-road target: the car cannot reach the radius. Only
+            // walk the final leg once the car is AT the road nearest
+            // the target — otherwise keep driving (the old code exited
+            // and walked after ONE routeDrive call, even 40u from the
+            // node, and the walk went the wrong way: M5/M6 timeouts).
+            // On-road targets (M6 boulevard_west) complete in the car.
             const s4 = await readState(page);
             const cd2 = Math.hypot(s4.cx - o.x, s4.cz - o.z);
             if (s4.stageType === 'escape' && cd2 > (o.r || 5)) {
-              if (s4.wanted === 0) {
+              const to = roadGraph ? roadGraph.nearestNode(o.x, o.z) : null;
+              const nodeD = to ? Math.hypot(s4.cx - roadGraph.nodes[to.node].x, s4.cz - roadGraph.nodes[to.node].z) : Infinity;
+              if (nodeD < 8 && s4.wanted === 0) {
                 await page.keyboard.press('KeyE'); // exit the car
                 await sleep(600);
                 const s5 = await readState(page);
