@@ -378,20 +378,15 @@ async function playMission(page, id, label) {
     attempts += 1;
     await page.evaluate((mid) => { window.__game.missions.start(mid); }, id);
     await sleep(800);
-    // Park the CAR on the road nearest the mission's first objective
-    // (routeDrive, no teleport) — a human parks on the road and walks
-    // in. The car is then in place for the tail / escape / race.
+    // The CAR is positioned by the tail / escape / race branches below
+    // (they board the car first, then drive it on the roads). There is
+    // deliberately NO park drive here: the car only moves while the
+    // player is in it (stepCar runs only when onFoot is false), so a
+    // drive before boarding goes nowhere — and a drive while the player
+    // happens to be in it from the previous mission coasts/overshoots.
     // Other stages (goto / deliver / interact) teleport the PLAYER
     // (on foot) only, as a test convenience — they do not dodge a bug,
     // and the driving stages here are driven, not teleported.
-    {
-      const s0 = await readState(page);
-      if (s0.objective) {
-        console.log(`[${label}] parking car near (${s0.objective.x},${s0.objective.z})`);
-        await routeDrive(page, s0.objective.x, s0.objective.z, 10, 45000);
-        await sleep(400);
-      }
-    }
     let lastStage = 0;
     let lastTrace = 0; // position trace cadence (item 4 below)
     // Deadline is REAL time; the game runs at ~20% speed in headless
@@ -536,10 +531,14 @@ async function playMission(page, id, label) {
             await sleep(1000);
           }
         }
-      } else {
-        // goto / deliver / race: teleport to the checkpoint. Races
-        // need the player driving: enter the car with E first.
-        if (s.stageType === 'race' && s.onFoot) {
+      } else if (s.stageType === 'race') {
+        // RACE (human-like): drive the car through the checkpoints —
+        // no teleport. Board the car, route it on the roads to the
+        // current checkpoint, then drive onto the checkpoint itself
+        // (the checkpoints sit on roads / open plazas, so the final
+        // straight leg is clear). The objective updates as each
+        // checkpoint is hit, so each loop iteration drives the next.
+        if (s.onFoot) {
           await teleportPlayer(page, s.cx, s.cz);
           await sleep(300);
           await page.keyboard.press('KeyE');
@@ -548,6 +547,23 @@ async function playMission(page, id, label) {
           if (s2.onFoot) {
             await page.evaluate(() => { window.__game.state.onFoot = false; });
           }
+        }
+        await routeDrive(page, o.x, o.z, 12, 45000);
+        const s3 = await readState(page);
+        if (s3.stageType === 'race') {
+          await driveToPoint(page, o.x, o.z, o.r || 5, 12, 30000);
+        }
+        await sleep(400);
+      } else {
+        // goto / deliver: the player walks (on foot) to the checkpoint.
+        // If the player is still in the car from the previous mission,
+        // get out FIRST — teleporting the player while in the car
+        // moves neither the player nor the car (the mission measures
+        // from the car while driving), so the stage would deadlock
+        // (that was the M2 MEET stall: onFoot=false, car 38.9u away).
+        if (!s.onFoot) {
+          await page.keyboard.press('KeyE'); // exit the car
+          await sleep(600);
         }
         await teleportPlayer(page, o.x, o.z);
         await sleep(400);
