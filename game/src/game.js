@@ -1437,6 +1437,7 @@ export function createGame(container) {
       state.time = 18.7;
       setStorm(false);
       updateLighting();
+      let shotCamera = camera; // the top view renders with an ortho camera instead
       if (view === 'bay') {
         state.onFoot = false;
         playerMesh.visible = false;
@@ -1456,15 +1457,23 @@ export function createGame(container) {
         run(150, {});
         state.time = 18.7;
         updateLighting();
-        // Telephoto straight down: narrow the fov so the 60-floor towers
-        // stand vertical (near-orthographic) instead of leaning over the
-        // street grid. fov 18 at y 420 frames ~126 units vertically.
-        camera.fov = 18;
-        camera.updateProjectionMatrix();
-        camera.position.set(ANCHORS.vantage_cbd_top.x, ANCHORS.vantage_cbd_top.y, ANCHORS.vantage_cbd_top.z);
-        camera.lookAt(ANCHORS.vantage_cbd_top.look.x, ANCHORS.vantage_cbd_top.look.y, ANCHORS.vantage_cbd_top.look.z);
-        camPos.copy(camera.position);
-        camLook.set(ANCHORS.vantage_cbd_top.look.x, ANCHORS.vantage_cbd_top.look.y, ANCHORS.vantage_cbd_top.look.z);
+        // TRUE orthographic top-down (Xian 21 Nov 15:22): a perspective
+        // camera — even a telephoto fov 18 — still leans the 60-floor
+        // towers over the streets. An orthographic camera shows the
+        // block grid and the lane markings with no lean at all. The
+        // frustum covers the whole CBD extent (x -62..62, z -51.7..18.1
+        // at 16:9); screen-up is north (-Z), so the ring avenue is at
+        // the top and the bay at the bottom.
+        const aspect = renderer.domElement.width / renderer.domElement.height;
+        const halfW = 62;
+        const topCam = new THREE.OrthographicCamera(-halfW, halfW, halfW / aspect, -halfW / aspect, 1, 1000);
+        topCam.up.set(0, 0, -1);
+        topCam.position.set(0, 420, -16.8);
+        topCam.lookAt(0, 0, -16.8);
+        topCam.updateProjectionMatrix();
+        camPos.copy(topCam.position);
+        camLook.set(0, 0, -16.8);
+        shotCamera = topCam;
       } else { // street
         state.onFoot = true;
         playerMesh.visible = true;
@@ -1479,8 +1488,8 @@ export function createGame(container) {
         camPos.copy(camera.position);
         camLook.set(ANCHORS.vantage_cbd_street.look.x, ANCHORS.vantage_cbd_street.look.y, ANCHORS.vantage_cbd_street.look.z);
       }
-      renderer.render(scene, camera);
-      renderer.render(scene, camera);
+      renderer.render(scene, shotCamera);
+      renderer.render(scene, shotCamera);
     } else { // walk
       state.mode = 'play';
       showHUD();
