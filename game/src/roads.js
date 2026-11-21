@@ -367,17 +367,25 @@ export const RING_STREET_HALF = 1;
 // south by the quay). z -57 splits the north rows (east of the old
 // town); z -54.2 bounds the old town's north side.
 export const RING_STREETS_EW = [
+  // EAST/WEST BRIDGES (GAME fix, Xian 21 Nov 23:04): the east/west
+  // outer-column streets (x +/-84, RING_EXT_DEF) were islands — the
+  // ring E-W streets ended at x +/-72 and the residential E-W streets
+  // start at x +/-96, so the columns crossed nothing. These streets
+  // now run to x +/-97, touching the residential x +/-97 lines: the
+  // ring, the outer columns and the residential ring join. The slabs
+  // run on the outer columns' own E-W lines (their blocks already
+  // leave the gap), so no building stands on them.
   { z: -68, x0: -72, x1: 72 },
   { z: -57, x0: -34, x1: 72 },
   { z: -54.2, x0: -72, x1: -34 },
   { z: -30.9, x0: 34.7, x1: 72 },
-  { z: -20, x0: 43.5, x1: 72 },
-  { z: -10, x0: 43.5, x1: 72 },
-  { z: 0, x0: 43.5, x1: 72 },
-  { z: -26, x0: -72, x1: -45 },
-  { z: -16, x0: -72, x1: -45 },
-  { z: -6, x0: -72, x1: -45 },
-  { z: 4, x0: -72, x1: -45 },
+  { z: -20, x0: 43.5, x1: 97 },
+  { z: -10, x0: 43.5, x1: 97 },
+  { z: 0, x0: 43.5, x1: 97 },
+  { z: -26, x0: -97, x1: -45 },
+  { z: -16, x0: -97, x1: -45 },
+  { z: -6, x0: -97, x1: -45 },
+  { z: 4, x0: -97, x1: -45 },
 ];
 // N-S boundary streets { x, z0, z1 } (2 wide): the west boundary
 // (the west strip's west side) and the east boundary (the east
