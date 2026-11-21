@@ -24,6 +24,7 @@ import {
   BOULEVARD, CROSS_X, seededRandom,
 } from './roads.js';
 import { buildNewDistricts } from './districts.js';
+import { buildCBD } from './cbd.js';
 
 // Shared window material for the deco facades: emissive intensity is
 // raised at night by the game (windows light up at dusk).
@@ -241,14 +242,17 @@ export function buildDistrict4() {
     colliders.push({ x0: plot.x0, z0: plot.z0, x1: plot.x1, z1: plot.z1, id: plot.id });
   };
   // Casino hero (world.js promenade builder, faces the boulevard).
-  addPlot(PLOTS[0], () => buildHeroBuilding('promenade'));
+  // STAGE 1: the casino moves to the promenade (part 4) — the old plot
+  // (x -14..-6, z -28..-10) is inside the new CBD footprint, so the
+  // hero is NOT built here any more. (M6 stages from the new casino
+  // anchor once the anchors are re-linked at the end of stage 1.)
   // Deco facades on the front row.
   const decoSpecs = [
-    [PLOTS[1], 11, 6.5, 5, { wall: 0xf3e6c8, trim: 0xe8a33d, accent: 0xff5c8a }, 'CAFFÈ LUME'],
-    [PLOTS[2], 3.2, 5, 4, { wall: 0xf2de9b, trim: 0xc65d3b, accent: 0x3ed6d6 }, null],
-    [PLOTS[3], 13, 8, 5.5, { wall: 0xf7ebd7, trim: 0xe8a33d, accent: 0x3ed6d6 }, 'GELATERIA AZZURA'],
     [PLOTS[4], 13, 7, 5, { wall: 0xefe3c8, trim: 0xc65d3b, accent: 0xff5c8a }, 'TERRAZZA HOTEL'],
   ];
+  // STAGE 1: deco-west / deco-midwest / deco-east (PLOTS[1..3]) sat in
+  // the CBD footprint (x -37..17, z -28..-10) — they move to the
+  // commercial ring in part 2, so they are not built here any more.
   for (const [plot, w, h, d, pal, brand] of decoSpecs) {
     addPlot(plot, () => decoBuilding(rnd, w, h, d, pal, brand));
   }
@@ -324,15 +328,9 @@ export function buildDistrict4() {
   }
   report.treesInGreenZones += 6;
 
-  // --- café tables outside the casino (props, with colliders) ---
-  const cafe = new THREE.Group();
-  for (const [cx, cz] of [[-16, -8.2], [-13, -8.2], [-10, -8.2]]) {
-    cafe.add(cyl(0.5, 0.5, 0.08, 0xf2f0ea, cx, 0.75, cz, 12));
-    cafe.add(cyl(0.05, 0.05, 0.75, 0x2b2b2b, cx, 0.38, cz, 6));
-    cafe.add(cyl(0.35, 0.35, 0.05, 0xe4572e, cx, 0.45, cz + 0.8, 10));
-    colliders.push({ x0: cx - 0.6, z0: cz - 0.6, x1: cx + 0.6, z1: cz + 1.2, id: 'cafe-table' });
-  }
-  group.add(mergeStatic(cafe));
+  // --- café tables: STAGE 1 — removed with the casino (they stood at
+  // x -16..-10, z -8.2, inside the new CBD footprint; the casino moves
+  // to the promenade in part 4, the tables come back with it) ---
 
   // --- cover props (M3 leftover 3): solid barriers, crates, low walls
   // and planters at the shoot-out spots, wired into the cover system via
@@ -408,14 +406,9 @@ export function buildDistrict4() {
   barrier(50, 11.0);
   crateStack(53.5, 12.0, -0.2);
   lowWall(33, 11.6);
-  // Facade line (north sidewalk edge, clear of the ped path at z -7.2)
-  // and flanking the casino entrance.
-  planter(-24, -9.6);
-  planter(-2, -9.6);
-  planter(24, -9.6);
-  planter(-14, -9.6);
-  planter(-6, -9.6);
-  lowWall(14, -9.6);
+  // Facade line: STAGE 1 — removed (the old facade line at z -9.6 is
+  // inside the new CBD footprint; the towers stand there now). The quay
+  // cover props stay.
   group.add(mergeStatic(cover));
 
   // --- quay details: crates, rope coils, cleats, moored boats, crane ---
@@ -475,6 +468,14 @@ export function buildDistrict4() {
   group.add(nd.group);
   colliders.push(...nd.colliders);
   tickers.push(...nd.tickers);
+
+  // --- STAGE 1: CBD core (v3 plan) — 50 towers in the centre ---
+  // The old skyline landmass across the bay (built by buildNewDistricts)
+  // goes away in the next step; the CBD is the new skyline.
+  const cbd = buildCBD();
+  group.add(cbd.group);
+  colliders.push(...cbd.colliders);
+  tickers.push(...cbd.tickers);
 
   // --- ground detail for the lower third (title screen + low angles) ---
   // Grass tufts on the quay land (never in the bay — the old z 14..20
