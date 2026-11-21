@@ -120,8 +120,9 @@ export const ANCHORS = {
 
   // --- ?shot staging: camera vantages ---
   // Old town: above the north sidewalk at the east end of the main
-  // street, looking north-west at the plaza + palazzo + wall.
-  vantage_oldtown_cam: { x: -36, y: 8, z: -30, look: { x: -50, y: 1, z: -39 }, district: 'old town' },
+  // street, looking north-west at the plaza + palazzo + wall — high
+  // enough to clear the pitched roofs (a low camera sees only roofs).
+  vantage_oldtown_cam: { x: -30, y: 18, z: -18, look: { x: -47, y: 2, z: -39 }, district: 'old town' },
   // Promenade: high above the boulevard's west end, looking east-down
   // at the boulevard, the deco row, the Casino Azzura and the hotel.
   vantage_promenade_cam: { x: 60, y: 18, z: 8, look: { x: 100, y: 0, z: -12 }, district: 'promenade' },
