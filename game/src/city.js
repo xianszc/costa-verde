@@ -25,6 +25,7 @@ import {
 } from './roads.js';
 import { buildNewDistricts } from './districts.js';
 import { buildCBD } from './cbd.js';
+import { buildCommercialRing } from './commercial.js';
 
 // Shared window material for the deco facades: emissive intensity is
 // raised at night by the game (windows light up at dusk).
@@ -480,6 +481,14 @@ export function buildDistrict4() {
   colliders.push(...cbd.colliders);
   tickers.push(...cbd.tickers);
 
+  // --- STAGE 1 part 3: commercial ring around the CBD ---
+  // Mid-rise 6–15 floors, shop fronts at street level, hotels, a
+  // market hall and a parking garage; 20 blocks, ~140 buildings.
+  const ring = buildCommercialRing();
+  group.add(ring.group);
+  colliders.push(...ring.colliders);
+  tickers.push(...ring.tickers);
+
   // --- ground detail for the lower third (title screen + low angles) ---
   // Grass tufts on the quay land (never in the bay — the old z 14..20
   // range sat in the water and read as dark cones poking out of it).
@@ -498,8 +507,8 @@ export function buildDistrict4() {
   return {
     group, colliders, tickers, roads,
     report,
-    lanes: [...trafficLanes(), ...nd.lanes],
-    pedPaths: nd.pedPaths,
+    lanes: [...trafficLanes(), ...nd.lanes, ...ring.lanes],
+    pedPaths: [...nd.pedPaths, ...ring.pedPaths],
     minimap: minimapLines(),
     // Spawn points live in anchors.js (one source of truth for every
     // gameplay position) — the district just carries them through.
