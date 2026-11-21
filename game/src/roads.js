@@ -818,8 +818,9 @@ export function buildRoadNetwork() {
   g.add(benchMesh);
   // Traffic lights at the two main intersections (red/amber/green) —
   // the boulevard x the x=+/-40 ring connectors. The pole stands in the
-  // furniture strip on the boulevard's south sidewalk (z 2.44: the
-  // road edge is 2.4, the strip is 0.08 wide) — never on the asphalt.
+  // furniture strip on the boulevard's south sidewalk (z 2.54: the
+  // road edge is 2.4 and the pole radius is 0.09, so its footprint
+  // clears the asphalt by 0.05) — never on the asphalt.
   // The lenses face the boulevard traffic (west for the x=-40 light,
   // east for x=+40). WORKING CYCLES (Xian 21 Nov 15:22): the lenses
   // cycle on the same 40 s rhythm as the grid signals — EW green
@@ -829,8 +830,14 @@ export function buildRoadNetwork() {
   const tlParts = [];
   const tlLights = [];
   for (const cx of [-40, 40]) {
-    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), cx + 4.4, 1.7, 2.44), 0xffffff));
-    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), cx + 4.4, 3.6, 2.44), 0xffffff));
+    // Inward from the connector centreline, onto the boulevard's
+    // south sidewalk: the connector road runs x 36.5..43.5 (east) /
+    // -43.5..-36.5 (west), so a pole at cx+4.4 would stand on it
+    // (the old +4.4 for both sides); cx-4.4 for the east light and
+    // cx+4.4 for the west light both land at |x| 35.6, clear of it.
+    const px = cx - Math.sign(cx) * 4.4;
+    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), px, 1.7, 2.54), 0xffffff));
+    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), px, 3.6, 2.54), 0xffffff));
     const faceX = cx < 0 ? -1 : 1; // lens side: west face / east face
     const faceRy = cx < 0 ? -Math.PI / 2 : Math.PI / 2;
     for (let i = 0; i < 3; i++) {
@@ -839,7 +846,7 @@ export function buildRoadNetwork() {
         new THREE.CircleGeometry(0.16, 10),
         new THREE.MeshBasicMaterial({ color: col }),
       );
-      mesh.position.set(cx + 4.4 + faceX * 0.28, 3.9 - i * 0.28, 2.0);
+      mesh.position.set(px + faceX * 0.28, 3.9 - i * 0.28, 2.1);
       mesh.rotation.y = faceRy;
       tlLights.push({ mesh, bright: col, role: i }); // 0 red, 1 amber, 2 green
     }

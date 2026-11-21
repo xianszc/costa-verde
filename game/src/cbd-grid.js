@@ -505,29 +505,46 @@ export function buildCBDGrid(opts = {}) {
   // ---------- lamp posts (ONE side only, B — tidy, evenly spaced) ----------
   // N-S streets: east sidewalk. E-W streets: north sidewalk.
   // The old double row read as clutter; one row lights the street.
-  // The pole stands in the furniture strip next to the kerb (0.04 out
-  // from the road edge) — never in the middle of the sidewalk, so the
-  // full walking width stays clear.
+  // The pole stands in the furniture strip next to the kerb (0.12 out
+  // from the road edge: the pole base radius is 0.07, so its footprint
+  // clears the asphalt by 0.05) — never in the middle of the sidewalk,
+  // so the full walking width stays clear — and never at a crossing.
   const lampPoles = [];
   const lampGlobes = [];
   const lampAt = (x, z) => {
     lampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), x, 1.2, z));
     lampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), x, 2.5, z));
   };
+  const lampInCrossingNS = (z) => CBD_EW.some((e) => Math.abs(z - e.z) < e.w / 2 + 0.15);
+  const lampInCrossingEW = (x) => CBD_NS.some((n) => Math.abs(x - n.x) < n.w / 2 + 0.15)
+    || Math.abs(Math.abs(x) - 40) < 3.5 + 0.15; // ring connectors (x +/-40, 3.5 half-width)
+  // Boundary streets flip to the inner side: the east street's lamps
+  // would stand on the zone road east of the grid, and the north
+  // street's lamps on the zone roads north of it.
+  const maxNsX = Math.max(...CBD_NS.map((s) => s.x));
+  const minEwZ = Math.min(...CBD_EW.map((s) => s.z));
   for (const s of CBD_NS) {
+    const side = s.x === maxNsX ? -1 : 1;
     for (let z = s.z0 + 4; z <= s.z1 - 4; z += 8) {
-      lampAt(s.x + s.w / 2 + 0.04, z);
+      if (lampInCrossingNS(z)) continue;
+      lampAt(s.x + side * (s.w / 2 + 0.12), z);
     }
   }
   for (const s of CBD_EW) {
+    const side = s.z === minEwZ ? 1 : -1;
     for (let x = s.x0 + 4; x <= s.x1 - 4; x += 8) {
-      lampAt(x, s.z - s.w / 2 - 0.04);
+      if (lampInCrossingEW(x)) continue;
+      lampAt(x, s.z + side * (s.w / 2 + 0.12));
     }
   }
   const lampGroup = new THREE.Group();
   lampGroup.name = 'cbdLamps';
-  lampGroup.add(mergedMesh(lampPoles, M(0x2b2b2b)));
-  lampGroup.add(mergedMesh(lampGlobes, M(0xffd9a0, { emissive: 0xffc46b, emissiveIntensity: 0.9 })));
+  const cbdPoleMesh = mergedMesh(lampPoles, M(0x2b2b2b));
+  cbdPoleMesh.name = 'cbd-lamps-pole';
+  lampGroup.add(cbdPoleMesh);
+  const cbdGlobeMesh = mergedMesh(lampGlobes, M(0xffd9a0, { emissive: 0xffc46b, emissiveIntensity: 0.9 }));
+  cbdGlobeMesh.name = 'cbd-lamps-globe';
+  lampGroup.add(cbdGlobeMesh);
   g.add(lampGroup);
 
   // ---------- traffic lights (every intersection, working cycles) ----------
@@ -541,7 +558,16 @@ export function buildCBDGrid(opts = {}) {
       // ring's streets and the pole would stand on their asphalt.
       const hn = ns.w / 2 + sidewalkW(ns) - 0.1;
       const he = ew.w / 2 + sidewalkW(ew) - 0.1;
+      // Outward poles at the grid's boundary intersections are
+      // skipped: west of VIA DEL FARO / east of VIA DEL PORTO a zone
+      // road runs flush against the street (no sidewalk strip to
+      // stand on), and north of VIA DEL NORD the gap to the zone
+      // road is too narrow for a pole footprint. The two inner
+      // poles per boundary intersection still carry the signal.
+      const skip = ([dx, dz]) => (ix === 0 && dx === -1)
+        || (ix === CBD_NS.length - 1 && dx === 1) || (iz === 0 && dz === -1);
       for (const [dx, dz] of [[1, -1], [-1, -1], [1, 1], [-1, 1]]) {
+        if (skip([dx, dz])) continue;
         const px = cx + dx * hn, pz = cz + dz * he;
         tlParts.push(colored(xform(new THREE.CylinderGeometry(0.08, 0.08, 3.3, 8), px, 1.65, pz), 0xffffff));
         // Two heads per pole: one facing the NS flow, one the EW flow.
@@ -673,8 +699,10 @@ export function buildCBDGrid(opts = {}) {
       aveTrees.push({ x, z, s: 0.5 + rnd() * 0.05, rot: rnd() * Math.PI * 2 });
     }
   }
-  // LUNGOMARE sidewalks (z +/-3.02), x -56..56, every 6.
-  for (let x = -56; x <= 56; x += 6) {
+  // LUNGOMARE sidewalks (z +/-3.02), x -44..44, every 6. West of x -44
+  // the sidewalk leaves the grid and a zone road (x -97..-45, z 3..5)
+  // runs where the trees would stand, so the row stops at the ring.
+  for (let x = -44; x <= 44; x += 6) {
     for (const side of [-1, 1]) {
       const z = side * 3.02;
       if (nearBusStop(x, z) || inCrossingEW(x)) continue;

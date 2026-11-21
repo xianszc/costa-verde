@@ -27,7 +27,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import {
   box, mergedMesh, colored, xform, vertexColorMat, M, treeInstanced,
 } from './world.js';
-import { seededRandom } from './roads.js';
+import { seededRandom, roadRects } from './roads.js';
 import { buildSignAtlas, remapUV, SHOP_NAMES } from './commercial.js';
 import {
   createMarkings, zebraApproach, stopForApproach,
@@ -273,24 +273,50 @@ export function zoneRoadsInto(ns, ew, pools, opts = {}) {
   }
   for (const { stop, leg, kind } of zoneLegs) arrowsForApproach(reg, stop, leg, kind);
   // Lamps, one side only — in the furniture strip next to the kerb
-  // (0.04 out from the road edge), never in the middle of the sidewalk
-  // and never at a crossing (a lamp in a crossing stands on the
-  // crossing road's asphalt).
+  // (0.12 out from the road edge: the pole base radius is 0.07, so
+  // its footprint clears the asphalt by 0.05), never in the middle of
+  // the sidewalk and never at a crossing (a lamp in a crossing stands
+  // on the crossing road's asphalt — skip within its half-width + 0.15).
   const lampAt = (x, z) => {
     pools.lampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), x, 1.2, z));
     pools.lampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), x, 2.5, z));
   };
-  const inCrossing = (p, list) => list.some((c) => Math.abs(p - c) < 1.2);
+  // A lamp is placed only where its base footprint (r 0.07) clears
+  // EVERY road rect in the game — its own zone's, every other zone
+  // def's, and the ring/CBD rects. Adjacent zones build streets 2
+  // apart (e.g. residential x=119, outer x=121) with no sidewalk
+  // between them, so a lamp on the shared edge would stand on the
+  // neighbour's asphalt; the same holds at crossings. A lamp that
+  // clears nowhere is skipped (those streets are lit by neighbours).
+  // The quay (z 12.7..14.5) is a pedestrian walkway, not a road —
+  // excluded here exactly as the audit excludes it.
+  const lampClear = (x, z) => {
+    const r = 0.07;
+    const hit = (rc) => x - r < rc.x1 && x + r > rc.x0 && z - r < rc.z1 && z + r > rc.z0;
+    const nsRect = (n) => ({ x0: n.x - n.w / 2, x1: n.x + n.w / 2, z0: n.z0, z1: n.z1 });
+    const ewRect = (e) => ({ x0: e.x0, x1: e.x1, z0: e.z - e.w / 2, z1: e.z + e.w / 2 });
+    for (const n of allNs) if (hit(nsRect(n))) return false;
+    for (const e of allEw) if (hit(ewRect(e))) return false;
+    for (const def of [RING_EXT_DEF, OLD_TOWN_EXT_DEF, PROMENADE_EXT_DEF, RESIDENTIAL_DEF, OUTER_DEF]) {
+      for (const s of (def.roadsNs || [])) if (hit(nsRect(s))) return false;
+      for (const s of (def.roadsEw || [])) if (hit(ewRect(s))) return false;
+    }
+    for (const rc of roadRects()) {
+      if (rc.z0 >= 11.7 && rc.z1 <= 14.5) continue; // quay walkway
+      if (hit(rc)) return false;
+    }
+    return true;
+  };
   for (const s of ns) {
     for (let z = s.z0 + 4; z <= s.z1 - 4; z += 8) {
-      if (inCrossing(z, allEw.map((e) => e.z))) continue;
-      lampAt(s.x + s.w / 2 + 0.04, z);
+      const x = s.x + s.w / 2 + 0.12;
+      if (lampClear(x, z)) lampAt(x, z);
     }
   }
   for (const s of ew) {
     for (let x = s.x0 + 4; x <= s.x1 - 4; x += 8) {
-      if (inCrossing(x, allNs.map((n) => n.x))) continue;
-      lampAt(x, s.z - s.w / 2 - 0.04);
+      const z = s.z - s.w / 2 - 0.12;
+      if (lampClear(x, z)) lampAt(x, z);
     }
   }
   void opts;
