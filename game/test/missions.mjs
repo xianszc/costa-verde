@@ -216,16 +216,15 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   let sideStep = 0;
   // U-turn FIRST (angle-based): if the car faces away from the target
   // (|diff| > 2.2), reverse with inverted steering until the nose is
-  // within ~0.9 rad of the desired heading (max 15 s). The old
+  // within ~0.5 rad of the desired heading (max 15 s). The old
   // distance-based reverse drove the car south off the boulevard into
   // the front-row buildings at (-12,-6) — M6/M9 wedged there.
   // Turn rate is ~0 at standstill and grows with |speed|, so reverse
   // at full speed (up to -8 u/s) to turn fast; stop on ANGLE, not
   // distance, so the car does not back 13u into the buildings.
-  // NOTE (D2): the drive timeout starts AFTER the U-turn — the
-  // U-turn can take 15 s, and counting it against the timeout
-  // starved the waypoint (routeDrive broke out with the car still
-  // at the median nose, the sidestep never getting its 8 s window).
+  // 0.5 rad / 6u (was 0.9 / 10u, D2): the loose break left the car
+  // facing south-ish off the boulevard, and the main loop then
+  // reversed it further instead of driving forward west.
   {
     const c0 = await readCar(page);
     const desired0 = Math.atan2(-(tz - c0.z), tx - c0.x);
@@ -236,8 +235,8 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
         const c = await readCar(page);
         if (c.mode !== 'play') { await releaseKeys(page); return false; }
         const diff = normAngle(Math.atan2(-(tz - c.z), tx - c.x) - c.angle);
-        if (Math.abs(diff) < 0.9) break;
-        if (Math.hypot(c.x - sx, c.z - sz) > 10) break; // too far off — recover forward
+        if (Math.abs(diff) < 0.5) break;
+        if (Math.hypot(c.x - sx, c.z - sz) > 6) break; // too far off — recover forward
         await setKeys(page, { s: true, a: diff < -0.15, d: diff > 0.15, w: false });
         await sleep(300);
       }
