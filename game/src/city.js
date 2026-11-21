@@ -172,26 +172,31 @@ function buildHills() {
     geo.translate(x, y, z);
     parts.push(colored(geo, color));
   };
+  // 2d: the ridges moved NORTH (~12-16) so the north residential ring
+  // (z -105..-90) sits on clear ground, not on the hillside. Every
+  // ridge's south edge is now at z <= -106. The far ridge is untouched
+  // (its south edge was already -110).
   ridge(0x8fa05e, -40, -2, -128, 70, 22, 18);
-  ridge(0x7f9052, 30, -3, -120, 80, 26, 20);
-  ridge(0x6f8048, -70, -1, -112, 50, 16, 14);
-  ridge(0x5f703e, 10, -2, -102, 55, 14, 12);
-  ridge(0x4f6034, -25, -1, -98, 45, 9, 8);
+  ridge(0x7f9052, 30, -3, -132, 80, 26, 20);
+  ridge(0x6f8048, -70, -1, -124, 50, 16, 14);
+  ridge(0x5f703e, 10, -2, -120, 55, 14, 12);
+  ridge(0x4f6034, -25, -1, -116, 45, 9, 8);
   // Side ridges so the horizon is not flat on the east / west (A).
-  ridge(0x7f9052, -118, -2, -108, 45, 18, 16);
-  ridge(0x7f9052, 118, -2, -108, 45, 18, 16);
+  ridge(0x7f9052, -118, -2, -124, 45, 18, 16);
+  ridge(0x7f9052, 118, -2, -124, 45, 18, 16);
   // Cypress silhouettes + villa dots on the near ridge, behind the wall.
+  // 2d: moved north with the near ridge (z -106..-112, was -90..-96).
   const rnd = seededRandom(99);
   for (let i = 0; i < 22; i++) {
     const x = -55 + rnd() * 110;
     const t = makeTree('cypress', 1.6 + rnd() * 1.2);
-    t.position.set(x, 4 + rnd() * 2, -90 - rnd() * 6);
+    t.position.set(x, 4 + rnd() * 2, -106 - rnd() * 6);
     g.add(t);
   }
   for (let i = 0; i < 8; i++) {
     const x = -48 + i * 19 + rnd() * 4;
     const y = 4 + rnd() * 2;
-    const z = -92 - rnd() * 4;
+    const z = -108 - rnd() * 4;
     parts.push(colored(xform(new THREE.BoxGeometry(3, 2, 2.5), x, y + 1, z), 0xf5efe2));
     parts.push(colored(xform(new THREE.BoxGeometry(3.3, 0.3, 2.8), x, y + 2.1, z), 0xb4552d));
   }
@@ -310,12 +315,14 @@ export function buildDistrict4() {
   const tickers = [];
 
   // --- ground base (Mediterranean grass / dry grass / dirt, A) ---
+  // 2d: extended north to z -150 (was -120) so the ground covers the
+  // ridges after they move north for the north residential ring.
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(260, 200),
+    new THREE.PlaneGeometry(260, 240),
     new THREE.MeshStandardMaterial({ map: groundTexture(), roughness: 1, flatShading: true }),
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set(0, 0, -20);
+  ground.position.set(0, 0, -30);
   ground.receiveShadow = true;
   group.add(ground);
 

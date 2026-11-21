@@ -697,12 +697,14 @@ export const PROMENADE_EXT_DEF = {
 // E-W streets every 9) so every block holds two rows — the densest
 // the generator does. East x 96..120, z -88..12 (11 blocks); west
 // x -120..-96, z -88..35 (14 blocks); 2 park blocks.
-// The NORTH residential (z -105..-88) is NOT here: the whole north
-// strip sits on the hill ridges (z -90..-128) — the buildings would
-// be buried in the hillside. It comes in 2d, when the ridges move
-// north. The east rect ends at z 12 so its last block stays clear
-// of the quay (z 12.7, x -96..108). No roads.js street crosses these
-// rects, so no gaps.
+// 2d NORTH (z -105..-90): added after the ridges moved north — the
+// whole north strip (x -96..96) is clear ground now. Three rects:
+// west (x -96..-70), middle (x -70..65, N-S streets every ~19),
+// east (x 65..96). The z -89 street segments (x -96..-72, 72..96)
+// are built here so the ring-ext's z -89 (x -72..72) runs continuous
+// across the whole north edge. The east rect ends at z 12 so its last
+// block stays clear of the quay (z 12.7, x -96..108). No roads.js
+// street crosses these rects, so no gaps.
 export const RESIDENTIAL_DEF = {
   id: 'residential', seed: 20261121, style: 'townhouse', floors: [2, 6],
   palette: PALETTE_TOWNHOUSE, shopfronts: false, spacing: 3.2,
@@ -718,21 +720,51 @@ export const RESIDENTIAL_DEF = {
       ns: [{ x: -119, w: 2 }, { x: -97, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
       ew: [-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3, 12, 21, 30].map((z) => ({ z, w: 2, kind: 'street' })),
     },
+    {
+      x0: -96, z0: -105, x1: -70, z1: -90,
+      ns: [{ x: -95, w: 2 }, { x: -71, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      // z -89 is the ring-ext street (already built) — listed here only
+      // so deriveBlocks makes the second row (z -94..-90); the road
+      // itself is NOT rebuilt (it is in roadsEw only as the outer
+      // segments x -96..-72 / 72..96).
+      ew: [{ z: -104, w: 2 }, { z: -95, w: 2 }, { z: -89, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+    },
+    {
+      x0: -70, z0: -105, x1: 65, z1: -90,
+      ns: [-69, -50, -31, -12, 7, 26, 45, 64].map((x) => ({ x, w: 2, kind: 'street' })),
+      ew: [{ z: -104, w: 2 }, { z: -95, w: 2 }, { z: -89, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+    },
+    {
+      x0: 65, z0: -105, x1: 96, z1: -90,
+      ns: [{ x: 66, w: 2 }, { x: 95, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [{ z: -104, w: 2 }, { z: -95, w: 2 }, { z: -89, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+    },
   ],
-  parks: [4, 15],
+  parks: [4, 15, 33],
   roadsNs: [
     { x: 97, w: 2, kind: 'street', z0: -87, z1: 3 },
     { x: 119, w: 2, kind: 'street', z0: -87, z1: 3 },
     { x: -119, w: 2, kind: 'street', z0: -87, z1: 30 },
     { x: -97, w: 2, kind: 'street', z0: -87, z1: 30 },
+    { x: -95, w: 2, kind: 'street', z0: -104, z1: -95 },
+    { x: -71, w: 2, kind: 'street', z0: -104, z1: -95 },
+    ...[-69, -50, -31, -12, 7, 26, 45, 64].map((x) => ({ x, w: 2, kind: 'street', z0: -104, z1: -95 })),
+    { x: 66, w: 2, kind: 'street', z0: -104, z1: -95 },
+    { x: 95, w: 2, kind: 'street', z0: -104, z1: -95 },
   ],
   roadsEw: [
     ...[-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3].map((z) => ({ z, w: 2, kind: 'street', x0: 96, x1: 120 })),
     ...[-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3, 12, 21, 30].map((z) => ({ z, w: 2, kind: 'street', x0: -120, x1: -96 })),
+    { z: -104, w: 2, kind: 'street', x0: -96, x1: 96 },
+    { z: -95, w: 2, kind: 'street', x0: -96, x1: 96 },
+    // z -89 segments so the ring-ext's z -89 (x -72..72) runs continuous.
+    { z: -89, w: 2, kind: 'street', x0: -96, x1: -72 },
+    { z: -89, w: 2, kind: 'street', x0: 72, x1: 96 },
   ],
   lanes: [
     { name: 'res-east', x0: 97, z0: -87, x1: 119, z1: 3, speed: 6 },
     { name: 'res-west', x0: -119, z0: -87, x1: -97, z1: 30, speed: 6 },
+    { name: 'res-north', x0: -95, z0: -104, x1: 95, z1: -89, speed: 6 },
   ],
   pedPaths: [
     { a: { x: 98.2, z: -87 }, b: { x: 98.2, z: 3 } },
@@ -741,5 +773,7 @@ export const RESIDENTIAL_DEF = {
     { a: { x: -98.2, z: -87 }, b: { x: -98.2, z: 30 } },
     { a: { x: 97, z: -42 }, b: { x: 119, z: -42 } },
     { a: { x: -119, z: -42 }, b: { x: -97, z: -42 } },
+    { a: { x: -95, z: -102.8 }, b: { x: 95, z: -102.8 } },
+    { a: { x: -95, z: -93.8 }, b: { x: 95, z: -93.8 } },
   ],
 };
