@@ -10,7 +10,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import {
   M, box, cyl, cone, sph, archTop, mergedMesh, mergeStatic, colored,
-  xform, vertexColorMat, fountain, lampPost, makeTree,
+  xform, vertexColorMat, fountain, lampPost, makeTree, sailboat,
 } from './world.js';
 import { roadTexture, seededRandom } from './roads.js';
 import { makePalmFull } from './vegetation.js';
