@@ -105,15 +105,15 @@ export const MISSIONS = [
   },
   {
     id: 6, code: 'M7', chapter: 4, title: 'THE TOWER SCOUT',
-    brief: 'Iris needs the Azzura Tower\u2019s network map before the big job. Scan the lobby from the waterfront plaza, then walk back over the bridge.',
+    brief: 'Iris needs the Azzura Tower\u2019s network map before the big job. Scan the lobby from the central plaza, then walk back to the quay.',
     reward: { money: 1100, xp: 650 },
     stages: [
-      { name: 'CROSS', text: 'Cross the bridge to the waterfront plaza.', type: 'goto', target: anchor('skyline_plaza', 5),
+      { name: 'CROSS', text: 'Cross the boulevard to the central plaza.', type: 'goto', target: anchor('skyline_plaza', 5),
         dialogue: [{ who: 'IRIS', line: 'The tower\u2019s lobby is the front door to the vault. Scan it and walk away — don\u2019t linger.' }] },
       { name: 'SCAN', text: 'Scan the Azzura Tower lobby. Press E.', type: 'interact', target: anchor('skyline_plaza', 4),
         dialogue: [{ who: 'ELIO', line: 'Scan\u2019s done. Sixty floors of glass and gold — and one weak lock.' }] },
-      { name: 'RETURN', text: 'Walk back over the bridge to the quay.', type: 'goto', target: anchor('quay_end', 5),
-        dialogue: [{ who: 'GUS', line: 'Bridge is clear, Elio. Bring that scan home and I\u2019ll build the way in.' }] },
+      { name: 'RETURN', text: 'Walk back to the quay.', type: 'goto', target: anchor('quay_end', 5),
+        dialogue: [{ who: 'GUS', line: 'Plaza is clear, Elio. Bring that scan home and I\u2019ll build the way in.' }] },
     ],
   },
   {

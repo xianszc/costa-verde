@@ -1,30 +1,25 @@
-// AZZURA HEIST — M3 districts (old town, promenade east, skyline).
+// AZZURA HEIST — M3 districts (old town, promenade east).
 // Each district is built in its own vocabulary from GAME_BIBLE.md and
 // added to the map by city.js (buildDistrict4 merges the result). All
-// three zones share the same rules as District 4: roads FIRST, plots
+// zones share the same rules as District 4: roads FIRST, plots
 // validated against road/sidewalk rects, trees only in green zones,
 // colliders for every solid prop, traffic lanes + pedestrian paths per
-// district. The map grows north (old town, z -44..-86), east (promenade
-// extension, x 60..108) and across the bay (skyline, z 62..104, reached
-// by a pedestrian bridge from the quay).
+// district. The map grows north (old town, z -44..-86) and east
+// (promenade extension, x 60..108); the old skyline across the bay was
+// removed in stage 1 (the CBD core is the downtown now).
 import * as THREE from '../vendor/three.module.min.js';
 import {
   M, box, cyl, cone, sph, archTop, mergedMesh, mergeStatic, colored,
   xform, vertexColorMat, fountain, lampPost, makeTree, sailboat,
-  buildSkylineCluster, SKYLINE_TOWERS,
 } from './world.js';
 import { roadTexture, seededRandom } from './roads.js';
 import { makePalmFull } from './vegetation.js';
 
-// Ground height for the player / pedestrians: the skyline landmass and
-// its bridge sit 0.75 above the roads (above the bay waves); everywhere
-// else the walkable ground is y 0. Cars never go there (the bridge is
-// pedestrian-only, blocked by bollards at the quay end).
+// Ground height for the player / pedestrians.
+// STAGE 1: the ground is FLAT everywhere (y 0). The old skyline
+// landmass across the bay and its bridge are removed — the bay is open
+// water now, and the terrain grading comes in stage 2.
 export function groundHeightAt(x, z) {
-  if (x >= -58 && x <= 58 && z >= 62 && z <= 104) return 0.75;
-  if (Math.abs(x) <= 4.5 && z >= 13 && z <= 62) {
-    return z < 20 ? 0.75 * ((z - 13) / 7) : 0.75;
-  }
   return 0;
 }
 
@@ -619,214 +614,11 @@ export function buildPromenade() {
   return { group, colliders, lanes, pedPaths, tickers };
 }
 
-// ---------- (c) Downtown Bay Skyline ----------
-// Baia Alta (District 9): the 12 towers from the bible, built by the
-// engine's own buildSkylineCluster('full') — stepped Art Deco spire,
-// Gemella twins + sky bridge, needle, curved glass, rooftop pool,
-// crown, helipad, ziggurat, billboard — standing on a 0.75-high
-// landmass across the bay, reached by a pedestrian bridge from the
-// quay. Bay Avenue + waterfront plaza in front, an elevated road with
-// a moving monorail, a back street behind the tower row. The LOD
-// backdrop cluster at z 88 is REMOVED in city.js: the real towers
-// stand in its place now.
-const SK = {
-  concrete: 0x8f8880, concreteDark: 0x6e6a64, gold: 0xe8a33d,
-  glass: 0x2b3a44, cream: 0xf3e6c8, steel: 0x35566b, ink: 0x2b2b2b,
-};
-
-// Low podium block (shops + offices) along the avenue: glass front,
-// gold trim, striped awning. Faces +z (toward the avenue).
-function podiumBlock(w, d, h, accent) {
-  const g = new THREE.Group();
-  g.add(box(w, h, d, SK.cream, 0, h / 2, 0));
-  g.add(box(w, 0.3, d + 0.2, SK.gold, 0, h + 0.15, 0));
-  for (let i = -1; i <= 1; i++) {
-    g.add(box(1.4, 1.6, 0.08, SK.glass, (i * w) / 3, 1.6, d / 2 + 0.03));
-    g.add(box(1.4, 1.0, 0.08, SK.glass, (i * w) / 3, 3.4, d / 2 + 0.03));
-  }
-  for (let i = 0; i < 5; i++) {
-    const c = i % 2 === 0 ? accent : SK.cream;
-    const s = box(w / 5, 0.08, 1.1, c, -w / 2 + (i + 0.5) * (w / 5), 2.6, d / 2 + 0.55);
-    s.rotation.x = 0.35;
-    g.add(s);
-  }
-  g.add(box(w * 0.4, 0.4, 0.1, SK.gold, 0, 3.2, d / 2 + 0.06));
-  return g;
-}
-
-export function buildSkyline() {
-  const rnd = seededRandom(20261121);
-  const group = new THREE.Group();
-  group.name = 'skyline';
-  const colliders = [];
-  const tickers = [];
-
-  // --- landmass slab (top y 0.75, the walkable ground) ---
-  const slab = new THREE.Mesh(
-    new THREE.BoxGeometry(116, 0.75, 42),
-    new THREE.MeshStandardMaterial({ color: SK.concrete, roughness: 0.95, flatShading: true }),
-  );
-  slab.position.set(0, 0.375, 83);
-  group.add(slab);
-
-  // --- pedestrian bridge from the quay (z 13) to the landmass (z 62) ---
-  // Ramp z 13..20 (0 → 0.75) then a flat span z 20..62 at y 0.75.
-  const bridge = new THREE.Group();
-  const ramp = new THREE.Mesh(
-    new THREE.BoxGeometry(9, 0.4, 7.1),
-    new THREE.MeshStandardMaterial({ color: SK.concrete, roughness: 0.95, flatShading: true }),
-  );
-  ramp.position.set(0, 0.375, 16.5);
-  ramp.rotation.x = -Math.atan2(0.75, 7);
-  bridge.add(ramp);
-  const span = new THREE.Mesh(
-    new THREE.BoxGeometry(9, 0.4, 42),
-    new THREE.MeshStandardMaterial({ color: SK.concrete, roughness: 0.95, flatShading: true }),
-  );
-  span.position.set(0, 0.55, 41);
-  bridge.add(span);
-  // Railings along both sides + bollards at the quay end (cars blocked).
-  for (const sx of [-4.4, 4.4]) {
-    bridge.add(box(0.12, 0.85, 49, SK.steel, sx, 1.18, 37.5));
-  }
-  for (let z = 16; z <= 60; z += 6) {
-    bridge.add(box(0.12, 0.85, 0.12, SK.steel, -4.4, 1.18, z));
-    bridge.add(box(0.12, 0.85, 0.12, SK.steel, 4.4, 1.18, z));
-  }
-  for (const bx of [-3, 0, 3]) {
-    bridge.add(cyl(0.22, 0.26, 0.8, SK.ink, bx, 0.4, 13.6, 8));
-  }
-  group.add(bridge);
-  colliders.push({ x0: -3.4, z0: 13.2, x1: -2.6, z1: 14.0, id: 'bridge-bollard' });
-  colliders.push({ x0: -0.4, z0: 13.2, x1: 0.4, z1: 14.0, id: 'bridge-bollard' });
-  colliders.push({ x0: 2.6, z0: 13.2, x1: 3.4, z1: 14.0, id: 'bridge-bollard' });
-  // Bay water is unwalkable except through the bridge corridor.
-  colliders.push({ x0: -130, z0: 13, x1: -4.5, z1: 62, id: 'bay-water-west' });
-  colliders.push({ x0: 4.5, z0: 13, x1: 130, z1: 62, id: 'bay-water-east' });
-
-  // --- the 12 towers (the engine's own full cluster, lit windows +
-  // Gemella sky bridge) standing on the landmass at z 88 ---
-  const towers = buildSkylineCluster('full');
-  towers.position.set(0, 0.75, 88);
-  group.add(towers);
-  for (const t of SKYLINE_TOWERS) {
-    colliders.push({
-      x0: t.x - t.w / 2, z0: 88 - t.d / 2,
-      x1: t.x + t.w / 2, z1: 88 + t.d / 2, id: t.name,
-    });
-  }
-
-  // --- streets on the landmass (tops at y 0.95, like the D4 roads) ---
-  const surf = (texName, seed, w, d, x, z, y, rx, rz) => {
-    const tex = roadTexture(texName, seed);
-    tex.repeat.set(rx, rz);
-    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, flatShading: true });
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), mat);
-    m.position.set(x, y, z);
-    group.add(m);
-  };
-  surf('asphalt', 51, 108, 8, 0, 72, 0.8, 12, 1); // Bay Avenue
-  surf('asphalt', 52, 108, 6, 0, 98, 0.8, 12, 1); // back street
-  surf('plaza', 53, 20, 6, 0, 66, 0.8, 2, 1); // waterfront plaza
-  const swMat = new THREE.MeshStandardMaterial({ color: 0xc9bfa8, roughness: 0.95, flatShading: true });
-  for (const sz of [67, 77]) {
-    const sw = new THREE.Mesh(new THREE.BoxGeometry(108, 0.24, 2), swMat);
-    sw.position.set(0, 0.87, sz);
-    group.add(sw);
-  }
-  // Cross street down the middle (bridge landing → plaza → towers).
-  surf('asphalt', 54, 6, 38, 0, 83, 0.8, 1, 5);
-
-  // --- podium blocks along the avenue's north side ---
-  const podiums = new THREE.Group();
-  const podColliders = [];
-  const addPodium = (x, z, w, d, h, accent) => {
-    const b = podiumBlock(w, d, h, accent);
-    b.position.set(x, 0.75, z);
-    podiums.add(b);
-    podColliders.push({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, id: 'podium' });
-  };
-  addPodium(-46, 82, 12, 4, 5, 0xff5c8a);
-  addPodium(-22, 82, 14, 4, 6, 0x3ed6d6);
-  addPodium(14, 82, 12, 4, 5, 0xe8a33d);
-  addPodium(38, 82, 14, 4, 6, 0xff5c8a);
-  group.add(mergeStatic(podiums));
-  colliders.push(...podColliders);
-
-  // --- elevated road + monorail (deck y 7, pillars to the landmass) ---
-  const deck = new THREE.Mesh(
-    new THREE.BoxGeometry(108, 0.5, 3),
-    new THREE.MeshStandardMaterial({ color: SK.concreteDark, roughness: 0.9, flatShading: true }),
-  );
-  deck.position.set(0, 7, 78);
-  group.add(deck);
-  const pillars = new THREE.Group();
-  for (let x = -48; x <= 48; x += 12) {
-    pillars.add(box(0.8, 6, 0.8, SK.concreteDark, x, 3.75, 78));
-    colliders.push({ x0: x - 0.4, z0: 77.6, x1: x + 0.4, z1: 78.4, id: 'mono-pillar' });
-  }
-  group.add(mergeStatic(pillars));
-  for (const rz of [77.3, 78.7]) {
-    group.add(box(108, 0.12, 0.12, SK.steel, 0, 7.32, rz));
-  }
-  // Monorail car: dark body, gold roof stripe, glass band — glides
-  // along the deck on a slow sine (a ticker, like the fountains).
-  const mono = new THREE.Group();
-  mono.add(box(4.5, 1.4, 1.6, SK.steel, 0, 0, 0));
-  mono.add(box(4.5, 0.4, 1.7, SK.gold, 0, 0.9, 0));
-  mono.add(box(4.0, 0.5, 1.65, SK.glass, 0, 0.15, 0));
-  mono.add(box(0.5, 0.3, 1.7, SK.gold, -1.8, -0.75, 0));
-  mono.position.set(0, 8.08, 78);
-  mono.userData.tick = (t) => { mono.position.x = Math.sin(t * 0.05) * 46; };
-  group.add(mono);
-  tickers.push(mono);
-
-  // --- waterfront plaza fountain + lamps + palms ---
-  const pf = fountain(1.2);
-  pf.position.set(0, 0.95, 66);
-  group.add(pf);
-  tickers.push(pf);
-  colliders.push({ x0: -1.2, z0: 64.8, x1: 1.2, z1: 67.2, id: 'skyline-fountain' });
-  for (const lx of [-50, -26, -2, 22, 46]) {
-    const l1 = lampPost(lx, 67);
-    l1.position.y = 0.99;
-    group.add(l1);
-    const l2 = lampPost(lx + 6, 77);
-    l2.position.y = 0.99;
-    group.add(l2);
-  }
-  for (const lx of [-52, -28, 28, 52]) {
-    const l = lampPost(lx, 64.5);
-    l.position.y = 0.75;
-    group.add(l);
-  }
-  for (const [px, pz, s] of [[-40, 65, 1.0], [-15, 65, 1.2], [15, 65, 1.0], [40, 65, 1.1]]) {
-    const p = makePalmFull(1.6 + s * 0.4);
-    p.position.set(px, 0.75, pz);
-    p.rotation.y = rnd() * Math.PI * 2;
-    group.add(p);
-  }
-  for (let i = 0; i < 4; i++) {
-    const t = makeTree('cypress', 1.6 + rnd() * 0.6);
-    t.position.set(-8 + i * 5 + rnd(), 0.75, 100.5);
-    group.add(t);
-  }
-
-  // --- traffic lanes + pedestrian paths (by name, like (a)/(b)) ---
-  const lanes = [
-    { name: 'skyline-avenue', pts: loopPath(-54, 68, 54, 76, 2), speed: 7 },
-    { name: 'skyline-back', pts: loopPath(-54, 96, 54, 100, 2), speed: 6 },
-  ];
-  const pedPaths = [
-    { a: { x: -54, z: 67 }, b: { x: 54, z: 67 } },
-    { a: { x: -54, z: 77 }, b: { x: 54, z: 77 } },
-    { a: { x: -54, z: 65 }, b: { x: 54, z: 65 } },
-    { a: { x: -8, z: 66 }, b: { x: 8, z: 66 } },
-    { a: { x: -54, z: 98 }, b: { x: 54, z: 98 } },
-    { a: { x: 0, z: 64 }, b: { x: 0, z: 100 } },
-  ];
-  return { group, colliders, lanes, pedPaths, tickers };
-}
+// ---------- (c) Downtown Bay Skyline — REMOVED in stage 1 ----------
+// The old 12-tower landmass across the bay + its bridge are gone; the
+// CBD core (game/src/cbd.js) is the downtown now. buildSkyline(),
+// the SK palette and podiumBlock() were deleted with it. The bay is
+// open water (see the bay-water collider in buildNewDistricts).
 
 // ---------- combined builder (grows as districts land) ----------
 export function buildNewDistricts() {
@@ -848,11 +640,10 @@ export function buildNewDistricts() {
   lanes.push(...pr.lanes);
   pedPaths.push(...pr.pedPaths);
   tickers.push(...pr.tickers);
-  const sk = buildSkyline();
-  group.add(sk.group);
-  colliders.push(...sk.colliders);
-  lanes.push(...sk.lanes);
-  pedPaths.push(...sk.pedPaths);
-  tickers.push(...sk.tickers);
+  // STAGE 1: the old skyline landmass + bridge are REMOVED (buildSkyline
+  // is gone — the bay is open water). The whole bay (z 13..103) is
+  // unwalkable water now; the marina piers in part 5 will split this
+  // collider to leave walkable pier corridors.
+  colliders.push({ x0: -130, z0: 13, x1: 130, z1: 103, id: 'bay-water' });
   return { group, colliders, lanes, pedPaths, tickers };
 }

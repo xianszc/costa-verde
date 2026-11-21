@@ -305,12 +305,19 @@ function lampRow() {
 }
 
 // ---------- District 4 (Lungomare) road network ----------
-// Boulevard east-west along the waterfront (z -6..6), five cross streets
-// north (z -42..6). Sidewalks step up 0.12 beside every road. The quay
-// (z 8.5..13) fronts the bay; the skyline sits across the water (z +85).
+// V3 (stage 1): a tidy grid. The boulevard runs east-west through the
+// CBD (z -6..6). The CBD's north-south streets sit in the gaps between
+// tower columns (6-unit pitch, 2-unit = 20 m streets, z -30..18) —
+// the old cross streets at x -20/0/20 cut through the tower grid and
+// are gone. The ring connectors at x +/-40 (7 wide, z -42..6) link the
+// old town and the commercial ring to the boulevard. The quay (z
+// 8.5..13) fronts the bay. Sidewalks step up 0.12 beside every road.
 export const BOULEVARD = { x0: -60, x1: 60, z0: -6, z1: 6 };
-export const CROSS_X = [-40, -20, 0, 20, 40];
+export const CROSS_X = [-40, 40];
 export const CROSS = { z0: -42, z1: 6, half: 3.5 };
+// CBD north-south streets (in the tower gaps), 2 wide, z -30..18.
+export const CBD_STREETS_X = [-21, -15, -9, -3, 3, 9, 15, 21];
+export const CBD_STREET = { z0: -30, z1: 18, half: 1 };
 export const QUAY = { x0: -60, x1: 60, z0: 8.5, z1: 13 };
 export const WATER_Z = 13;
 
@@ -318,16 +325,23 @@ function rect(x0, z0, x1, z1) { return { x0, z0, x1, z1 }; }
 export function roadRects() {
   const r = [rect(BOULEVARD.x0, BOULEVARD.z0, BOULEVARD.x1, BOULEVARD.z1)];
   for (const cx of CROSS_X) r.push(rect(cx - CROSS.half, CROSS.z0, cx + CROSS.half, CROSS.z1));
+  for (const sx of CBD_STREETS_X) r.push(rect(sx - CBD_STREET.half, CBD_STREET.z0, sx + CBD_STREET.half, CBD_STREET.z1));
+  r.push(rect(QUAY.x0, QUAY.z0, QUAY.x1, QUAY.z1));
   return r;
 }
 function sidewalkRects() {
   const r = [
     rect(BOULEVARD.x0, -8.5, BOULEVARD.x1, -6),
     rect(BOULEVARD.x0, 6, BOULEVARD.x1, 8.5),
+    rect(QUAY.x0, 13, QUAY.x1, 14.2),
   ];
   for (const cx of CROSS_X) {
     r.push(rect(cx - CROSS.half - 2, CROSS.z0, cx - CROSS.half, CROSS.z1));
     r.push(rect(cx + CROSS.half, CROSS.z0, cx + CROSS.half + 2, CROSS.z1));
+  }
+  for (const sx of CBD_STREETS_X) {
+    r.push(rect(sx - CBD_STREET.half - 0.7, CBD_STREET.z0, sx - CBD_STREET.half, CBD_STREET.z1));
+    r.push(rect(sx + CBD_STREET.half, CBD_STREET.z0, sx + CBD_STREET.half + 0.7, CBD_STREET.z1));
   }
   return r;
 }
@@ -372,15 +386,19 @@ function loopPath(x0, z0, x1, z1, r = 4) {
 export function trafficLanes() {
   return [
     { name: 'boulevard', pts: loopPath(-56, -3.4, 56, 3.4, 4), speed: 9 },
-    // West block: boulevard lanes + the x=-40 and x=0 cross streets.
-    { name: 'west-block', pts: loopPath(-40, -3.4, 0, 3.4, 3.5), speed: 7 },
-    // East cross: up and down the x=20 cross street (12 wide, z -42..6).
-    { name: 'east-cross', pts: loopPath(19, -40, 25, 3.4, 2.5), speed: 7 },
+    // West block: boulevard lanes + the x=-40 ring connector and the
+    // x=-21 tower-gap street (the old x=0 leg cut through the CBD).
+    { name: 'west-block', pts: loopPath(-39, -41, -21, 3.4, 1.2), speed: 7 },
+    // East block: boulevard lanes + the x=21 tower-gap street and the
+    // x=40 ring connector (the old x=20 leg cut through the CBD).
+    { name: 'east-block', pts: loopPath(21, -40, 39, 3.4, 1.2), speed: 7 },
   ];
 }
 export function minimapLines() {
   const lines = [{ x1: BOULEVARD.x0, z1: 0, x2: BOULEVARD.x1, z2: 0, w: 12 }];
   for (const cx of CROSS_X) lines.push({ x1: cx, z1: CROSS.z0, x2: cx, z2: CROSS.z1, w: 7 });
+  for (const sx of CBD_STREETS_X) lines.push({ x1: sx, z1: CBD_STREET.z0, x2: sx, z2: CBD_STREET.z1, w: 2 });
+  lines.push({ x1: QUAY.x0, z1: 10.75, x2: QUAY.x1, z2: 10.75, w: 4.5 });
   return lines;
 }
 
@@ -399,6 +417,8 @@ export function buildRoadNetwork() {
   for (let x = -60; x < 60; x += 7.5) parts.push(colored(xform(new THREE.BoxGeometry(7.5, 0.3, 12), x + 3.75, 0.05, 0), 0xffffff));
   // Cross streets (7 wide, 42 long) — one box per street, not 9 tiles.
   for (const cx of CROSS_X) parts.push(colored(xform(new THREE.BoxGeometry(7, 0.3, 48), cx, 0.05, -18), 0xffffff));
+  // CBD north-south streets (2 wide, 48 long, z -30..18) — one box each.
+  for (const sx of CBD_STREETS_X) parts.push(colored(xform(new THREE.BoxGeometry(2, 0.3, 48), sx, 0.05, -6), 0xffffff));
   // Sidewalks (light warm grey, one step lighter than the road) with a
   // physical height step (y 0.12) and visible curbs.
   const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true });
@@ -409,6 +429,11 @@ export function buildRoadNetwork() {
   for (const cx of CROSS_X) {
     swParts.push(colored(xform(new THREE.BoxGeometry(2, 0.24, 48), cx - CROSS.half - 1, 0.12, -18), 0xffffff));
     swParts.push(colored(xform(new THREE.BoxGeometry(2, 0.24, 48), cx + CROSS.half + 1, 0.12, -18), 0xffffff));
+  }
+  // CBD street sidewalks (0.7 wide, beside each 2-wide street).
+  for (const sx of CBD_STREETS_X) {
+    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, 48), sx - CBD_STREET.half - 0.35, 0.12, -6), 0xffffff));
+    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, 48), sx + CBD_STREET.half + 0.35, 0.12, -6), 0xffffff));
   }
   const sw = mergedMesh(swParts, sidewalkMat);
   sw.name = 'sidewalks';
@@ -431,6 +456,10 @@ export function buildRoadNetwork() {
   for (const cx of CROSS_X) {
     for (let z = -40; z <= 4; z += 5) dashes.push(colored(xform(new THREE.BoxGeometry(0.22, 0.01, 3), cx, 0.22, z), 0xffffff));
   }
+  // CBD street centre dashes (single line, the streets are 2 wide).
+  for (const sx of CBD_STREETS_X) {
+    for (let z = -28; z <= 16; z += 4) dashes.push(colored(xform(new THREE.BoxGeometry(0.15, 0.01, 2), sx, 0.22, z), 0xffffff));
+  }
   const dashMesh = mergedMesh(dashes, dashMat);
   dashMesh.name = 'dashes';
   g.add(dashMesh);
@@ -443,6 +472,11 @@ export function buildRoadNetwork() {
     edges.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 48), cx - 3.2, 0.22, -18), 0xffffff));
     edges.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 48), cx + 3.2, 0.22, -18), 0xffffff));
   }
+  // CBD street edges (thin, at the road's edge).
+  for (const sx of CBD_STREETS_X) {
+    edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, 48), sx - 0.85, 0.22, -6), 0xffffff));
+    edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, 48), sx + 0.85, 0.22, -6), 0xffffff));
+  }
   const edgeMesh = mergedMesh(edges, yellowMat);
   edgeMesh.name = 'edges';
   g.add(edgeMesh);
@@ -451,7 +485,7 @@ export function buildRoadNetwork() {
   // as crossings instead of dominating the whole road.
   const zebraMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.5 });
   const zebras = [];
-  for (const cx of CROSS_X) {
+  for (const cx of [...CROSS_X, ...CBD_STREETS_X]) {
     for (let dz = -4.0; dz <= 4.0; dz += 1.6) {
       zebras.push(colored(xform(new THREE.BoxGeometry(0.28, 0.01, 3.6), cx, 0.22, dz), 0xffffff));
     }
@@ -465,6 +499,11 @@ export function buildRoadNetwork() {
   for (const cx of CROSS_X) {
     stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx - 4.6, 0.22, -3.4), 0xffffff));
     stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx + 4.6, 0.22, 3.4), 0xffffff));
+  }
+  // CBD streets: stop lines at the street's edge (the streets are 2 wide).
+  for (const sx of CBD_STREETS_X) {
+    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), sx - 1.4, 0.22, -3.4), 0xffffff));
+    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), sx + 1.4, 0.22, 3.4), 0xffffff));
   }
   const stopMesh = mergedMesh(stops, stopMat);
   stopMesh.name = 'stoplines';
@@ -550,11 +589,12 @@ export function buildRoadNetwork() {
   const benchMesh = mergedMesh(benchParts, wood);
   benchMesh.name = 'benches';
   g.add(benchMesh);
-  // Traffic lights at the two main intersections (red/amber/green).
+  // Traffic lights at the two main intersections (red/amber/green) —
+  // the boulevard x the x=+/-40 ring connectors.
   const tlMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 });
   const tlParts = [];
   const tlLights = [];
-  for (const cx of [-20, 20]) {
+  for (const cx of [-40, 40]) {
     tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), cx + 4.4, 1.7, 6.2), 0xffffff));
     tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), cx + 4.4, 3.6, 6.2), 0xffffff));
     for (let i = 0; i < 3; i++) {
@@ -575,6 +615,24 @@ export function buildRoadNetwork() {
   // Lamp posts with fictional street names + speed bumps + puddles.
   const { group: lampGroup, cones: lampCones } = lampRow();
   g.add(lampGroup);
+  // Lamp posts along the CBD streets (one per street, alternating
+  // sides, on the sidewalk edge) — merged, no light cones.
+  const cbdLampPoles = [];
+  const cbdLampGlobes = [];
+  CBD_STREETS_X.forEach((sx, i) => {
+    const side = i % 2 === 0 ? 1 : -1;
+    const lx = sx + side * 1.35;
+    cbdLampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), lx, 1.2, -18));
+    cbdLampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), lx, 2.5, -18));
+    const lx2 = sx - side * 1.35;
+    cbdLampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), lx2, 1.2, 6));
+    cbdLampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), lx2, 2.5, 6));
+  });
+  const cbdLamps = new THREE.Group();
+  cbdLamps.name = 'cbdLamps';
+  cbdLamps.add(mergedMesh(cbdLampPoles, M(0x2b2b2b)));
+  cbdLamps.add(mergedMesh(cbdLampGlobes, M(0xffd9a0, { emissive: 0xffc46b, emissiveIntensity: 0.9 })));
+  g.add(cbdLamps);
   const bumpMat = new THREE.MeshStandardMaterial({ color: 0x8a8580, roughness: 0.95 });
   const bumpParts = [];
   for (const bx of [-16, 16]) bumpParts.push(colored(xform(new THREE.BoxGeometry(0.6, 0.18, 11.4), bx, 0.28, 0), 0xffffff));
@@ -594,9 +652,11 @@ export function buildRoadNetwork() {
   // mounted at 2.35 m on a 2.4 m pole — legible, never dominating the
   // frame the way the old 2.4 m signs at 3.1 m did.
   const signNames = ['VIA DEL SOLE', 'CORSO AZZURRA', 'VIA DELLE VELA', 'LUNGOMARE', 'VIA DEL FARO'];
+  // One sign per name: the two ring connectors + three CBD streets.
+  const signXs = [-40, -15, 3, 15, 40];
   const signGeo = new THREE.PlaneGeometry(1.5, 0.38);
   signNames.forEach((n, i) => {
-    const cx = CROSS_X[i];
+    const cx = signXs[i];
     const sign = new THREE.Mesh(signGeo, new THREE.MeshBasicMaterial({ map: signTexture(n) }));
     sign.position.set(cx - 4.4, 2.35, 6.2);
     sign.rotation.y = Math.PI;

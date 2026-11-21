@@ -60,10 +60,11 @@ export const ANCHORS = {
   casino_entrance: { x: 88, z: -10, district: 'promenade' },
   // The west end of the boulevard (M6 VANISH).
   boulevard_west: { x: -50, z: 0, district: 'boulevard' },
-  // The waterfront plaza across the bay (M7 CROSS / SCAN).
-  skyline_plaza: { x: 0, z: 66, district: 'skyline' },
-  // The quay where the bridge meets the shore (M7 RETURN, M8 QUAY /
-  // SIGNAL, M11 ESCAPE).
+  // The central plaza in the CBD core (M7 CROSS / SCAN) — the plaza
+  // between the towers, on the boulevard. (Was the waterfront plaza
+  // across the bay; the landmass is gone, the plaza moved downtown.)
+  skyline_plaza: { x: 0, z: 0, district: 'cbd' },
+  // The quay at the shore (M7 RETURN, M8 QUAY / SIGNAL, M11 ESCAPE).
   quay_end: { x: 0, z: 13, district: 'quay' },
   // The race start on the boulevard (M10 LINE UP) — also the drive /
   // night / storm ?shot staging car.
@@ -71,8 +72,9 @@ export const ANCHORS = {
   // Race checkpoint 3 on the promenade (M10 RACE).
   promenade_mid: { x: 60, z: 0, district: 'promenade' },
   // The Azzura Tower lobby — LOBBY, the service LIFT and the penthouse
-  // VAULT all stage here (M11). The tower stands behind the plaza.
-  tower_lobby: { x: 4.2, z: 83, district: 'skyline' },
+  // VAULT all stage here (M11). The tower stands at the CBD centre,
+  // its lobby on the boulevard's north side. (Was across the bay.)
+  tower_lobby: { x: 0, z: -2, district: 'cbd' },
 
   // --- spawns ---
   // Where Elio starts (and respawns after busted / wasted): the north
@@ -85,9 +87,9 @@ export const ANCHORS = {
   // The promenade ?shot staging car (east end of the boulevard, facing
   // west down the deco row toward the casino).
   boulevard_east: { x: 84, z: -3.4, angle: Math.PI, district: 'promenade' },
-  // The skyline ?shot staging car on Bay Avenue (facing north up the
-  // avenue toward the towers).
-  skyline_avenue: { x: 0, z: 72, angle: Math.PI / 2, district: 'skyline' },
+  // The ?shot staging car on Bay Avenue — the south side of the CBD,
+  // facing north up the avenue toward the Azzura Tower.
+  skyline_avenue: { x: 0, z: 12, angle: Math.PI / 2, district: 'cbd' },
   // The old-town ?shot staging car on the main cobbled street.
   oldtown_main_street: { x: -30, z: -56, angle: 0, district: 'old town' },
   // The wanted ?shot staging car on the boulevard south lane.

@@ -190,12 +190,12 @@ function buildHills() {
   return mergeStatic(g);
 }
 
-// Plot list for District 4 (validated before building).
+// Plot list for District 4 (validated before building). STAGE 1: the
+// casino + the three front-row deco plots that sat in the CBD footprint
+// are GONE (casino → promenade part 4, decos → commercial ring part 2),
+// so they are not listed any more — the validator only sees plots that
+// are actually built.
 const PLOTS = [
-  { id: 'casino', x0: -14, z0: -28, x1: -6, z1: -10 },
-  { id: 'deco-west', x0: -37, z0: -28, x1: -25, z1: -10 },
-  { id: 'deco-midwest', x0: -19, z0: -28, x1: -15.5, z1: -10 },
-  { id: 'deco-east', x0: 3, z0: -28, x1: 17, z1: -10 },
   { id: 'deco-fareast', x0: 43, z0: -28, x1: 57, z1: -10 },
   { id: 'villa-back-west', x0: -37, z0: -40, x1: -27, z1: -31 },
   { id: 'villa-back-mid', x0: -17, z0: -40, x1: -7, z1: -31 },
@@ -248,17 +248,16 @@ export function buildDistrict4() {
   // anchor once the anchors are re-linked at the end of stage 1.)
   // Deco facades on the front row.
   const decoSpecs = [
-    [PLOTS[4], 13, 7, 5, { wall: 0xefe3c8, trim: 0xc65d3b, accent: 0xff5c8a }, 'TERRAZZA HOTEL'],
+    [PLOTS[0], 13, 7, 5, { wall: 0xefe3c8, trim: 0xc65d3b, accent: 0xff5c8a }, 'TERRAZZA HOTEL'],
   ];
-  // STAGE 1: deco-west / deco-midwest / deco-east (PLOTS[1..3]) sat in
-  // the CBD footprint (x -37..17, z -28..-10) — they move to the
-  // commercial ring in part 2, so they are not built here any more.
+  // STAGE 1: the front-row decos that sat in the CBD footprint moved to
+  // the commercial ring in part 2 — only the fareast hotel is built here.
   for (const [plot, w, h, d, pal, brand] of decoSpecs) {
     addPlot(plot, () => decoBuilding(rnd, w, h, d, pal, brand));
   }
   // Back-row villas (low, terracotta roofs; varied: chimneys, shutters,
   // one with a taller second story).
-  for (const [i, plot] of [PLOTS[5], PLOTS[6], PLOTS[7]].entries()) {
+  for (const [i, plot] of [PLOTS[1], PLOTS[2], PLOTS[3]].entries()) {
     addPlot(plot, () => {
       const v = new THREE.Group();
       v.add(box(8, 3.2, 5, 0xf5efe2, 0, 1.6, 0));
@@ -281,9 +280,9 @@ export function buildDistrict4() {
     });
   }
   // Quay pavilion (marina hero) on the east front row.
-  addPlot(PLOTS[9], () => buildHeroBuilding('marina'));
+  addPlot(PLOTS[5], () => buildHeroBuilding('marina'));
   // Old bell tower (M4 drop point).
-  addPlot(PLOTS[10], () => bellTower());
+  addPlot(PLOTS[6], () => bellTower());
   group.add(mergeStatic(buildings));
   // Animated bits the merge kept whole (the casino fountain) still tick.
   buildings.traverse((o) => { if (o.userData && o.userData.tick) tickers.push(o); });
@@ -320,13 +319,17 @@ export function buildDistrict4() {
   group.add(park);
   report.treesInGreenZones += 14;
   // Sidewalk planters with fuller palms (green zones on the sidewalk edge).
-  for (const px of [-52, -34, -12, 8, 28, 48]) {
+  // STAGE 1: only the planters OUTSIDE the CBD grid — the two that stood
+  // on the north sidewalk in front of tower faces (x -12, 8) are gone;
+  // in the CBD the sidewalk runs right against the towers, so street
+  // trees belong in the plazas, not in front of tower faces.
+  for (const px of [-52, -34, 28, 48]) {
     const palmMesh = makePalmFull(2.8 + (Math.abs(px) % 3) * 0.5);
     palmMesh.position.set(px, 0.24, -7.2);
     palmMesh.rotation.y = px * 0.7;
     group.add(palmMesh);
   }
-  report.treesInGreenZones += 6;
+  report.treesInGreenZones += 4;
 
   // --- café tables: STAGE 1 — removed with the casino (they stood at
   // x -16..-10, z -8.2, inside the new CBD footprint; the casino moves
