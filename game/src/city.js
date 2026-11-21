@@ -26,7 +26,8 @@ import {
 import { buildNewDistricts } from './districts.js';
 import { buildCBD } from './cbd.js';
 import { buildCBDGrid } from './cbd-grid.js';
-import { buildCommercialRing } from './commercial.js';
+import { buildCommercialRing, buildSignAtlas } from './commercial.js';
+import { createPools, mergePools, buildZoneInto, RING_EXT_DEF } from './blocks.js';
 
 // Shared window material for the deco facades: emissive intensity is
 // raised at night by the game (windows light up at dusk).
@@ -239,41 +240,27 @@ function buildTerrainDressing() {
   g.name = 'terrain-dressing';
   const colliders = [];
   const rnd = seededRandom(20261121);
-  // Terraced retaining walls behind the city (north strip z -72..-84),
-  // low stone steps the olive rows sit in front of.
-  const wallGeos = [];
-  for (const [z, h] of [[-72, 0.6], [-78, 0.9], [-84, 1.2]]) {
-    wallGeos.push(colored(xform(new THREE.BoxGeometry(140, h, 0.8), 0, h / 2, z), 0xb8a888));
-    wallGeos.push(colored(xform(new THREE.BoxGeometry(140.4, 0.14, 1.0), 0, h + 0.07, z), 0x8a7a5e));
-    colliders.push({ x0: -70, z0: z - 0.5, x1: 70, z1: z + 0.5, id: 'terrace-wall' });
-  }
-  g.add(mergedMesh(wallGeos, vertexColorMat));
-  // Trees — all OUTSIDE the city footprint (x -72..72, z -68..35) and
-  // off the water (z > 35) and out of the hills (z < -90).
+  // NOTE (2a, 21 Nov): the terrace retaining walls (z -72/-78/-84) +
+  // olive rows + hills-apron trees that stood in the north strip are
+  // REMOVED — the north-ext commercial zone now fills z -88..-68.
+  // They return with the hills zone (2d), when the near hills ridges
+  // move north and the terraces are rebuilt at the hills front.
+  // Trees + rocks — ground apron ONLY (x +/-120..128), outside the
+  // city footprint: the outer commercial columns take x 74..96 and
+  // the future residential ring takes the rest of x +/-76..120.
   const pines = [], olives = [], cypress = [];
   const push = (arr, x, z, sMin, sMax) => arr.push({
     x, z, s: sMin + rnd() * (sMax - sMin), rot: rnd() * Math.PI * 2, tint: 0xffffff,
   });
-  // Olive rows in front of each terrace wall (north strip).
-  for (const z of [-71, -77, -83]) {
-    for (let x = -66; x <= 66; x += 4.2) {
-      if (rnd() < 0.85) push(olives, x + (rnd() - 0.5) * 1.6, z + (rnd() - 0.5) * 0.8, 0.9, 1.3);
-    }
-  }
-  // East + west strips: mixed pines, olives, cypress.
-  for (let i = 0; i < 90; i++) {
+  // Ground-apron strips: mixed pines, olives, cypress.
+  for (let i = 0; i < 40; i++) {
     const side = rnd() > 0.5 ? 1 : -1;
-    const x = side * (76 + rnd() * 48);
+    const x = side * (120 + rnd() * 8);
     const z = -64 + rnd() * 92;
     const r = rnd();
     if (r < 0.45) push(pines, x, z, 1.0, 1.6);
     else if (r < 0.8) push(olives, x, z, 0.9, 1.4);
     else push(cypress, x, z, 1.0, 1.5);
-  }
-  // A few pines + cypress on the near hills' apron (z -86..-90).
-  for (let i = 0; i < 14; i++) {
-    const x = -60 + rnd() * 120, z = -86 - rnd() * 4;
-    if (rnd() > 0.5) push(pines, x, z, 1.1, 1.5); else push(cypress, x, z, 1.0, 1.4);
   }
   // Olive tint: silver-green (multiplies the round tree's greens).
   for (const o of olives) o.tint = 0xa8b078;
@@ -282,9 +269,9 @@ function buildTerrainDressing() {
   g.add(treeInstanced('cypress', cypress));
   // Rocks: flattened grey-tan boulders, merged into one mesh.
   const rockGeos = [];
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 10; i++) {
     const side = rnd() > 0.5 ? 1 : -1;
-    const x = side * (76 + rnd() * 50);
+    const x = side * (120 + rnd() * 7);
     const z = -64 + rnd() * 92;
     const s = 0.5 + rnd() * 1.1;
     rockGeos.push(colored(
@@ -555,6 +542,18 @@ export function buildDistrict4() {
   colliders.push(...ring.colliders);
   tickers.push(...ring.tickers);
 
+  // --- NEW PLAN 2a (Xian 21 Nov 17:58): commercial ring extension ---
+  // Generic block generator (blocks.js): north third row x2 (z -88..-68),
+  // east/west outer columns x +/-84 (x 74..96), 42 blocks, 2 park blocks.
+  // One shared sign atlas for all zones built by the generator.
+  const zonePools = createPools();
+  const zoneAtlas = buildSignAtlas();
+  const ringExt = buildZoneInto(RING_EXT_DEF, zonePools, zoneAtlas);
+  const ringExtGroup = mergePools(zonePools, zoneAtlas, roads.roadMat);
+  group.add(ringExtGroup);
+  colliders.push(...ringExt.colliders);
+  tickers.push(...ringExt.tickers);
+
   // --- ground detail: DELETED in the GRID REBUILD — the grass tufts
   // stood at z 9.5..11.5, which is CBD block row 4 + the south street
   // now (the quay is paved). The title screen reads from the CBD, the
@@ -563,9 +562,10 @@ export function buildDistrict4() {
   return {
     group, colliders, tickers, roads,
     report,
-    lanes: [...trafficLanes(), ...nd.lanes, ...ring.lanes],
-    pedPaths: [...nd.pedPaths, ...ring.pedPaths],
-    minimap: minimapLines(),
+    lanes: [...trafficLanes(), ...nd.lanes, ...ring.lanes, ...ringExt.lanes],
+    pedPaths: [...nd.pedPaths, ...ring.pedPaths, ...ringExt.pedPaths],
+    minimap: [...minimapLines(), ...ringExt.minimap],
+    ringExt,
     // Spawn points live in anchors.js (one source of truth for every
     // gameplay position) — the district just carries them through.
     spawnPlayer: { x: ANCHORS.player_spawn.x, z: ANCHORS.player_spawn.z, angle: ANCHORS.player_spawn.angle },
