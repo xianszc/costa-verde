@@ -31,13 +31,16 @@ export const ANCHORS = {
   // The ends of the smuggler's boulevard loop (M2 TAIL wraps east<->west).
   tail_loop_east: { x: 56, z: -3.4, district: 'boulevard' },
   tail_loop_west: { x: -56, z: -3.4, district: 'boulevard' },
-  // The stair-street at the north end of the old town (M3 CLIMB).
-  stair_street_north: { x: 0, z: -38, district: 'old town' },
+  // The stair-street at the north end of the old town (M3 CLIMB) —
+  // the steps from the main street up to the wall walk.
+  stair_street_north: { x: -47, z: -46, district: 'old town' },
   // The three north-row doors for the M3 courier run (DELIVER). The
   // engine falls back to these when a deliver stage lists no targets.
-  north_door_1: { x: -30, z: -35, district: 'old town' },
-  north_door_2: { x: 10, z: -35, district: 'old town' },
-  north_door_3: { x: 40, z: -35, district: 'old town' },
+  // They are the front doors of the north-row houses (facing the main
+  // street), in the new pocket.
+  north_door_1: { x: -56.5, z: -46.5, district: 'old town' },
+  north_door_2: { x: -47, z: -46.5, district: 'old town' },
+  north_door_3: { x: -37.5, z: -46.5, district: 'old town' },
   // The front-row forecourt the M3 RETURN stage calls the casino
   // forecourt (the M2-era casino stood on the front row). Distinct from
   // the Casino Azzura forecourt on the promenade below.
@@ -48,8 +51,8 @@ export const ANCHORS = {
   bell_tower: { x: -47, z: -36, district: 'old town' },
   // The fortress plaza in the old town — the chapel arcade (M5 RECON /
   // TAKE) and the old-town safehouse (M9 RUN / LAY LOW / REPORT), and
-  // race checkpoint 1 (M10 RACE).
-  fortress_plaza: { x: -29, z: -70, district: 'old town' },
+  // race checkpoint 1 (M10 RACE). In the new pocket, on the main street.
+  fortress_plaza: { x: -47, z: -39, district: 'old town' },
   // The Casino Azzura forecourt on the promenade (M6 MEET, M10 race
   // checkpoint 2, M12 CONFRONT / DUEL / AFTERMATH). The M12 duel spawns
   // Aldo here, facing the boulevard.
@@ -90,8 +93,9 @@ export const ANCHORS = {
   // The ?shot staging car on Bay Avenue — the south side of the CBD,
   // facing north up the avenue toward the Azzura Tower.
   skyline_avenue: { x: 0, z: 12, angle: Math.PI / 2, district: 'cbd' },
-  // The old-town ?shot staging car on the main cobbled street.
-  oldtown_main_street: { x: -30, z: -56, angle: 0, district: 'old town' },
+  // The old-town ?shot staging car on the main cobbled street (west
+  // end, facing east down the street toward the plaza).
+  oldtown_main_street: { x: -52, z: -39, angle: 0, district: 'old town' },
   // The wanted ?shot staging car on the boulevard south lane.
   boulevard_mid_south: { x: 0, z: 3.4, angle: 0, district: 'boulevard' },
   // The combat / tracer ?shot staging spot: Elio crouched behind the
@@ -116,8 +120,8 @@ export const ANCHORS = {
 
   // --- ?shot staging: camera vantages ---
   // Old town: above the north sidewalk at the east end of the main
-  // street, looking west down the cobbles.
-  vantage_oldtown_cam: { x: -2, y: 8, z: -62, look: { x: -48, y: 1, z: -56 }, district: 'old town' },
+  // street, looking north-west at the plaza + palazzo + wall.
+  vantage_oldtown_cam: { x: -36, y: 8, z: -30, look: { x: -50, y: 1, z: -39 }, district: 'old town' },
   // Promenade: high above the boulevard's west end, looking east-down
   // at the boulevard, the deco row, the Casino Azzura and the hotel.
   vantage_promenade_cam: { x: 60, y: 18, z: 8, look: { x: 100, y: 0, z: -12 }, district: 'promenade' },

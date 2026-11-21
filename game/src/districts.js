@@ -246,53 +246,60 @@ function laundryLine(x0, z0, x1, z1, y) {
 }
 
 export function buildOldTown() {
+  // STAGE 1 part 4: the old town is a compact historic pocket on the
+  // commercial ring (x -60..-34, z -52..-26) — the old quarter
+  // (z -44..-86, 9 buildings spread over 56x44) was too big, too far
+  // north, and sat in the hills / stage-2 land. The pocket keeps the
+  // same vocabulary (cobble streets, arcaded houses, stair-streets,
+  // laundry lines, chapel, palazzo, fortress wall + bastions) at a
+  // denser grain: narrow streets, continuous frontage. The bell tower
+  // (city.js, at (-47,-36)) is the pocket's south gate.
   const rnd = seededRandom(20261121);
   const group = new THREE.Group();
   group.name = 'oldTown';
   const colliders = [];
   const tickers = [];
 
-  // --- cobble streets (main street + two cross streets north) ---
+  // --- cobble streets: main street east-west + 2 cross streets ---
   const cobTex = roadTexture('cobble', 31);
-  cobTex.repeat.set(8, 1);
+  cobTex.repeat.set(4, 1);
   const cobMat = new THREE.MeshStandardMaterial({ map: cobTex, roughness: 0.95, flatShading: true });
-  const main = new THREE.Mesh(new THREE.BoxGeometry(58, 0.3, 7), cobMat);
-  main.position.set(-29, 0.06, -56); // top y 0.21 — a hair above the cross streets, no z-fight
+  const main = new THREE.Mesh(new THREE.BoxGeometry(24, 0.3, 7), cobMat);
+  main.position.set(-47, 0.06, -39);
   group.add(main);
   const crossTex = roadTexture('cobble', 32);
-  crossTex.repeat.set(1, 6);
+  crossTex.repeat.set(1, 3);
   const crossMat = new THREE.MeshStandardMaterial({ map: crossTex, roughness: 0.95, flatShading: true });
-  for (const cx of [-40, -20]) {
-    const s = new THREE.Mesh(new THREE.BoxGeometry(7, 0.3, 44), crossMat);
-    s.position.set(cx, 0.05, -64); // z -86..-42, meets the D4 cross streets at -42
+  for (const cx of [-52, -42]) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(3, 0.3, 22), crossMat);
+    s.position.set(cx, 0.05, -39);
     group.add(s);
   }
-  // Plaza (light pavers) with the fountain.
+  // Plaza (light pavers) with the fountain, on the main street.
   const plazaTex = roadTexture('plaza', 33);
   plazaTex.repeat.set(2, 2);
   const plazaMat = new THREE.MeshStandardMaterial({ map: plazaTex, roughness: 0.95, flatShading: true });
-  const plaza = new THREE.Mesh(new THREE.BoxGeometry(16, 0.3, 12), plazaMat);
-  plaza.position.set(-29, 0.055, -70);
+  const plaza = new THREE.Mesh(new THREE.BoxGeometry(10, 0.3, 8), plazaMat);
+  plaza.position.set(-47, 0.055, -39);
   group.add(plaza);
   const pf = fountain(1.1);
-  pf.position.set(-29, 0.2, -70);
+  pf.position.set(-47, 0.2, -39);
   group.add(pf);
   tickers.push(pf);
   // Sidewalks along the main street.
   const swMat = new THREE.MeshStandardMaterial({ color: 0xc9bfa8, roughness: 0.95, flatShading: true });
-  for (const sz of [-60.5, -51.5]) {
-    const sw = new THREE.Mesh(new THREE.BoxGeometry(58, 0.24, 2), swMat);
-    sw.position.set(-29, 0.12, sz);
+  for (const sz of [-43.5, -34.5]) {
+    const sw = new THREE.Mesh(new THREE.BoxGeometry(24, 0.24, 2), swMat);
+    sw.position.set(-47, 0.12, sz);
     group.add(sw);
   }
-  // Stair-streets: shallow steps from the main street up to the plaza.
+  // Stair-street: shallow steps from the main street up to the wall
+  // walk (north), at the middle of the pocket.
   const stepMat = new THREE.MeshStandardMaterial({ color: 0xbfa06e, roughness: 0.95, flatShading: true });
-  for (const sx of [-32, -8]) {
-    for (let i = 0; i < 5; i++) {
-      const st = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 1.0), stepMat);
-      st.position.set(sx, 0.08 + i * 0.16, -59.5 - i * 1.0);
-      group.add(st);
-    }
+  for (let i = 0; i < 5; i++) {
+    const st = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 1.0), stepMat);
+    st.position.set(-47, 0.08 + i * 0.16, -42.5 - i * 1.0);
+    group.add(st);
   }
 
   // --- buildings (merged, one draw call per material) ---
@@ -305,64 +312,76 @@ export function buildOldTown() {
     buildings.add(b);
     collidersLocal.push({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, id: 'oldtown' });
   };
-  // Palazzo (hero) west of the plaza; chapel north of it.
-  addPlot(-45, -70, 8, 12, () => palazzo(8, 12));
-  addPlot(-29, -81, 8, 6, () => chapel(8, 6));
-  // North row: arcade houses + townhouse.
-  addPlot(-52, -80, 8, 6, () => arcadeHouse(8, 6, 6.5));
-  addPlot(-12, -80, 10, 6, () => arcadeHouse(10, 6, 6));
-  addPlot(-12, -70, 6, 10, () => townhouse(6, 10, 5.5));
-  // West block townhouse; south row stair-houses.
-  addPlot(-52, -66, 8, 8, () => townhouse(8, 8, 5.5));
-  addPlot(-52, -47, 8, 6, () => stairHouse(8, 6, 5.5));
-  addPlot(-30, -47, 8, 6, () => stairHouse(8, 6, 6));
-  addPlot(-8, -47, 8, 6, () => stairHouse(8, 6, 5.5));
+  // Palazzo (hero) at the west end of the main street, facing east
+  // toward the plaza; chapel north of the plaza, facing south.
+  addPlot(-56, -39, 8, 10, () => palazzo(8, 10), Math.PI / 2);
+  addPlot(-47, -48, 8, 6, () => chapel(8, 6), Math.PI);
+  // Houses: one per block column, north row (facing the main street)
+  // + south row (facing the main street) + wall row (facing north).
+  const houseBuilders = [
+    () => arcadeHouse(5, 5, 6.5), () => townhouse(5, 5, 5.5),
+    () => stairHouse(5, 5, 5.5), () => arcadeHouse(5, 5, 6),
+  ];
+  const pick = (i) => houseBuilders[(i + Math.floor(rnd() * 2)) % houseBuilders.length];
+  for (const [i, hx] of [-56.5, -47, -37.5].entries()) {
+    addPlot(hx, -44, 5, 5, pick(i), Math.PI);
+    addPlot(hx, -34, 5, 5, pick(i + 1), 0);
+    addPlot(hx, -49, 5, 5, pick(i + 2), 0);
+  }
+  // South edge row (facing south, toward the ring).
+  for (const [i, hx] of [-56.5, -47, -37.5].entries()) {
+    addPlot(hx, -28.5, 5, 5, pick(i + 3), Math.PI);
+  }
   group.add(mergeStatic(buildings));
   colliders.push(...collidersLocal);
 
-  // --- fortress wall + bastions along the north edge ---
+  // --- fortress wall + bastions along the north edge (z -52) ---
+  // Gaps at the two cross streets (x -52, -42) are the north doors.
   const wall = new THREE.Group();
-  wall.add(fortressWall(-58, -2, -86));
-  wall.add(bastion(-56, -86));
-  wall.add(bastion(-2, -86));
+  wall.add(fortressWall(-60, -53.5, -52));
+  wall.add(fortressWall(-50.5, -43.5, -52));
+  wall.add(fortressWall(-40.5, -34, -52));
+  wall.add(bastion(-59, -52));
+  wall.add(bastion(-35, -52));
   group.add(mergeStatic(wall));
-  colliders.push({ x0: -58, z0: -87.4, x1: 0, z1: -84.6, id: 'fortress-wall' });
-  colliders.push({ x0: -58.8, z0: -88.8, x1: -53.2, z1: -83.2, id: 'bastion' });
-  colliders.push({ x0: -4.8, z0: -88.8, x1: 0.8, z1: -83.2, id: 'bastion' });
+  colliders.push({ x0: -60, z0: -53.4, x1: -53.5, z1: -50.6, id: 'fortress-wall' });
+  colliders.push({ x0: -50.5, z0: -53.4, x1: -43.5, z1: -50.6, id: 'fortress-wall' });
+  colliders.push({ x0: -40.5, z0: -53.4, x1: -34, z1: -50.6, id: 'fortress-wall' });
+  colliders.push({ x0: -61.8, z0: -54.8, x1: -56.2, z1: -49.2, id: 'bastion' });
+  colliders.push({ x0: -37.8, z0: -54.8, x1: -32.2, z1: -49.2, id: 'bastion' });
 
   // --- laundry lines across the alleys + iron lamps ---
   const lines = new THREE.Group();
-  lines.add(laundryLine(-37, -66, -21, -66, 3.4));
-  lines.add(laundryLine(-37, -74, -21, -74, 3.2));
-  lines.add(laundryLine(-48, -73, -40, -73, 3.0));
-  lines.add(laundryLine(-17, -73, -9, -73, 3.2));
+  lines.add(laundryLine(-50, -44, -44, -44, 3.4));
+  lines.add(laundryLine(-50, -34, -44, -34, 3.2));
+  lines.add(laundryLine(-56, -36, -56, -30, 3.0));
+  lines.add(laundryLine(-38, -36, -38, -30, 3.2));
   group.add(lines);
-  for (const lx of [-54, -36, -18, -6]) {
-    const lamp = lampPost(lx, -60.8);
+  for (const lx of [-56, -47, -38]) {
+    const lamp = lampPost(lx, -43.5);
     group.add(lamp);
-    const lamp2 = lampPost(lx + 4, -51.2);
+    const lamp2 = lampPost(lx + 2, -34.5);
     group.add(lamp2);
   }
   // Cypress trees in the wall's green strip (never on a road).
-  const cypress = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     const t = makeTree('cypress', 1.4 + rnd() * 0.8);
-    t.position.set(-54 + i * 10 + rnd() * 2, 0, -84.5);
+    t.position.set(-56 + i * 7 + rnd() * 2, 0, -50.5);
     group.add(t);
   }
 
   // --- traffic lanes + pedestrian paths ---
   const lanes = [
-    { name: 'oldtown-main', pts: loopPath(-56, -58.5, -2, -53.5, 2), speed: 6 },
-    { name: 'oldtown-plaza', pts: loopPath(-36, -75, -22, -65, 2), speed: 5 },
+    { name: 'oldtown-main', pts: loopPath(-57, -41.5, -37, -36.5, 2), speed: 6 },
+    { name: 'oldtown-plaza', pts: loopPath(-51, -42, -43, -36, 2), speed: 5 },
   ];
   const pedPaths = [
-    { a: { x: -56, z: -51.5 }, b: { x: -4, z: -51.5 } },
-    { a: { x: -56, z: -60.5 }, b: { x: -4, z: -60.5 } },
-    { a: { x: -40, z: -84 }, b: { x: -40, z: -46 } },
-    { a: { x: -20, z: -84 }, b: { x: -20, z: -46 } },
-    { a: { x: -36, z: -77 }, b: { x: -22, z: -77 } },
-    { a: { x: -36, z: -63 }, b: { x: -22, z: -63 } },
+    { a: { x: -58, z: -43.5 }, b: { x: -36, z: -43.5 } },
+    { a: { x: -58, z: -34.5 }, b: { x: -36, z: -34.5 } },
+    { a: { x: -52, z: -50 }, b: { x: -52, z: -28 } },
+    { a: { x: -47, z: -50 }, b: { x: -47, z: -28 } },
+    { a: { x: -42, z: -50 }, b: { x: -42, z: -28 } },
+    { a: { x: -51, z: -39 }, b: { x: -43, z: -39 } },
   ];
   return { group, colliders, lanes, pedPaths, tickers };
 }
