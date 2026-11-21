@@ -1637,18 +1637,18 @@ export function createGame(container) {
       updateLighting();
       // Stella staged eastbound on the ring avenue, in frame.
       // (Local forward is +x: angle 0 = east, PI/2 = north.)
-      car.x = -12; car.z = -42; car.angle = 0; car.speed = 0;
+      car.x = 0; car.z = -42; car.angle = 0; car.speed = 0;
       car.mesh.position.set(car.x, ROAD_Y, car.z);
       car.mesh.rotation.y = car.angle;
       // Two peds on the avenue's south sidewalk (z -37.5).
-      peds[0].mesh.position.set(-4, 0, -37.5);
-      peds[1].mesh.position.set(4, 0, -37.5);
+      peds[0].mesh.position.set(10, 0, -37.5);
+      peds[1].mesh.position.set(14, 0, -37.5);
       // Along the avenue, due east: the camera sits IN the avenue at
       // its west end, looking east — the shop row recedes on the left,
       // the CBD towers on the right, Stella + the peds mid-frame. (A
       // camera south of the avenue is inside the CBD towers; a camera
       // north of the shops sees only their backs.)
-      camera.position.set(-30, 3.0, -42);
+      camera.position.set(-20, 3.2, -43);
       camera.lookAt(30, 3.5, -44);
       camPos.copy(camera.position);
       camLook.set(30, 3.5, -44);
