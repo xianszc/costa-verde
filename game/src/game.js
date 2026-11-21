@@ -301,6 +301,9 @@ export function createGame(container) {
   let toastTimer = 0;
   let toastText = '';
   let stormFromMission = false; // M8 "Storm Warning" owns the storm while active
+  let missionFailed = null; // 'busted' | 'wasted' — the current mission failed, restart on respawn
+  let wantedForMission = -1; // mission id the wantedAtStart heat was applied for (M9)
+  let duelTarget = null; // M12: Aldo's figure on the forecourt, null when no duel is live
 
   // --- M2 systems ---
   const radio = createRadio();
@@ -342,6 +345,9 @@ export function createGame(container) {
       for (const p of peds) {
         if (p.fallen) continue;
         list.push({ mesh: p.mesh, kind: 'ped', damage: (d) => p.damage(d) });
+      }
+      if (duelTarget && !duelTarget.fallen) {
+        list.push({ mesh: duelTarget.mesh, kind: 'duel', damage: (d) => duelTarget.damage(d) });
       }
       return list;
     },
@@ -396,22 +402,48 @@ export function createGame(container) {
       dialogueLine = null;
     }
   }
+  function fmtRaceTime(t) {
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
   function handleMissionEvent(ev) {
     if (!ev) return;
     if (ev.type === 'stage') {
       const s = ev.mission.stages[ev.stage];
+      const doneStage = ev.mission.stages[ev.stage - 1];
+      // A stage can raise the heat when it finishes (M11 vault crack,
+      // M12 confrontation) — the Guard swarms as the next stage opens.
+      if (doneStage && doneStage.heat) wanted.addHeat(doneStage.heat);
+      // Leaving a duel clears Aldo; entering one puts him on the
+      // forecourt, white suit and falcon cane, 120 hp.
+      if (doneStage && doneStage.type === 'duel') clearDuelTarget();
+      if (s.type === 'duel') spawnDuelTarget();
       toast(`STAGE ${ev.stage + 1} — ${s.name}`);
+      showNextDialogue();
+    } else if (ev.type === 'checkpoint') {
+      toast(`CHECKPOINT ${ev.done}/${ev.total}`);
+    } else if (ev.type === 'fail') {
+      const why = ev.reason === 'timeout' ? 'TIME UP'
+        : ev.reason === 'wrecked' ? 'CAR WRECKED' : ev.reason.toUpperCase();
+      toast(`MISSION FAILED — ${why}. Try again.`);
+      if (ev.reason === 'wrecked') { car.damage = 0; car.fuel = 100; }
+      wantedForMission = -1;
+      clearDuelTarget();
+      missions.start(missions.missionId);
       showNextDialogue();
     } else if (ev.type === 'complete') {
       state.money += ev.reward.money;
       state.xp = Math.min(10000, state.xp + ev.reward.xp);
-      toast(`MISSION COMPLETE — ${ev.mission.code} ${ev.mission.title} · +S ${ev.reward.money} · +${ev.reward.xp} XP`);
+      const race = ev.raceTime != null ? ` · ${fmtRaceTime(ev.raceTime)}` : '';
+      toast(`MISSION COMPLETE — ${ev.mission.code} ${ev.mission.title} · +S ${ev.reward.money} · +${ev.reward.xp} XP${race}`);
       dialogueLine = null;
+      clearDuelTarget();
       if (missions.missionId + 1 < MISSIONS.length) {
         missions.start(missions.missionId + 1);
         showNextDialogue();
       } else {
-        toast('All story missions complete — more in M3');
+        toast('ALL STORY MISSIONS COMPLETE — Azzura is yours, Elio. King of the Riviera.');
       }
     }
   }
@@ -424,6 +456,7 @@ export function createGame(container) {
       weapon: combat.selected,
       ammo: combat.ammo.map((a) => ({ mag: a.mag, reserve: a.reserve })),
       radio: radio.index, missionId: missions.missionId,
+      raceBest: missions.raceBest,
       hour: state.time, day: state.day,
       player: { x: player.x, z: player.z, angle: player.angle, onFoot: state.onFoot },
       car: { x: car.x, z: car.z, angle: car.angle, fuel: car.fuel, damage: car.damage },
@@ -457,6 +490,7 @@ export function createGame(container) {
       });
     }
     missions.start(s.missionId || 0);
+    missions.setRaceBest(s.raceBest);
     player.x = s.player.x; player.z = s.player.z; player.angle = s.player.angle;
     state.onFoot = s.player.onFoot;
     car.x = s.car.x; car.z = s.car.z; car.angle = s.car.angle;
@@ -491,6 +525,9 @@ export function createGame(container) {
     const lost = Math.floor(state.money * 0.15);
     state.money -= lost;
     wanted.reset();
+    // Finale missions declare failOn: getting caught fails the mission,
+    // and the respawn restarts it from stage one.
+    if ((missions.mission().failOn || []).includes('busted')) missionFailed = 'busted';
     showEndOverlay('BUSTED', `The Guard took S ${lost} in fines. Elio walks free — for now.`, 'WALK FREE');
     state.mode = 'paused';
   }
@@ -500,6 +537,7 @@ export function createGame(container) {
     const lost = Math.floor(state.money * 0.2);
     state.money -= lost;
     wanted.reset();
+    if ((missions.mission().failOn || []).includes('wasted')) missionFailed = 'wasted';
     showEndOverlay('WASTED', `Elio wakes up at the marina clinic. S ${lost} gone to the bill.`, 'GET UP');
     state.mode = 'paused';
   }
@@ -517,6 +555,43 @@ export function createGame(container) {
     state.busted = false;
     state.wasted = false;
     state.mode = 'play';
+    // Busted / wasted during a finale mission fails it: restart the
+    // mission from its first stage (M9–M12 declare failOn).
+    if (missionFailed) {
+      const why = missionFailed === 'busted' ? 'BUSTED' : 'WASTED';
+      missionFailed = null;
+      wantedForMission = -1;
+      clearDuelTarget();
+      missions.start(missions.missionId);
+      toast(`MISSION FAILED — ${why}. Try again.`);
+      showNextDialogue();
+    }
+  }
+
+  // --- M12 duel: Aldo on the casino forecourt ---
+  // He stands his ground (no patrol path) and goes down like any
+  // pedestrian target: 120 hp, then he falls and the duel stage ends.
+  function spawnDuelTarget() {
+    if (duelTarget) return;
+    const fig = makeFigure(CAST[2].spec); // Aldo Moretti, white suit, falcon cane
+    fig.position.set(88, 0, -10);
+    fig.rotation.y = -Math.PI / 2; // face the player coming up the boulevard
+    scene.add(fig);
+    duelTarget = {
+      mesh: fig, hp: 120, fallen: false, kind: 'duel',
+      damage(d) {
+        this.hp -= d;
+        if (this.hp <= 0 && !this.fallen) {
+          this.fallen = true;
+          this.mesh.rotation.z = Math.PI / 2;
+        }
+      },
+    };
+  }
+  function clearDuelTarget() {
+    if (!duelTarget) return;
+    scene.remove(duelTarget.mesh);
+    duelTarget = null;
   }
 
   // --- input ---
@@ -1063,7 +1138,7 @@ export function createGame(container) {
       const ev = missions.update(
         state.onFoot ? player.x : car.x,
         state.onFoot ? player.z : car.z,
-        wanted.level, dt,
+        wanted.level, dt, car.damage,
       );
       handleMissionEvent(ev);
       // M8 "Storm Warning": the storm blows while the mission is active
@@ -1077,6 +1152,22 @@ export function createGame(container) {
       } else if (stormFromMission) {
         setStorm(false);
         stormFromMission = false;
+      }
+      // M9 "Three-Star Chase": the mission opens hot — apply its wanted
+      // level once per mission start.
+      if (mm.wantedAtStart && !missions.done && wantedForMission !== missions.missionId) {
+        wanted.setLevel(mm.wantedAtStart);
+        wantedForMission = missions.missionId;
+      }
+      // M10 race: the HUD timer shows the race clock, not the default.
+      if (mm.timeLimit && !missions.done && missions.stageDef()
+        && missions.stageDef().type === 'race') {
+        state.missionTime = Math.max(0, mm.timeLimit - missions.elapsed);
+      }
+      // M12 duel: Aldo falls → the duel stage is over.
+      if (!missions.done && missions.stageDef() && missions.stageDef().type === 'duel'
+        && duelTarget && duelTarget.fallen) {
+        handleMissionEvent(missions.advance());
       }
       // Wanted: pursuit, heli, roadblocks, lose-the-heat, busted.
       wanted.update(dt, performance.now() / 1000);
@@ -1296,7 +1387,12 @@ export function createGame(container) {
       state.onFoot = true;
       playerMesh.visible = true;
       missions.start(mi);
-      missions.advance();
+      // Route the advance through the event handler so stage heat
+      // (M11 vault, M12 confrontation) and the duel target (M12) are
+      // staged too — the same path real play takes. The handler shows
+      // the stage dialogue, so the staging's own showNextDialogue()
+      // below is dropped (it would blank it by advancing the queue).
+      handleMissionEvent(missions.advance());
       const t = missions.stageDef().target;
       if (mi === 0) {
         player.x = 34; player.z = -12; player.angle = Math.PI / 4;
@@ -1312,7 +1408,6 @@ export function createGame(container) {
       state.time = 18.7;
       setStorm(false);
       updateLighting();
-      showNextDialogue();
       run(60, {});
       updateCamera(1);
       renderer.render(scene, camera);
@@ -1398,12 +1493,14 @@ export function createGame(container) {
     state, car, player, traffic, peds, stageShot, setStorm, startPlay,
     wanted, combat, missions, hub, radio, saveSystem, doSave, doLoad,
     setPaused, respawnAfterEnd, showNextDialogue,
+    get duelTarget() { return duelTarget; },
   };
 
   return {
     state, car, player, traffic, peds, renderer, scene, camera,
     stageShot, setStorm, startPlay, district,
     wanted, combat, missions, hub, radio, saveSystem,
+    get duelTarget() { return duelTarget; },
     run() { requestAnimationFrame(frame); },
   };
 }

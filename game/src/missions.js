@@ -125,6 +125,70 @@ export const MISSIONS = [
         dialogue: [{ who: 'LIDIA', line: 'Storm\u2019s on us and the harbor\u2019s ours. Bring her home, Elio.' }] },
     ],
   },
+  {
+    id: 8, code: 'M9', chapter: 5, title: 'THREE-STAR CHASE',
+    brief: 'The Guard is on you — three stars and closing. Outrun them to the old town safehouse, lose the heat, and report to Dom.',
+    reward: { money: 1500, xp: 800 },
+    wantedAtStart: 3,
+    failOn: ['busted', 'wasted'],
+    stages: [
+      { name: 'RUN', text: 'Outrun the Guard to the old town safehouse.', type: 'goto', target: { x: -29, z: -70, r: 5 },
+        dialogue: [{ who: 'VI', line: 'Three stars, Elio — the whole Guard is coming. The old town safehouse, now.' }] },
+      { name: 'LAY LOW', text: 'Lose the Guard at the safehouse.', type: 'escape', target: { x: -29, z: -70, r: 5 },
+        dialogue: [{ who: 'ELIO', line: 'They\u2019re circling the plaza. Stay low, stay quiet.' }] },
+      { name: 'REPORT', text: 'Report to Dom at the safehouse. Press E.', type: 'interact', target: { x: -29, z: -70, r: 4 },
+        dialogue: [{ who: 'DOM', line: 'You shook three stars, boy. Aldo\u2019s getting nervous — that means we\u2019re close.' }] },
+    ],
+  },
+  {
+    id: 9, code: 'M10', chapter: 6, title: 'RIVIERA GRAND PRIX',
+    brief: 'F\u00e9lix put your name on the street race. Four checkpoints, one winner — beat the clock or the car is scrap.',
+    reward: { money: 2000, xp: 850 },
+    timeLimit: 120,
+    failOn: ['busted', 'wasted', 'timeout', 'wrecked'],
+    stages: [
+      { name: 'LINE UP', text: 'Line up at the start on the boulevard.', type: 'goto', target: { x: -30, z: -3.4, r: 4 },
+        dialogue: [{ who: 'FELIX', line: 'Four checkpoints, one winner. Don\u2019t scratch the paint — it\u2019s mine on loan.' }] },
+      { name: 'RACE', text: 'Race the checkpoints — old town, casino, promenade, finish. Beat the clock.', type: 'race',
+        target: { x: -29, z: -70, r: 6 },
+        targets: [{ x: -29, z: -70 }, { x: 88, z: -10 }, { x: 60, z: 0 }, { x: 0, z: 0 }],
+        dialogue: [{ who: 'ELIO', line: 'Flat out. No brakes till the boulevard.' }] },
+      { name: 'PODIUM', text: 'Collect the prize from F\u00e9lix at the finish. Press E.', type: 'interact', target: { x: 0, z: 0, r: 4 },
+        dialogue: [{ who: 'FELIX', line: 'You drive like the sea is on fire. The prize is yours.' }] },
+    ],
+  },
+  {
+    id: 10, code: 'M11', chapter: 7, title: 'THE AZZURA TOWER JOB',
+    brief: 'The big one: walk into the Azzura Tower, ride the service lift to the penthouse, crack the vault, and slip away before the Guard locks the bay down.',
+    reward: { money: 2500, xp: 900 },
+    failOn: ['busted', 'wasted'],
+    stages: [
+      { name: 'LOBBY', text: 'Reach the Azzura Tower lobby.', type: 'goto', target: { x: 4.2, z: 83, r: 5 },
+        dialogue: [{ who: 'IRIS', line: 'The lobby is the front door to the vault. Walk in like you belong there.' }] },
+      { name: 'LIFT', text: 'Ride the service lift to the penthouse. Press E.', type: 'interact', target: { x: 4.2, z: 83, r: 4 },
+        dialogue: [{ who: 'GUS', line: 'Lift\u2019s rigged. Up you go — sixty floors, no stopping.' }] },
+      { name: 'VAULT', text: 'Crack the penthouse vault. Press E.', type: 'interact', target: { x: 4.2, z: 83, r: 4 }, heat: 35,
+        dialogue: [{ who: 'ELIO', line: 'Vault\u2019s open. Sixty floors of gold — and one loud alarm.' }] },
+      { name: 'ESCAPE', text: 'Slip away to the quay with no wanted stars.', type: 'escape', target: { x: 0, z: 13, r: 5 },
+        dialogue: [{ who: 'VI', line: 'The tower job is done. Bring it home, Elio.' }] },
+    ],
+  },
+  {
+    id: 11, code: 'M12', chapter: 8, title: 'THE LAST LEDGER',
+    brief: 'It ends where it started: Aldo, the casino forecourt, and the ledger. Put him down, take what\u2019s yours, and bring the story home to the marina.',
+    reward: { money: 5000, xp: 1500 },
+    failOn: ['busted', 'wasted'],
+    stages: [
+      { name: 'CONFRONT', text: 'Face Aldo at the casino forecourt.', type: 'goto', target: { x: 88, z: -10, r: 5 }, heat: 60,
+        dialogue: [{ who: 'ALDO', line: 'So the wheelman comes to collect. You built all this on my ledger, boy.' }] },
+      { name: 'DUEL', text: 'Put Aldo down. His Guard is closing in.', type: 'duel', target: { x: 88, z: -10, r: 6 },
+        dialogue: [{ who: 'ELIO', line: 'The ledger ends tonight, Aldo.' }] },
+      { name: 'AFTERMATH', text: 'Take the ledger from Aldo. Press E.', type: 'interact', target: { x: 88, z: -10, r: 4 },
+        dialogue: [{ who: 'ELIO', line: 'It\u2019s over. The ledger is mine — and so is this town.' }] },
+      { name: 'EPILOGUE', text: 'Return to the marina — the story ends where it began.', type: 'goto', target: { x: 50, z: -19, r: 5 },
+        dialogue: [{ who: 'DOM', line: 'The sea keeps its secrets, boy. And tonight, so do you. Azzura is yours.' }] },
+    ],
+  },
 ];
 
 // Mission engine: tracks the current mission + stage, the moving tail
@@ -139,6 +203,9 @@ export function createMissionEngine() {
   let deliverTargets = [];
   let tailPos = { x: -20, z: -3.4 };
   let dialogueQueue = [];
+  let elapsed = 0; // seconds since the current mission started (M10 race clock)
+  let raceTimes = {}; // mission id -> best race seconds (persisted via save)
+  let raceLast = null; // seconds for the last finished race stage
 
   function mission() { return MISSIONS[missionId]; }
   function stageDef() { return mission().stages[stage]; }
@@ -151,24 +218,35 @@ export function createMissionEngine() {
     deliverTargets = [];
     tailPos = { x: -20, z: -3.4 };
     dialogueQueue = [...(stageDef().dialogue || [])];
+    elapsed = 0;
+    raceLast = null;
     return mission();
   }
   function objective() {
     const s = stageDef();
     if (!s) return null;
     if (s.type === 'tail') return { x: tailPos.x, z: tailPos.z, r: s.target.r, type: 'tail' };
-    if (s.type === 'deliver' && deliverTargets.length) {
+    if ((s.type === 'deliver' || s.type === 'race') && deliverTargets.length) {
       const t = deliverTargets[0];
-      return { x: t.x, z: t.z, r: s.target.r, type: 'deliver', left: deliverLeft };
+      return { x: t.x, z: t.z, r: s.target.r, type: s.type, left: deliverLeft };
     }
     return { x: s.target.x, z: s.target.z, r: s.target.r, type: s.type };
   }
   // Called every frame with the player's position + wanted level.
-  // Returns an event: {type:'stage'} | {type:'complete', reward} | null.
-  function update(px, pz, wanted, dt) {
+  // Returns an event: {type:'stage'} | {type:'complete', reward} |
+  // {type:'checkpoint'} | {type:'fail', reason} | null.
+  // carDamage is the player car's damage % (M10: wrecked at 100).
+  function update(px, pz, wanted, dt, carDamage = 0) {
     if (done) return null;
     const s = stageDef();
     if (!s) return null;
+    elapsed += dt;
+    const m = mission();
+    // M10 race clock: only enforced while the race stage is live, so a
+    // slow walk to the podium after the finish line cannot fail it.
+    if (m.timeLimit && s.type === 'race' && elapsed > m.timeLimit) {
+      return { type: 'fail', reason: 'timeout', mission: m };
+    }
     const d = Math.hypot(px - (s.type === 'tail' ? tailPos.x : s.target.x), pz - (s.type === 'tail' ? tailPos.z : s.target.z));
     if (s.type === 'tail') {
       // The smuggler drives the boulevard loop, east to west.
@@ -183,16 +261,33 @@ export function createMissionEngine() {
       }
       return null;
     }
-    if (s.type === 'deliver') {
+    if (s.type === 'deliver' || s.type === 'race') {
+      // Checkpoint sequence: 'deliver' uses the hardcoded north-row
+      // doors; 'race' uses the stage's own targets list.
+      if (s.type === 'race' && carDamage >= 100) {
+        return { type: 'fail', reason: 'wrecked', mission: m };
+      }
       if (!deliverTargets.length) {
-        deliverTargets = [{ x: -30, z: -35 }, { x: 10, z: -35 }, { x: 40, z: -35 }];
-        deliverLeft = s.count || 3;
+        deliverTargets = s.targets ? [...s.targets]
+          : [{ x: -30, z: -35 }, { x: 10, z: -35 }, { x: 40, z: -35 }];
+        deliverLeft = s.count || deliverTargets.length;
       }
       const t = deliverTargets[0];
       if (Math.hypot(px - t.x, pz - t.z) < s.target.r) {
         deliverTargets.shift();
         deliverLeft--;
-        if (deliverLeft <= 0) return advance();
+        if (deliverLeft <= 0) {
+          if (s.type === 'race') {
+            raceLast = elapsed;
+            const best = raceTimes[m.id];
+            if (best === undefined || elapsed < best) raceTimes[m.id] = elapsed;
+          }
+          return advance();
+        }
+        if (s.type === 'race') {
+          const total = (s.targets || []).length;
+          return { type: 'checkpoint', done: total - deliverLeft, total, mission: m };
+        }
       }
       return null;
     }
@@ -204,7 +299,7 @@ export function createMissionEngine() {
       if (d < s.target.r) return advance();
       return null;
     }
-    return null; // 'interact' stages advance via interact()
+    return null; // 'interact' stages advance via interact(); 'duel' via the game
   }
   // The player pressed E at the current objective.
   function interact(px, pz) {
@@ -219,7 +314,7 @@ export function createMissionEngine() {
     if (stage >= mission().stages.length) {
       done = true;
       const reward = mission().reward;
-      return { type: 'complete', reward, mission: mission() };
+      return { type: 'complete', reward, mission: mission(), raceTime: raceLast };
     }
     dialogueQueue = [...(stageDef().dialogue || [])];
     return { type: 'stage', stage, mission: mission() };
@@ -234,6 +329,10 @@ export function createMissionEngine() {
     get done() { return done; },
     get tailTimer() { return tailTimer; },
     get tailPos() { return tailPos; },
+    get elapsed() { return elapsed; },
+    get raceBest() { return raceTimes; },
+    get raceLast() { return raceLast; },
+    setRaceBest(t) { raceTimes = { ...(t || {}) }; },
     mission, stageDef, objective, start, update, interact, advance, nextDialogue, peekDialogue,
   };
 }
