@@ -164,12 +164,13 @@ export const ANCHORS = {
   // receding, the monorail deck overhead (not a ceiling).
   // Street-level CBD shot (Xian 21 Nov 15:02 — from the middle of the
   // avenue, towers on both sides): the camera stands ON the boulevard
-  // (x -30, z 0) and looks EAST along it, so the road, its median,
-  // lane markings and the tower rows on both sides read in one frame.
-  // The old camera (-21, 4, 7.5 -> 0, 15, -9) looked up at one tower
-  // face and the street did not read. Elio stands at (-15, 0), in the
-  // middle of the boulevard at the x -15 street crossing.
-  vantage_cbd_street: { x: -30, y: 3, z: 0, look: { x: 30, y: 6, z: 0 }, district: 'cbd' },
+  // and looks EAST along it, so the road, its median, lane markings
+  // and the tower rows on both sides read in one frame. It sits in the
+  // SOUTH lane (z 3), not on the centreline (z 0) — the monorail
+  // pillars stand at z 0 and a centreline camera puts one dead centre
+  // in the frame. Elio stands at (-15, 0), in the middle of the
+  // boulevard at the x -15 street crossing.
+  vantage_cbd_street: { x: -30, y: 3, z: 3, look: { x: 30, y: 6, z: 3 }, district: 'cbd' },
   // Bay: from the east over the water, looking west-northwest at the
   // skyline in 3/4 — the cluster reads in profile, the water in front.
   vantage_cbd_bay: { x: 55, y: 14, z: 38, look: { x: -5, y: 45, z: -9 }, district: 'cbd' },
@@ -178,13 +179,13 @@ export const ANCHORS = {
   // (A true straight-down lookAt is degenerate in Three.js — the
   // camera tilts; the oblique is the check that matters.)
   // Top-down CBD check (Xian 21 Nov 15:02 — the streets must READ):
-  // nearly straight down (0, 160, 12) so the 2.4-wide streets show as
-  // a clear grid between the tower footprints. The old (0, 130, 55)
-  // was 25 degrees off vertical — the 60-floor towers leaned over and
-  // hid the streets. A true straight-down lookAt is degenerate in
-  // Three.js, so the camera sits 18 units south of the look point
-  // (6 degrees off vertical), which is steep enough and not degenerate.
-  vantage_cbd_top: { x: 0, y: 160, z: 12, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
+  // the camera sits well ABOVE the tallest tower (60 floors x 2.0 =
+  // 120 units) so the towers do not lean over the streets — at y 160
+  // the 120-unit towers filled the frame and hid the grid. At y 220
+  // the whole CBD reads as a grid of rooftops with the streets between
+  // them. A true straight-down lookAt is degenerate in Three.js, so
+  // the camera sits 20 units south of the look point.
+  vantage_cbd_top: { x: 0, y: 220, z: 14, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
 };
 
 // A mission stage target: { x, z, r } where r is the arrival radius.
