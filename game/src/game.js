@@ -1153,7 +1153,10 @@ export function createGame(container) {
       let camFrom; let camTo;
       if (d === 'oldtown') {
         car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
-        camFrom = [-6, 6, -38]; camTo = [-44, 1, -58];
+        // East end of the main street, above the north sidewalk,
+        // looking west down the cobbles: the Stella mid-street, the
+        // old-town traffic car, the stair-houses and the plaza beyond.
+        camFrom = [-2, 8, -62]; camTo = [-48, 1, -56];
       } else {
         car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
         camFrom = [-6, 6, -38]; camTo = [-44, 1, -58];
