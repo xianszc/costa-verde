@@ -200,8 +200,20 @@ function carSteerKeys(diff, speed, cap) {
 // true when reached. Steers toward the point, throttles to cap u/s,
 // reverses out if stuck (no progress 8 s, max 3 reverses).
 async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
-  const started = Date.now();
-  let lastDist = Infinity, lastProgress = Date.now(), reverses = 0, reversingUntil = 0;
+  // DRIVER fix (D2 22 Nov 06:10): sidestep. The BFS graph routes on
+  // road CENTERLINES, but the boulevard has a median (x -60..-34.7,
+  // z +/-0.7) whose blunt east nose at (-34.7,0) stops a car steering
+  // exactly at z=0 head-on (D2: stuck (-34.2,-0.5)), and the turn
+  // onto the x -47.5 old-town cross street clips the (-45,-27) house
+  // corner (D2: stuck (-44.9,-25.0)). A human steers around such an
+  // obstacle; the old driver only reversed and retried the same line.
+  // On each stall the driver now also offsets the STEERING target
+  // 4u sideways (left first, then right) so the car goes around
+  // the nose/corner; the arrival check still uses the real target.
+  // 4u (not 2.5u): the median nose needs the car at z<=-1.3 before
+  // x=-34.7, and a 2.5u offset still clips the nose corner (D2).
+  // The reverse is 3 s so the car backs up far enough to turn.
+  let sideStep = 0;
   // U-turn FIRST (angle-based): if the car faces away from the target
   // (|diff| > 2.2), reverse with inverted steering until the nose is
   // within ~0.9 rad of the desired heading (max 15 s). The old
@@ -210,6 +222,10 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   // Turn rate is ~0 at standstill and grows with |speed|, so reverse
   // at full speed (up to -8 u/s) to turn fast; stop on ANGLE, not
   // distance, so the car does not back 13u into the buildings.
+  // NOTE (D2): the drive timeout starts AFTER the U-turn — the
+  // U-turn can take 15 s, and counting it against the timeout
+  // starved the waypoint (routeDrive broke out with the car still
+  // at the median nose, the sidestep never getting its 8 s window).
   {
     const c0 = await readCar(page);
     const desired0 = Math.atan2(-(tz - c0.z), tx - c0.x);
@@ -228,6 +244,8 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
       await releaseKeys(page);
     }
   }
+  const started = Date.now();
+  let lastDist = Infinity, lastProgress = Date.now(), reverses = 0, reversingUntil = 0;
   while (Date.now() - started < timeoutMs) {
     const c = await readCar(page);
     if (c.mode !== 'play') { await releaseKeys(page); return false; }
@@ -238,17 +256,39 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
     if (Date.now() < reversingUntil) { await sleep(300); continue; }
     if (Date.now() - lastProgress > 8000 && reverses < 3) {
       reverses++;
-      const desired = Math.atan2(-(tz - c.z), tx - c.x);
+      // Sidestep: 1st stall steer left of the travel line, 2nd stall
+      // right, 3rd stall straight again (last chance).
+      sideStep = reverses === 1 ? 1 : reverses === 2 ? -1 : 0;
+      // Steer the REVERSE at the sidestep target, not the original
+      // target (D2): the original target is due west, so the reverse
+      // aligned the nose south-west and the retry re-wedged on the
+      // median nose; aiming at the offset target turns the nose
+      // around the nose while backing up.
+      let rtx = tx, rtz = tz;
+      if (sideStep !== 0) {
+        const dx = tx - c.x, dz = tz - c.z, len = Math.hypot(dx, dz) || 1;
+        rtx = tx + (-dz / len) * 4 * sideStep;
+        rtz = tz + (dx / len) * 4 * sideStep;
+      }
+      const desired = Math.atan2(-(rtz - c.z), rtx - c.x);
       const diff = normAngle(desired - c.angle);
       // Backing out: the car moves backward, so the steering is
       // inverted (see carSteerKeys).
       await setKeys(page, { s: true, a: diff < 0, d: diff >= 0 });
-      reversingUntil = Date.now() + 2000;
+      reversingUntil = Date.now() + 3000;
       lastProgress = Date.now();
       await sleep(300);
       continue;
     }
-    const desired = Math.atan2(-(tz - c.z), tx - c.x);
+    // Near the target, steer straight at it (no sidestep).
+    if (d < 8) sideStep = 0;
+    let stx = tx, stz = tz;
+    if (sideStep !== 0) {
+      const dx = tx - c.x, dz = tz - c.z, len = Math.hypot(dx, dz) || 1;
+      stx = tx + (-dz / len) * 4 * sideStep;
+      stz = tz + (dx / len) * 4 * sideStep;
+    }
+    const desired = Math.atan2(-(stz - c.z), stx - c.x);
     const diff = normAngle(desired - c.angle);
     await setKeys(page, carSteerKeys(diff, c.speed, cap));
     await sleep(300);
