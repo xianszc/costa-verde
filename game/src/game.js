@@ -1438,6 +1438,7 @@ export function createGame(container) {
       setStorm(false);
       updateLighting();
       let shotCamera = camera; // the top view renders with an ortho camera instead
+      let restoreTopFog = null; // the top view disables fog (restored after render)
       if (view === 'bay') {
         state.onFoot = false;
         playerMesh.visible = false;
@@ -1464,6 +1465,24 @@ export function createGame(container) {
         // frustum covers the whole CBD extent (x -62..62, z -51.7..18.1
         // at 16:9); screen-up is north (-Z), so the ring avenue is at
         // the top and the bay at the bottom.
+        // FOG: the camera sits 420 above the ground but scene fog is
+        // opaque past 190 — without this the whole frame renders as
+        // solid fog orange (the first capture). Fog is disabled for
+        // this shot only (scene fog + the water shader's manual fog),
+        // then restored after the renders.
+        const savedFog = scene.fog;
+        const foggedWater = [];
+        scene.traverse((o) => {
+          if (o.material && o.material.uniforms && o.material.uniforms.uFogFar) {
+            foggedWater.push([o.material.uniforms, o.material.uniforms.uFogFar.value]);
+            o.material.uniforms.uFogFar.value = 100000;
+          }
+        });
+        scene.fog = null;
+        restoreTopFog = () => {
+          scene.fog = savedFog;
+          for (const [u, v] of foggedWater) u.uFogFar.value = v;
+        };
         const aspect = renderer.domElement.width / renderer.domElement.height;
         const halfW = 62;
         const topCam = new THREE.OrthographicCamera(-halfW, halfW, halfW / aspect, -halfW / aspect, 1, 1000);
@@ -1490,6 +1509,7 @@ export function createGame(container) {
       }
       renderer.render(scene, shotCamera);
       renderer.render(scene, shotCamera);
+      if (restoreTopFog) restoreTopFog();
     } else { // walk
       state.mode = 'play';
       showHUD();
