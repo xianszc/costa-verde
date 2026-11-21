@@ -33,12 +33,14 @@ const BLOCKS = [
   { x0: -33, z0: -37.5, x1: -21, z1: -31, kind: 'commercial' },
   { x0: -17, z0: -37.5, x1: -6, z1: -31, kind: 'commercial' },
   { x0: -2, z0: -37.5, x1: 9, z1: -31, kind: 'commercial' },
-  { x0: 13, z0: -37.5, x1: 24, z1: -31, kind: 'garage' },
-  { x0: 28, z0: -37.5, x1: 35, z1: -31, kind: 'commercial' },
+  { x0: 13, z0: -37.5, x1: 22, z1: -31, kind: 'garage' },
+  // (The block x 28..35 in this row is the PARK — a planned green
+  // zone, not a building block; the block x 46..59 in the east strip
+  // is the harbormaster pavilion's block — M1/M2/M4/M8/M12 stage there
+  // until the marina moves in part 5. Both are left open here.)
   { x0: 45, z0: -37.5, x1: 59, z1: -31, kind: 'commercial' },
   // East strip (x 28..60, z -30..14).
   { x0: 29, z0: -29, x1: 43, z1: -7, kind: 'commercial' },
-  { x0: 46, z0: -29, x1: 59, z1: -7, kind: 'hotel' },
   { x0: 29, z0: 7, x1: 43, z1: 13, kind: 'commercial' },
   { x0: 46, z0: 7, x1: 59, z1: 13, kind: 'commercial' },
   // West strip (x -60..-28, z -30..22).
@@ -74,8 +76,11 @@ function shopTexture(text, bg, fg) {
 }
 
 // A mid-rise building (6–15 floors = 12–30 units tall). The shopfront
-// (awning + sign + glass) faces the street (outward normal `facing`,
-// in radians — the front face is at local +z after rotation).
+// (awning + glass) faces the street (outward normal `facing`, in
+// radians — the front face is at local +z after rotation). The named
+// sign is only on the buildings that face the main east-west streets
+// (boulevard / ring avenue) — one sign per building would be ~140
+// draw calls; the side-street shops keep the awning + glass.
 function commercialBuilding(rnd, floors, w, d, color, shopName, shopColor, isCorner) {
   const h = floors * 2;
   const g = new THREE.Group();
@@ -98,13 +103,15 @@ function commercialBuilding(rnd, floors, w, d, color, shopName, shopColor, isCor
   g.add(box(w * 0.9, 0.12, 1.0, awn, 0, 2.6, d / 2 + 0.5));
   g.add(box(w * 0.9, 1.8, 0.1, 0x1e2a32, 0, 1.2, d / 2 + 0.05));
   g.add(box(w * 0.9, 0.5, 0.12, 0x2e4a5e, 0, 2.3, d / 2 + 0.06));
-  const sign = new THREE.Mesh(
-    new THREE.PlaneGeometry(Math.min(w * 0.85, 4.2), 0.9),
-    new THREE.MeshBasicMaterial({ map: shopTexture(shopName, shopColor, '#f7ebd7') }),
-  );
-  sign.position.set(0, 3.4, d / 2 + 0.08);
-  g.add(sign);
-  return { group: g, sign, height: h + (isCorner ? 2.6 : 0.7) };
+  if (shopName) {
+    const sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(Math.min(w * 0.85, 4.2), 0.9),
+      new THREE.MeshBasicMaterial({ map: shopTexture(shopName, shopColor, '#f7ebd7') }),
+    );
+    sign.position.set(0, 3.4, d / 2 + 0.08);
+    g.add(sign);
+  }
+  return { group: g, height: h + (isCorner ? 2.6 : 0.7) };
 }
 
 // Window quads (vertex-coloured) for one building face, merged into the
@@ -216,9 +223,13 @@ export function buildCommercialRing() {
       const w = 4 + rnd() * 1;
       const d = 4 + rnd() * 1.5;
       const color = PALETTE[Math.floor(rnd() * PALETTE.length)];
-      const shopName = SHOP_NAMES[shopIdx % SHOP_NAMES.length];
-      const shopColor = SHOP_COLORS[shopIdx % SHOP_COLORS.length];
-      shopIdx += 1;
+      // Named signs only on the north/south edges (the buildings facing
+      // the main east-west streets); side-street shops keep awning +
+      // glass, no sign (draw-call budget).
+      const onMainStreet = s.edge === 'north' || s.edge === 'south';
+      const shopName = onMainStreet ? SHOP_NAMES[shopIdx % SHOP_NAMES.length] : null;
+      const shopColor = onMainStreet ? SHOP_COLORS[shopIdx % SHOP_COLORS.length] : null;
+      if (onMainStreet) shopIdx += 1;
       const { group: bg, height } = commercialBuilding(rnd, floors, w, d, color, shopName, shopColor, isCorner);
       bg.position.set(s.x, 0, s.z);
       bg.rotation.y = s.ry;

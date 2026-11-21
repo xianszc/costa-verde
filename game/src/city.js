@@ -192,16 +192,14 @@ function buildHills() {
 }
 
 // Plot list for District 4 (validated before building). STAGE 1: the
-// casino + the three front-row deco plots that sat in the CBD footprint
-// are GONE (casino → promenade part 4, decos → commercial ring part 2),
-// so they are not listed any more — the validator only sees plots that
-// are actually built.
+// casino + the front-row decos + the back-row villas are GONE (the
+// commercial ring occupies their blocks now — the villas' blocks are
+// ring blocks, the TERRAZZA HOTEL's block is the harbormaster
+// pavilion's block). Only the park (green zone), the pavilion
+// (mission-critical: M1/M2/M4/M8/M12 stage there) and the bell tower
+// are still built from this list.
 const PLOTS = [
-  { id: 'deco-fareast', x0: 43, z0: -28, x1: 57, z1: -10 },
-  { id: 'villa-back-west', x0: -37, z0: -40, x1: -27, z1: -31 },
-  { id: 'villa-back-mid', x0: -17, z0: -40, x1: -7, z1: -31 },
-  { id: 'villa-back-east', x0: 3, z0: -40, x1: 13, z1: -31 },
-  { id: 'park', x0: 23, z0: -40, x1: 37, z1: -30 },
+  { id: 'park', x0: 23, z0: -38, x1: 37, z1: -30 },
   { id: 'pavilion-quay', x0: 44, z0: -28, x1: 56, z1: -10 },
   { id: 'bell-tower', x0: -48.4, z0: -37.4, x1: -45.6, z1: -34.6 },
 ];
@@ -247,57 +245,30 @@ export function buildDistrict4() {
   // (x -14..-6, z -28..-10) is inside the new CBD footprint, so the
   // hero is NOT built here any more. (M6 stages from the new casino
   // anchor once the anchors are re-linked at the end of stage 1.)
-  // Deco facades on the front row.
-  const decoSpecs = [
-    [PLOTS[0], 13, 7, 5, { wall: 0xefe3c8, trim: 0xc65d3b, accent: 0xff5c8a }, 'TERRAZZA HOTEL'],
-  ];
-  // STAGE 1: the front-row decos that sat in the CBD footprint moved to
-  // the commercial ring in part 2 — only the fareast hotel is built here.
-  for (const [plot, w, h, d, pal, brand] of decoSpecs) {
-    addPlot(plot, () => decoBuilding(rnd, w, h, d, pal, brand));
-  }
-  // Back-row villas (low, terracotta roofs; varied: chimneys, shutters,
-  // one with a taller second story).
-  for (const [i, plot] of [PLOTS[1], PLOTS[2], PLOTS[3]].entries()) {
-    addPlot(plot, () => {
-      const v = new THREE.Group();
-      v.add(box(8, 3.2, 5, 0xf5efe2, 0, 1.6, 0));
-      v.add(box(8.4, 0.3, 5.4, 0xb4552d, 0, 3.35, 0));
-      v.add(box(5, 2.2, 4, 0xf5efe2, 1, 4.4, 0));
-      v.add(box(5.4, 0.3, 4.4, 0xb4552d, 1, 5.6, 0));
-      v.add(box(0.8, 1.2, 0.1, 0x2e4a5e, -2, 0.9, 2.55));
-      v.add(box(0.8, 1.2, 0.1, 0x2e4a5e, 2, 0.9, 2.55));
-      // Shutters beside the front windows + a chimney.
-      v.add(box(0.3, 1.2, 0.08, 0x3a5a3a, -2.6, 0.9, 2.56));
-      v.add(box(0.3, 1.2, 0.08, 0x3a5a3a, 2.6, 0.9, 2.56));
-      v.add(box(0.5, 1.2, 0.5, 0x8a4a3a, -3, 4.2, -1));
-      if (i === 1) {
-        // Middle villa: taller second story + pergola.
-        v.add(box(4, 1.8, 3.5, 0xf5efe2, -1.5, 6.4, 0));
-        v.add(box(4.4, 0.3, 3.9, 0xb4552d, -1.5, 7.4, 0));
-        v.add(box(2.4, 0.12, 2.0, 0x8a6a4a, 2.5, 3.6, 1.5));
-      }
-      return v;
-    });
-  }
+  // STAGE 1 part 3: the front-row decos + the back-row villas are GONE
+  // — the commercial ring occupies their blocks now (the TERRAZZA
+  // HOTEL's block is the harbormaster pavilion's block, the villas'
+  // blocks are ring blocks). The ring has its own hotels.
   // Quay pavilion (marina hero) on the east front row.
-  addPlot(PLOTS[5], () => buildHeroBuilding('marina'));
+  addPlot(PLOTS[1], () => buildHeroBuilding('marina'));
   // Old bell tower (M4 drop point).
-  addPlot(PLOTS[6], () => bellTower());
+  addPlot(PLOTS[2], () => bellTower());
   group.add(mergeStatic(buildings));
   // Animated bits the merge kept whole (the casino fountain) still tick.
   buildings.traverse((o) => { if (o.userData && o.userData.tick) tickers.push(o); });
 
   // --- park green zone (Block D back): trees ONLY here + planters ---
+  // STAGE 1 part 3: the park's north edge moved south to z -38 so the
+  // green zone clears the ring avenue (z -45.5..-38.5).
   const park = new THREE.Group();
-  park.add(box(14, 0.24, 10, 0x7a8b5a, 30, 0.12, -35));
+  park.add(box(14, 0.24, 8, 0x7a8b5a, 30, 0.12, -34));
   const parkTrees = { round: [], cypress: [], pine: [] };
   const parkPalms = [];
   const prnd = seededRandom(4242);
   for (let i = 0; i < 14; i++) {
     const type = TREE_TYPES[i % 4];
     const spec = {
-      x: 24.5 + prnd() * 11, z: -39 + prnd() * 8,
+      x: 24.5 + prnd() * 11, z: -38 + prnd() * 7,
       s: 0.8 + prnd() * 0.5, rot: prnd() * Math.PI * 2, tint: 0xffffff,
     };
     if (type === 'palm') parkPalms.push(spec);
@@ -314,7 +285,7 @@ export function buildDistrict4() {
     park.add(palmMesh);
   }
   const parkFountain = fountain(1.0);
-  parkFountain.position.set(30, 0.24, -35);
+  parkFountain.position.set(30, 0.24, -34);
   park.add(parkFountain);
   tickers.push(parkFountain);
   group.add(park);
