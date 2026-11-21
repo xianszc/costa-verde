@@ -1450,6 +1450,11 @@ export function createGame(container) {
         run(150, {});
         state.time = 18.7;
         updateLighting();
+        // Telephoto straight down: narrow the fov so the 60-floor towers
+        // stand vertical (near-orthographic) instead of leaning over the
+        // street grid. fov 18 at y 420 frames ~126 units vertically.
+        camera.fov = 18;
+        camera.updateProjectionMatrix();
         camera.position.set(ANCHORS.vantage_cbd_top.x, ANCHORS.vantage_cbd_top.y, ANCHORS.vantage_cbd_top.z);
         camera.lookAt(ANCHORS.vantage_cbd_top.look.x, ANCHORS.vantage_cbd_top.look.y, ANCHORS.vantage_cbd_top.look.z);
         camPos.copy(camera.position);

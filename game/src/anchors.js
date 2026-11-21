@@ -189,7 +189,10 @@ export const ANCHORS = {
   // rooftop rows at the bottom of the frame. A true straight-down
   // lookAt is degenerate in Three.js, so the camera sits 18 units
   // south of the look point.
-  vantage_cbd_top: { x: 0, y: 160, z: 12, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
+  // Top-down: telephoto straight down (y 420, fov 18 set in game.js) so
+  // the 60-floor towers stand vertical and the street grid reads instead
+  // of leaning over it. The old y 160 / fov 55 view leaned badly.
+  vantage_cbd_top: { x: 0, y: 420, z: -6, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
 };
 
 // A mission stage target: { x, z, r } where r is the arrival radius.
