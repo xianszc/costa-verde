@@ -14,12 +14,17 @@ import {
 import { seededRandom } from './roads.js';
 
 // --- blocks (x0,z0,x1,z1, kind) ---
-// North strip (z -54..-30), split by the ring avenue (z -45.5..-38.5)
-// into two rows. East strip (x 28..60, z -30..14) and west strip
-// (x -60..-28, z -30..22), split by the boulevard (z -6..6) and the
-// x +/-44 side streets. The old town (x -60..-34, z -52..-26) and the
-// promenade (x 8..60, z 14..30) / marina (x -30..8, z 22..30) are NOT
-// blocks here — parts 4 and 5 build them.
+// GRID REBUILD (Xian 21 Nov 15:22): the CBD grew to x -34.7..34.7,
+// z -45.9..12.3, so the ring blocks that overlapped it are gone or
+// trimmed. North strip (z -54..-30), split by the ring avenue
+// (z -45.5..-38.5) into two rows — the south row's west blocks are
+// CBD blocks now, only the x 45..59 block survives. East strip
+// (x 43.5..60, z -30..14) starts east of the x 40 ring connector.
+// West strip (x -60..-45, z -26..22) — the x -43..-29 blocks are CBD /
+// connector land now, and the remaining west block's north edge clears
+// the old town (z -52..-26). The old town (x -60..-34, z -52..-26)
+// and the promenade (x 8..60, z 14..30) / marina (x -30..8, z 22..30)
+// are NOT blocks here — parts 4 and 5 build them.
 const BLOCKS = [
   // North strip, north row (z -53..-47.5).
   { x0: -33, z0: -53, x1: -21, z1: -47.5, kind: 'commercial' },
@@ -28,26 +33,15 @@ const BLOCKS = [
   { x0: 13, z0: -53, x1: 24, z1: -47.5, kind: 'commercial' },
   { x0: 28, z0: -53, x1: 39, z1: -47.5, kind: 'commercial' },
   { x0: 43, z0: -53, x1: 59, z1: -47.5, kind: 'market' },
-  // North strip, south row (z -37.5..-31) — the x 40 ring connector
-  // (36.5..43.5) cuts through, so the two blocks beside it stop short.
-  { x0: -33, z0: -37.5, x1: -21, z1: -31, kind: 'commercial' },
-  { x0: -17, z0: -37.5, x1: -6, z1: -31, kind: 'commercial' },
-  { x0: -2, z0: -37.5, x1: 9, z1: -31, kind: 'commercial' },
-  { x0: 13, z0: -37.5, x1: 22, z1: -31, kind: 'garage' },
-  // (The block x 28..35 in this row is the PARK — a planned green
-  // zone, not a building block; the block x 46..59 in the east strip
-  // is the harbormaster pavilion's block — M1/M2/M4/M8/M12 stage there
-  // until the marina moves in part 5. Both are left open here.)
+  // North strip, south row (z -37.5..-31) — only the x 45..59 block
+  // survives; the four west blocks are CBD blocks now.
   { x0: 45, z0: -37.5, x1: 59, z1: -31, kind: 'commercial' },
-  // East strip (x 28..60, z -30..14).
-  { x0: 29, z0: -29, x1: 43, z1: -7, kind: 'commercial' },
-  { x0: 29, z0: 7, x1: 43, z1: 13, kind: 'commercial' },
-  { x0: 46, z0: 7, x1: 59, z1: 13, kind: 'commercial' },
-  // West strip (x -60..-28, z -30..22).
-  { x0: -59, z0: -29, x1: -45, z1: -7, kind: 'commercial' },
-  { x0: -43, z0: -29, x1: -29, z1: -7, kind: 'commercial' },
+  // East strip (x 43.5..59, z -30..14) — east of the x 40 connector.
+  { x0: 43.5, z0: -29, x1: 59, z1: -7, kind: 'commercial' },
+  { x0: 43.5, z0: 7, x1: 59, z1: 13, kind: 'commercial' },
+  // West strip (x -59..-45, z -26..22).
+  { x0: -59, z0: -26, x1: -45, z1: -7, kind: 'commercial' },
   { x0: -59, z0: 7, x1: -45, z1: 21, kind: 'commercial' },
-  { x0: -43, z0: 7, x1: -29, z1: 21, kind: 'commercial' },
 ];
 
 const PALETTE = [
@@ -298,7 +292,7 @@ export function buildCommercialRing() {
   const billboards = [
     { x: 3.5, z: -50, text: 'AZZURA', bg: '#1e2a32', fg: '#ffd9a0' },
     { x: 52, z: -50, text: 'SOL', bg: '#c93a6b', fg: '#f7ebd7' },
-    { x: 36, z: -18, text: 'VELA', bg: '#1f7a8c', fg: '#f7ebd7' },
+    { x: 51, z: -18, text: 'VELA', bg: '#1f7a8c', fg: '#f7ebd7' },
     { x: -51, z: -18, text: 'PORTO', bg: '#7a2e2e', fg: '#f7ebd7' },
   ];
   for (const bb of billboards) {
@@ -318,9 +312,9 @@ export function buildCommercialRing() {
     { x: -27, z: -46.5, text: 'BAR', color: 0xff5c8a },
     { x: 3.5, z: -46.5, text: 'HOTEL', color: 0x3ed6d6 },
     { x: 52, z: -36, text: 'CINEMA', color: 0xffc46b },
-    { x: 36, z: -7.5, text: 'DISCO', color: 0xff5c8a },
+    { x: 50, z: -7.5, text: 'DISCO', color: 0xff5c8a },
     { x: -51, z: -7.5, text: 'PIZZA', color: 0x3ed6d6 },
-    { x: -36, z: 14, text: 'MERCATO', color: 0xffc46b },
+    { x: -51, z: 21.5, text: 'MERCATO', color: 0xffc46b },
   ];
   for (const n of neons) {
     const neon = new THREE.Mesh(
@@ -332,10 +326,12 @@ export function buildCommercialRing() {
   }
 
   // --- pedestrian paths along the ring avenue + the boulevard ---
+  // GRID REBUILD: the z -37.5 path ran through CBD blocks (the north
+  // strip's south row is gone); the boulevard path moves to the south
+  // sidewalk (z 1.5) of the narrowed boulevard (sidewalks to z 2.25).
   pedPaths.push(
     { a: { x: -56, z: -46.5 }, b: { x: 56, z: -46.5 } },
-    { a: { x: -56, z: -37.5 }, b: { x: 56, z: -37.5 } },
-    { a: { x: -56, z: 7.25 }, b: { x: 56, z: 7.25 } },
+    { a: { x: -56, z: 1.5 }, b: { x: 56, z: 1.5 } },
   );
 
   return {

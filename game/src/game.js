@@ -185,14 +185,20 @@ export function createGame(container) {
   // --- pedestrians: 8 civilians walking the sidewalks ---
   const peds = [];
   const pedPaths = [
-    { a: { x: -56, z: -7.2 }, b: { x: 56, z: -7.2 } },
-    { a: { x: -56, z: 7.2 }, b: { x: 56, z: 7.2 } },
-    { a: { x: -41.5, z: -40 }, b: { x: -41.5, z: -9 } },
-    { a: { x: -18.5, z: -40 }, b: { x: -18.5, z: -9 } },
-    { a: { x: 1.5, z: -40 }, b: { x: 1.5, z: -9 } },
-    { a: { x: 21.5, z: -40 }, b: { x: 21.5, z: -9 } },
-    { a: { x: 38.5, z: -40 }, b: { x: 38.5, z: -9 } },
-    { a: { x: -56, z: 7.2 }, b: { x: -20, z: 7.2 } },
+    // GRID REBUILD: the boulevard sidewalks are at z -2.0 / +2.0 now
+    // (the road is 3.5 wide); the old z +/-7.2 sidewalks are CBD
+    // blocks. The N-S paths run on real sidewalks too — the ring
+    // connectors' sidewalks (x +/-44.5) and the grid streets' east
+    // sidewalks (x -21.0, 2.0, 23.8) — from the ring avenue to the
+    // boulevard, never through a block.
+    { a: { x: -56, z: -2.0 }, b: { x: 56, z: -2.0 } },
+    { a: { x: -56, z: 2.0 }, b: { x: 56, z: 2.0 } },
+    { a: { x: -44.5, z: -37 }, b: { x: -44.5, z: -9 } },
+    { a: { x: -21.0, z: -37 }, b: { x: -21.0, z: -9 } },
+    { a: { x: 2.0, z: -37 }, b: { x: 2.0, z: -9 } },
+    { a: { x: 23.8, z: -37 }, b: { x: 23.8, z: -9 } },
+    { a: { x: 44.5, z: -37 }, b: { x: 44.5, z: -9 } },
+    { a: { x: -56, z: 2.0 }, b: { x: -20, z: 2.0 } },
   ];
   CIVILIANS.forEach((c, i) => {
     const fig = makeFigure(c.spec);
@@ -1480,9 +1486,8 @@ export function createGame(container) {
       showHUD();
       state.onFoot = true;
       playerMesh.visible = true;
-      // Walk EAST along the south sidewalk (z 7.2): it has no planter
-      // palms (the north sidewalk planters sit at z -7.2, right in the
-      // chase camera) and it faces the bay, boats and skyline.
+      // Walk EAST along the south sidewalk (z 1.5): it faces the bay,
+      // boats and skyline.
       player.x = ANCHORS.sidewalk_south.x; player.z = ANCHORS.sidewalk_south.z; player.angle = 0;
       camPos.set(ANCHORS.vantage_walk_cam.x, ANCHORS.vantage_walk_cam.y, ANCHORS.vantage_walk_cam.z);
       camLook.set(ANCHORS.vantage_walk_cam.look.x, ANCHORS.vantage_walk_cam.look.y, ANCHORS.vantage_walk_cam.look.z);

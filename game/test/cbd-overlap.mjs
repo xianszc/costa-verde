@@ -1,11 +1,14 @@
-// CBD overlap test (Xian 21 Nov 15:02 — the towers stood packed with no
-// visible streets, because the old 4-5-wide towers covered the 2-wide
-// streets). Fails if any CBD tower / podium footprint intersects a road
-// polygon or another tower / podium footprint. The towers are 3.0-3.4
-// wide on a 6-unit pitch, so the 2.4-wide streets clear them by 0.1-0.3;
-// this test pins that. Sidewalks are NOT checked: the towers front
-// directly onto them (a dense CBD street wall), so the sidewalk slabs
-// legitimately run under the tower bases.
+// CBD overlap test (GRID REBUILD, Xian 21 Nov 15:22 — the towers stood
+// packed with no visible streets, because the old 4-5-wide towers
+// covered the 2-wide streets). Fails if any CBD tower / podium
+// footprint intersects a road polygon or another tower / podium
+// footprint. The towers stand on BLOCKS (one per block, twin pairs on
+// a shared podium), set back 8-15 m from the curb, so they clear every
+// road by >= 1.0. Sidewalks are NOT checked: the towers front directly
+// onto them (a dense CBD street wall), so the sidewalk slabs
+// legitimately run under the tower bases. A tower footprint fully
+// inside a podium footprint is BY DESIGN (twin towers rise from their
+// shared podium) and is not counted.
 //
 // Usage: node game/test/cbd-overlap.mjs   (from the repo root)
 // Exit 0 = PASS (0 overlaps), exit 1 = FAIL.
@@ -14,6 +17,9 @@ import { roadRects, boulevardMedianSegments } from '../src/roads.js';
 
 function overlaps(a, b) {
   return a.x0 < b.x1 && a.x1 > b.x0 && a.z0 < b.z1 && a.z1 > b.z0;
+}
+function contains(outer, inner) {
+  return inner.x0 >= outer.x0 && inner.x1 <= outer.x1 && inner.z0 >= outer.z0 && inner.z1 <= outer.z1;
 }
 
 const cbd = buildCBD();
@@ -32,9 +38,14 @@ for (const f of footprints) {
 let selfOverlaps = [];
 for (let i = 0; i < footprints.length; i++) {
   for (let j = i + 1; j < footprints.length; j++) {
-    if (overlaps(footprints[i], footprints[j])) {
-      selfOverlaps.push(`${footprints[i].id} [${footprints[i].x0.toFixed(2)},${footprints[i].z0.toFixed(2)}-${footprints[i].x1.toFixed(2)},${footprints[i].z1.toFixed(2)}] x ${footprints[j].id} [${footprints[j].x0.toFixed(2)},${footprints[j].z0.toFixed(2)}-${footprints[j].x1.toFixed(2)},${footprints[j].z1.toFixed(2)}]`);
-    }
+    const a = footprints[i], b = footprints[j];
+    if (!overlaps(a, b)) continue;
+    // Twin towers rise from their shared podium — a tower fully
+    // inside a podium is the design, not an overlap.
+    const podium = a.id === 'cbd-podium' ? a : b.id === 'cbd-podium' ? b : null;
+    const tower = a.id === 'cbd-tower' ? a : b.id === 'cbd-tower' ? b : null;
+    if (podium && tower && contains(podium, tower)) continue;
+    selfOverlaps.push(`${a.id} [${a.x0.toFixed(2)},${a.z0.toFixed(2)}-${a.x1.toFixed(2)},${a.z1.toFixed(2)}] x ${b.id} [${b.x0.toFixed(2)},${b.z0.toFixed(2)}-${b.x1.toFixed(2)},${b.z1.toFixed(2)}]`);
   }
 }
 

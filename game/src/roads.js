@@ -18,6 +18,12 @@ import * as THREE from '../vendor/three.module.min.js';
 import { M, mergedMesh, colored, xform, vertexColorMat, buildSkylineCluster } from './world.js';
 import { buildTrafficCar, buildPoliceCruiser } from './vehicles.js';
 import { makeFigure, CIVILIANS } from './people.js';
+import {
+  cbdGridRoadRects, cbdGridSidewalkRects, cbdGridMedianSegments,
+  cbdGridLanes, cbdGridMinimap,
+} from './cbd-grid.js';
+// The boulevard median lives in the grid module now (cbd-grid.js).
+export { cbdGridMedianSegments as boulevardMedianSegments };
 
 export function seededRandom(seed) {
   let a = seed >>> 0;
@@ -305,97 +311,68 @@ function lampRow() {
 }
 
 // ---------- District 4 (Lungomare) road network ----------
-// V3 (stage 1): a tidy grid. The boulevard runs east-west through the
-// CBD (z -6..6). The CBD's north-south streets sit in the gaps between
-// tower columns (6-unit pitch, 2.4-unit = 24 m streets, z -30..18) —
-// the old cross streets at x -20/0/20 cut through the tower grid and
-// are gone. The ring connectors at x +/-40 (7 wide, z -42..6) link the
-// old town and the commercial ring to the boulevard. The quay (z
-// 8.5..13) fronts the bay. Sidewalks step up 0.12 beside every road.
-//
-// CBD STREET GRID (Xian 21 Nov 15:02): the towers are 3.0-3.4 wide, so
-// the 2.4-wide streets between them are REAL and CLEAR — 8 north-south
-// streets in the tower gaps + 4 east-west streets in the row gaps, plus
-// the boulevard (the main east-west avenue, 12 wide, 4 lanes + median).
-// The old 2-wide streets were covered by the 4-5-wide tower bases, and
-// there were NO east-west streets at all (only the boulevard).
-export const BOULEVARD = { x0: -60, x1: 60, z0: -6, z1: 6 };
+// GRID REBUILD (Xian 21 Nov 15:22): the CBD streets now live in
+// cbd-grid.js — the single source of truth for the CBD grid (avenues +
+// streets, blocks, medians, markings, lamps, signals). This module keeps
+// the roads OUTSIDE the CBD: the ring avenue (split west/east of the
+// CBD — inside the CBD x-range the z -44.8 grid street takes its place),
+// the ring side streets, the x +/-40 connectors, and the quay.
+// The boulevard (z 0, 3.5 wide) and the N-S avenue (x 0) are grid
+// roads now; the grid module builds their slabs, sidewalks and markings
+// for the full x -60..60 / z -45.9..12.3 extent.
+export const BOULEVARD = { x0: -60, x1: 60, z0: -1.75, z1: 1.75 };
 export const CROSS_X = [-40, 40];
 export const CROSS = { z0: -42, z1: 6, half: 3.5 };
-// CBD north-south streets (in the tower gaps), 2.4 wide, z -30..18.
-export const CBD_STREETS_X = [-21, -15, -9, -3, 3, 9, 15, 21];
-export const CBD_STREET = { z0: -30, z1: 18, half: 1.2 };
-// CBD east-west streets (in the row gaps), 2.4 wide, x -23..23. The
-// row gaps are at z -24, -18, -12 (north of the boulevard) and z 12
-// (south, between the rows at 9 and 15). They stop at x +/-23 so they
-// clear the edge podiums at x +/-27.
-export const CBD_STREETS_Z = [-24, -18, -12, 12];
-export const CBD_STREET_Z = { x0: -23, x1: 23, half: 1.2 };
-// Boulevard median segments (the divided avenue): the median runs
-// along z 0 between the north-south streets, with a gap at every
-// intersection so cars and pedestrians cross there. Exported for the
-// overlap test and for city.js (median colliders).
-export function boulevardMedianSegments() {
-  const bounds = [-60, ...CBD_STREETS_X.flatMap((x) => [x - CBD_STREET.half, x + CBD_STREET.half]), 60];
-  const segs = [];
-  for (let i = 0; i < bounds.length; i += 2) {
-    const x0 = bounds[i], x1 = bounds[i + 1];
-    if (x1 - x0 > 1) segs.push({ x0, z0: -0.5, x1, z1: 0.5 });
-  }
-  return segs;
-}
-// Commercial-ring streets (stage 1 part 3): the east-west avenue at
-// z -42 (7 wide, x -60..60) splits the north strip into two block
-// rows, and 2-wide side streets split the blocks (north strip z
-// -54..-30, east strip z -30..14, west strip z -30..22).
+// Ring avenue (z -42, 7 wide): split into west/east segments outside
+// the CBD (x -34.7..34.7 is the grid's z -44.8 street now).
+export const RING_AVENUE_W = { x0: -60, x1: -34.7, z0: -45.5, z1: -38.5 };
+export const RING_AVENUE_E = { x0: 34.7, x1: 60, z0: -45.5, z1: -38.5 };
 export const RING_AVENUE = { x0: -60, x1: 60, z0: -45.5, z1: -38.5 };
 export const RING_STREETS = [
-  { x: -19, z0: -54, z1: -30 }, { x: -4, z0: -54, z1: -30 },
-  { x: 11, z0: -54, z1: -30 }, { x: 26, z0: -54, z1: -30 },
+  // GRID REBUILD: the four streets inside the CBD x-range end at the
+  // CBD's north edge (z -45.9) — the old z -30 ends cut straight
+  // through the CBD's north tower rows (the overlap test caught 7
+  // tower-vs-road overlaps). They still split the north-strip north
+  // row (z -53..-47.5). The x 41 street (east of the CBD) keeps its
+  // full length; x -44 keeps its (west of the CBD).
+  { x: -19, z0: -54, z1: -45.9 }, { x: -4, z0: -54, z1: -45.9 },
+  { x: 11, z0: -54, z1: -45.9 }, { x: 26, z0: -54, z1: -45.9 },
   { x: 41, z0: -54, z1: -30 }, { x: 44, z0: -30, z1: 14 },
   { x: -44, z0: -30, z1: 22 },
 ];
 export const RING_STREET_HALF = 1;
-// The quay (the waterfront promenade strip, z 11..13): the clear
-// walkable strip NORTH of the CBD's south tower row. The quay PAVING
-// (the mesh, z 8.5..13) runs under the towers' fronts — the towers at
-// row z 9 end at z 10.7, so the paving is their forecourt — but the
-// ROAD rect starts at z 11 so no tower footprint overlaps a road
-// (cbd-overlap.mjs). The old rect (z 8.5..13) put 9 towers on the road.
-export const QUAY = { x0: -60, x1: 60, z0: 11, z1: 13 };
-export const WATER_Z = 13;
+// The quay (the waterfront walkway, z 12.7..14.5): south of the CBD's
+// south street (z 11.2, sidewalks to 12.7), north of the promenade
+// (z 14..35). The old strip (z 8.5..13) sat under the new south street.
+export const QUAY = { x0: -60, x1: 60, z0: 12.7, z1: 14.5 };
+export const WATER_Z = 14.5;
 
 function rect(x0, z0, x1, z1) { return { x0, z0, x1, z1 }; }
 export function roadRects() {
-  const r = [rect(BOULEVARD.x0, BOULEVARD.z0, BOULEVARD.x1, BOULEVARD.z1)];
+  // The CBD grid roads come from cbd-grid.js (the single source of
+  // truth); this module adds the ring roads around them.
+  const r = cbdGridRoadRects();
+  r.push(
+    rect(RING_AVENUE_W.x0, RING_AVENUE_W.z0, RING_AVENUE_W.x1, RING_AVENUE_W.z1),
+    rect(RING_AVENUE_E.x0, RING_AVENUE_E.z0, RING_AVENUE_E.x1, RING_AVENUE_E.z1),
+  );
   for (const cx of CROSS_X) r.push(rect(cx - CROSS.half, CROSS.z0, cx + CROSS.half, CROSS.z1));
-  for (const sx of CBD_STREETS_X) r.push(rect(sx - CBD_STREET.half, CBD_STREET.z0, sx + CBD_STREET.half, CBD_STREET.z1));
-  for (const sz of CBD_STREETS_Z) r.push(rect(CBD_STREET_Z.x0, sz - CBD_STREET_Z.half, CBD_STREET_Z.x1, sz + CBD_STREET_Z.half));
-  r.push(rect(RING_AVENUE.x0, RING_AVENUE.z0, RING_AVENUE.x1, RING_AVENUE.z1));
   for (const s of RING_STREETS) r.push(rect(s.x - RING_STREET_HALF, s.z0, s.x + RING_STREET_HALF, s.z1));
   r.push(rect(QUAY.x0, QUAY.z0, QUAY.x1, QUAY.z1));
   return r;
 }
 function sidewalkRects() {
-  const r = [
-    rect(BOULEVARD.x0, -8.5, BOULEVARD.x1, -6),
-    rect(BOULEVARD.x0, 6, BOULEVARD.x1, 8.5),
-    rect(QUAY.x0, 13, QUAY.x1, 14.2),
-    rect(RING_AVENUE.x0, -47.5, RING_AVENUE.x1, -45.5),
-    rect(RING_AVENUE.x0, -38.5, RING_AVENUE.x1, -36.5),
-  ];
+  const r = cbdGridSidewalkRects();
+  r.push(
+    rect(QUAY.x0, 14.5, QUAY.x1, 15.7),
+    rect(RING_AVENUE_W.x0, -47.5, RING_AVENUE_W.x1, -45.5),
+    rect(RING_AVENUE_W.x0, -38.5, RING_AVENUE_W.x1, -36.5),
+    rect(RING_AVENUE_E.x0, -47.5, RING_AVENUE_E.x1, -45.5),
+    rect(RING_AVENUE_E.x0, -38.5, RING_AVENUE_E.x1, -36.5),
+  );
   for (const cx of CROSS_X) {
     r.push(rect(cx - CROSS.half - 2, CROSS.z0, cx - CROSS.half, CROSS.z1));
     r.push(rect(cx + CROSS.half, CROSS.z0, cx + CROSS.half + 2, CROSS.z1));
-  }
-  for (const sx of CBD_STREETS_X) {
-    r.push(rect(sx - CBD_STREET.half - 0.7, CBD_STREET.z0, sx - CBD_STREET.half, CBD_STREET.z1));
-    r.push(rect(sx + CBD_STREET.half, CBD_STREET.z0, sx + CBD_STREET.half + 0.7, CBD_STREET.z1));
-  }
-  // CBD east-west street sidewalks (0.7 wide, both sides).
-  for (const sz of CBD_STREETS_Z) {
-    r.push(rect(CBD_STREET_Z.x0, sz - CBD_STREET_Z.half - 0.7, CBD_STREET_Z.x1, sz - CBD_STREET_Z.half));
-    r.push(rect(CBD_STREET_Z.x0, sz + CBD_STREET_Z.half, CBD_STREET_Z.x1, sz + CBD_STREET_Z.half + 0.7));
   }
   for (const s of RING_STREETS) {
     r.push(rect(s.x - RING_STREET_HALF - 0.7, s.z0, s.x - RING_STREET_HALF, s.z1));
@@ -443,30 +420,31 @@ function loopPath(x0, z0, x1, z1, r = 4) {
 }
 export function trafficLanes() {
   return [
-    { name: 'boulevard', pts: loopPath(-56, -3.4, 56, 3.4, 4), speed: 9 },
+    // Boulevard loop (the main east-west avenue, lanes at z +/-0.7).
+    { name: 'boulevard', pts: loopPath(-56, -0.7, 56, 0.7, 4), speed: 9 },
     // West block: boulevard lanes + the x=-40 ring connector and the
-    // x=-21 tower-gap street (the old x=0 leg cut through the CBD).
-    { name: 'west-block', pts: loopPath(-39, -41, -21, 3.4, 1.2), speed: 7 },
-    // East block: boulevard lanes + the x=21 tower-gap street and the
-    // x=40 ring connector (the old x=20 leg cut through the CBD).
-    { name: 'east-block', pts: loopPath(21, -40, 39, 3.4, 1.2), speed: 7 },
-    // Ring avenue: east-west along z -42 through the commercial ring.
-    { name: 'ring-avenue', pts: loopPath(-56, -44.5, 56, -39.5, 2), speed: 7 },
-    // CBD grid: a rectangular loop around the core on the east-west
-    // streets (z -18 and z 12) and the outer north-south streets
-    // (x -21 and x 21) — traffic actually uses the new grid now, not
-    // just the boulevard.
-    { name: 'cbd-grid', pts: loopPath(-21, -18, 21, 12, 1.2), speed: 7 },
+    // x=-22.4 grid street (the old x=-21 leg cut through the CBD).
+    { name: 'west-block', pts: loopPath(-39, -41, -22.4, 0.7, 1.2), speed: 7 },
+    // East block: boulevard lanes + the x=22.4 grid street and the
+    // x=40 ring connector.
+    { name: 'east-block', pts: loopPath(22.4, -40, 39, 0.7, 1.2), speed: 7 },
+    // Ring avenue, split west/east of the CBD (the grid's z -44.8
+    // street takes its place inside the CBD x-range).
+    { name: 'ring-avenue-west', pts: loopPath(-56, -44.5, -36, -39.5, 2), speed: 7 },
+    { name: 'ring-avenue-east', pts: loopPath(36, -44.5, 56, -39.5, 2), speed: 7 },
+    // The CBD grid loops (cbd-grid.js) — traffic actually uses the new
+    // grid now, not just the boulevard.
+    ...cbdGridLanes(),
   ];
 }
 export function minimapLines() {
-  const lines = [{ x1: BOULEVARD.x0, z1: 0, x2: BOULEVARD.x1, z2: 0, w: 12 }];
+  const lines = [{ x1: BOULEVARD.x0, z1: 0, x2: BOULEVARD.x1, z2: 0, w: 3.5 }];
   for (const cx of CROSS_X) lines.push({ x1: cx, z1: CROSS.z0, x2: cx, z2: CROSS.z1, w: 7 });
-  for (const sx of CBD_STREETS_X) lines.push({ x1: sx, z1: CBD_STREET.z0, x2: sx, z2: CBD_STREET.z1, w: 2.4 });
-  for (const sz of CBD_STREETS_Z) lines.push({ x1: CBD_STREET_Z.x0, z1: sz, x2: CBD_STREET_Z.x1, z2: sz, w: 2.4 });
-  lines.push({ x1: RING_AVENUE.x0, z1: -42, x2: RING_AVENUE.x1, z2: -42, w: 7 });
+  lines.push(...cbdGridMinimap());
+  lines.push({ x1: RING_AVENUE_W.x0, z1: -42, x2: RING_AVENUE_W.x1, z2: -42, w: 7 });
+  lines.push({ x1: RING_AVENUE_E.x0, z1: -42, x2: RING_AVENUE_E.x1, z2: -42, w: 7 });
   for (const s of RING_STREETS) lines.push({ x1: s.x, z1: s.z0, x2: s.x, z2: s.z1, w: 2 });
-  lines.push({ x1: QUAY.x0, z1: 12, x2: QUAY.x1, z2: 12, w: 2 });
+  lines.push({ x1: QUAY.x0, z1: 13.6, x2: QUAY.x1, z2: 13.6, w: 1.8 });
   return lines;
 }
 
@@ -480,17 +458,16 @@ export function buildRoadNetwork() {
   const roadMat = new THREE.MeshStandardMaterial({
     map: tex, roughness: 0.92, metalness: 0.0, flatShading: true,
   });
+  // GRID REBUILD (Xian 21 Nov 15:22): the boulevard + CBD streets are
+  // built by cbd-grid.js (the single source of truth) — this module
+  // builds ONLY the roads outside the CBD: the x +/-40 connectors, the
+  // ring avenue (split west/east of the CBD) and the ring side streets.
   const parts = [];
-  // Road slabs (12 wide; 44 x 7.5m tiles).
-  for (let x = -60; x < 60; x += 7.5) parts.push(colored(xform(new THREE.BoxGeometry(7.5, 0.3, 12), x + 3.75, 0.05, 0), 0xffffff));
   // Cross streets (7 wide, 42 long) — one box per street, not 9 tiles.
   for (const cx of CROSS_X) parts.push(colored(xform(new THREE.BoxGeometry(7, 0.3, 48), cx, 0.05, -18), 0xffffff));
-  // CBD north-south streets (2.4 wide, 48 long, z -30..18) — one box each.
-  for (const sx of CBD_STREETS_X) parts.push(colored(xform(new THREE.BoxGeometry(2.4, 0.3, 48), sx, 0.05, -6), 0xffffff));
-  // CBD east-west streets (2.4 wide, 46 long, x -23..23) — one box each.
-  for (const sz of CBD_STREETS_Z) parts.push(colored(xform(new THREE.BoxGeometry(46, 0.3, 2.4), 0, 0.05, sz), 0xffffff));
-  // Ring avenue (7 wide, 120 long, z -42) + ring side streets (2 wide).
-  parts.push(colored(xform(new THREE.BoxGeometry(120, 0.3, 7), 0, 0.05, -42), 0xffffff));
+  // Ring avenue (7 wide, z -42) — split west/east of the CBD.
+  parts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_W.x1 - RING_AVENUE_W.x0, 0.3, 7), (RING_AVENUE_W.x0 + RING_AVENUE_W.x1) / 2, 0.05, -42), 0xffffff));
+  parts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.3, 7), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.05, -42), 0xffffff));
   for (const s of RING_STREETS) {
     const len = s.z1 - s.z0;
     parts.push(colored(xform(new THREE.BoxGeometry(2, 0.3, len), s.x, 0.05, (s.z0 + s.z1) / 2), 0xffffff));
@@ -498,27 +475,16 @@ export function buildRoadNetwork() {
   // Sidewalks (light warm grey, one step lighter than the road) with a
   // physical height step (y 0.12) and visible curbs.
   const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true });
-  const swParts = [
-    colored(xform(new THREE.BoxGeometry(120, 0.24, 2.5), 0, 0.12, -7.25), 0xffffff),
-    colored(xform(new THREE.BoxGeometry(120, 0.24, 2.5), 0, 0.12, 7.25), 0xffffff),
-  ];
+  const swParts = [];
   for (const cx of CROSS_X) {
     swParts.push(colored(xform(new THREE.BoxGeometry(2, 0.24, 48), cx - CROSS.half - 1, 0.12, -18), 0xffffff));
     swParts.push(colored(xform(new THREE.BoxGeometry(2, 0.24, 48), cx + CROSS.half + 1, 0.12, -18), 0xffffff));
   }
-  // CBD street sidewalks (0.7 wide, beside each 2.4-wide street).
-  for (const sx of CBD_STREETS_X) {
-    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, 48), sx - CBD_STREET.half - 0.35, 0.12, -6), 0xffffff));
-    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, 48), sx + CBD_STREET.half + 0.35, 0.12, -6), 0xffffff));
-  }
-  // CBD east-west street sidewalks (0.7 wide, both sides).
-  for (const sz of CBD_STREETS_Z) {
-    swParts.push(colored(xform(new THREE.BoxGeometry(46, 0.24, 0.7), 0, 0.12, sz - CBD_STREET_Z.half - 0.35), 0xffffff));
-    swParts.push(colored(xform(new THREE.BoxGeometry(46, 0.24, 0.7), 0, 0.12, sz + CBD_STREET_Z.half + 0.35), 0xffffff));
-  }
   // Ring avenue sidewalks + ring street sidewalks.
-  swParts.push(colored(xform(new THREE.BoxGeometry(120, 0.24, 2), 0, 0.12, -46.5), 0xffffff));
-  swParts.push(colored(xform(new THREE.BoxGeometry(120, 0.24, 2), 0, 0.12, -37.5), 0xffffff));
+  swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_W.x1 - RING_AVENUE_W.x0, 0.24, 2), (RING_AVENUE_W.x0 + RING_AVENUE_W.x1) / 2, 0.12, -46.5), 0xffffff));
+  swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_W.x1 - RING_AVENUE_W.x0, 0.24, 2), (RING_AVENUE_W.x0 + RING_AVENUE_W.x1) / 2, 0.12, -37.5), 0xffffff));
+  swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.24, 2), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.12, -46.5), 0xffffff));
+  swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.24, 2), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.12, -37.5), 0xffffff));
   for (const s of RING_STREETS) {
     const len = s.z1 - s.z0;
     const zc = (s.z0 + s.z1) / 2;
@@ -528,64 +494,34 @@ export function buildRoadNetwork() {
   const sw = mergedMesh(swParts, sidewalkMat);
   sw.name = 'sidewalks';
   g.add(sw);
-  // Quay (z 8.5..13) — wide paved promenade fronting the bay.
+  // Quay (z 12.7..14.5) — the waterfront walkway south of the CBD's
+  // south street, north of the promenade (z 14..35).
   const quayTex = roadTexture('plaza', 5);
   quayTex.repeat.set(14, 1);
   const quayMat = new THREE.MeshStandardMaterial({ map: quayTex, roughness: 0.95, flatShading: true });
-  const quay = new THREE.Mesh(new THREE.BoxGeometry(120, 0.3, 4.5), quayMat);
-  quay.position.set(0, 0.06, 10.75);
+  const quay = new THREE.Mesh(new THREE.BoxGeometry(120, 0.3, 1.8), quayMat);
+  quay.position.set(0, 0.06, 13.6);
   quay.name = 'quay';
   g.add(quay);
   const road = mergedMesh(parts, roadMat);
   road.name = 'roads';
   g.add(road);
-  // ---------- boulevard median (the divided avenue) ----------
-  // A low concrete median along z 0, in segments between the
-  // north-south streets (gaps at every intersection so cars and
-  // pedestrians cross there). Longer segments get a planter with a
-  // small shrub — the median reads as a green spine from above, and it
-  // makes the boulevard read as 4 lanes, not one wide slab.
-  const medianMat = new THREE.MeshStandardMaterial({ color: 0xb8b2a4, roughness: 0.95, flatShading: true });
-  const medianParts = [];
-  const planterMat = new THREE.MeshStandardMaterial({ color: 0x5a7a4a, roughness: 0.95, flatShading: true });
-  const planterParts = [];
-  for (const seg of boulevardMedianSegments()) {
-    const len = seg.x1 - seg.x0;
-    const cx = (seg.x0 + seg.x1) / 2;
-    medianParts.push(colored(xform(new THREE.BoxGeometry(len, 0.35, 1.0), cx, 0.175, 0), 0xffffff));
-    if (len > 4) planterParts.push(colored(xform(new THREE.BoxGeometry(1.6, 0.5, 0.7), cx, 0.6, 0), 0xffffff));
-  }
-  if (medianParts.length) {
-    const medianMesh = mergedMesh(medianParts, medianMat);
-    medianMesh.name = 'boulevardMedian';
-    g.add(medianMesh);
-  }
-  if (planterParts.length) {
-    const planterMesh = mergedMesh(planterParts, planterMat);
-    planterMesh.name = 'medianPlanters';
-    g.add(planterMesh);
-  }
+  // ---------- boulevard median ----------
+  // Built by cbd-grid.js now (median + planters along the boulevard,
+  // with gaps at every intersection). Nothing to add here.
   // ---------- markings (worn, never crisp) ----------
   // Widened + brightened (Xian 21 Nov 15:02): the old 0.12-0.15-wide
   // markings at 0.5 opacity washed out from above — the streets must
   // READ from a top-down view, so the dashes and edges are wider and
-  // more opaque now.
+  // more opaque now. CBD/boulevard markings live in cbd-grid.js.
   const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.75 });
   const dashes = [];
-  for (let x = -56; x <= 56; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, 0), 0xffffff));
   for (const cx of CROSS_X) {
     for (let z = -40; z <= 4; z += 5) dashes.push(colored(xform(new THREE.BoxGeometry(0.22, 0.01, 3), cx, 0.22, z), 0xffffff));
   }
-  // CBD street centre dashes (single line, the streets are 2.4 wide).
-  for (const sx of CBD_STREETS_X) {
-    for (let z = -28; z <= 16; z += 4) dashes.push(colored(xform(new THREE.BoxGeometry(0.2, 0.01, 2), sx, 0.22, z), 0xffffff));
-  }
-  // CBD east-west street centre dashes.
-  for (const sz of CBD_STREETS_Z) {
-    for (let x = -21; x <= 21; x += 4) dashes.push(colored(xform(new THREE.BoxGeometry(2, 0.01, 0.2), x, 0.22, sz), 0xffffff));
-  }
-  // Ring avenue dashes + ring street dashes.
-  for (let x = -56; x <= 56; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, -42), 0xffffff));
+  // Ring avenue dashes (split west/east) + ring street dashes.
+  for (let x = -56; x <= -38; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, -42), 0xffffff));
+  for (let x = 38; x <= 56; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, -42), 0xffffff));
   for (const s of RING_STREETS) {
     for (let z = s.z0 + 2; z <= s.z1 - 2; z += 4) dashes.push(colored(xform(new THREE.BoxGeometry(0.15, 0.01, 2), s.x, 0.22, z), 0xffffff));
   }
@@ -593,27 +529,17 @@ export function buildRoadNetwork() {
   dashMesh.name = 'dashes';
   g.add(dashMesh);
   const yellowMat = new THREE.MeshBasicMaterial({ color: 0xe8c33d, transparent: true, opacity: 0.65 });
-  const edges = [
-    colored(xform(new THREE.BoxGeometry(120, 0.01, 0.3), 0, 0.22, -5.6), 0xffffff),
-    colored(xform(new THREE.BoxGeometry(120, 0.01, 0.3), 0, 0.22, 5.6), 0xffffff),
-  ];
+  const edges = [];
   for (const cx of CROSS_X) {
     edges.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 48), cx - 3.2, 0.22, -18), 0xffffff));
     edges.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 48), cx + 3.2, 0.22, -18), 0xffffff));
   }
-  // CBD street edges (thin, at the road's edge).
-  for (const sx of CBD_STREETS_X) {
-    edges.push(colored(xform(new THREE.BoxGeometry(0.18, 0.01, 48), sx - 1.05, 0.22, -6), 0xffffff));
-    edges.push(colored(xform(new THREE.BoxGeometry(0.18, 0.01, 48), sx + 1.05, 0.22, -6), 0xffffff));
+  // Ring avenue edges (split west/east) + ring street edges.
+  for (const seg of [RING_AVENUE_W, RING_AVENUE_E]) {
+    const w = seg.x1 - seg.x0, xc = (seg.x0 + seg.x1) / 2;
+    edges.push(colored(xform(new THREE.BoxGeometry(w, 0.01, 0.3), xc, 0.22, -45.2), 0xffffff));
+    edges.push(colored(xform(new THREE.BoxGeometry(w, 0.01, 0.3), xc, 0.22, -38.8), 0xffffff));
   }
-  // CBD east-west street edges.
-  for (const sz of CBD_STREETS_Z) {
-    edges.push(colored(xform(new THREE.BoxGeometry(46, 0.01, 0.18), 0, 0.22, sz - 1.05), 0xffffff));
-    edges.push(colored(xform(new THREE.BoxGeometry(46, 0.01, 0.18), 0, 0.22, sz + 1.05), 0xffffff));
-  }
-  // Ring avenue edges + ring street edges.
-  edges.push(colored(xform(new THREE.BoxGeometry(120, 0.01, 0.3), 0, 0.22, -45.2), 0xffffff));
-  edges.push(colored(xform(new THREE.BoxGeometry(120, 0.01, 0.3), 0, 0.22, -38.8), 0xffffff));
   for (const s of RING_STREETS) {
     const len = s.z1 - s.z0;
     const zc = (s.z0 + s.z1) / 2;
@@ -624,52 +550,34 @@ export function buildRoadNetwork() {
   edgeMesh.name = 'edges';
   g.add(edgeMesh);
   // Zebra crossings — narrow (3.6 wide), 6 short stripes, only where a
-  // cross street meets the boulevard (real intersections), so they read
-  // as crossings instead of dominating the whole road.
+  // ring connector meets the boulevard (real intersections), so they
+  // read as crossings instead of dominating the whole road. The grid
+  // builds its own zebras at its 42 intersections.
   const zebraMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.65 });
   const zebras = [];
-  for (const cx of [...CROSS_X, ...CBD_STREETS_X]) {
-    for (let dz = -4.0; dz <= 4.0; dz += 1.6) {
+  for (const cx of CROSS_X) {
+    for (let dz = -1.4; dz <= 1.4; dz += 0.7) {
       zebras.push(colored(xform(new THREE.BoxGeometry(0.28, 0.01, 3.6), cx, 0.22, dz), 0xffffff));
-    }
-  }
-  // Zebras across the east-west CBD streets at every north-south
-  // street (the grid intersections) — so the grid reads as crossings
-  // from above, not just as parallel strips.
-  for (const sz of CBD_STREETS_Z) {
-    for (const sx of CBD_STREETS_X) {
-      for (let dx = -1.6; dx <= 1.6; dx += 1.6) {
-        zebras.push(colored(xform(new THREE.BoxGeometry(3.6, 0.01, 0.28), sx + dx, 0.22, sz), 0xffffff));
-      }
     }
   }
   const zebraMesh = mergedMesh(zebras, zebraMat);
   zebraMesh.name = 'zebras';
   g.add(zebraMesh);
-  // Stop lines + turn arrows at intersections (worn).
+  // Stop lines at the connector intersections (on the boulevard lanes,
+  // 4.6 out from the connector centreline, facing the crossing).
   const stopMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.55 });
   const stops = [];
   for (const cx of CROSS_X) {
-    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx - 4.6, 0.22, -3.4), 0xffffff));
-    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx + 4.6, 0.22, 3.4), 0xffffff));
-  }
-  // CBD streets: stop lines at the street's edge (the streets are 2.4 wide).
-  for (const sx of CBD_STREETS_X) {
-    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), sx - 1.6, 0.22, -3.4), 0xffffff));
-    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), sx + 1.6, 0.22, 3.4), 0xffffff));
-  }
-  // East-west CBD streets: stop lines where they meet the north-south
-  // streets (on the east-west street, either side of each crossing).
-  for (const sz of CBD_STREETS_Z) {
-    for (const sx of CBD_STREETS_X) {
-      stops.push(colored(xform(new THREE.BoxGeometry(2.8, 0.01, 0.4), sx - 1.6, 0.22, sz - 1.6), 0xffffff));
-      stops.push(colored(xform(new THREE.BoxGeometry(2.8, 0.01, 0.4), sx + 1.6, 0.22, sz + 1.6), 0xffffff));
-    }
+    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx - 4.6, 0.22, -0.725), 0xffffff));
+    stops.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, 2.8), cx + 4.6, 0.22, 0.725), 0xffffff));
   }
   const stopMesh = mergedMesh(stops, stopMat);
   stopMesh.name = 'stoplines';
   g.add(stopMesh);
-  // Turn arrows (worn triangles).
+  // Turn arrows at the connector intersections. The arrow shape points
+  // north (+Y) at ry 0 after flattening (rotateX -PI/2); east is
+  // -PI/2, west +PI/2. Eastbound lane (z +0.725) gets an east arrow,
+  // westbound (z -0.725) a west arrow, 5 units out from the crossing.
   const arrowGeo = new THREE.Shape();
   arrowGeo.moveTo(-0.5, 0); arrowGeo.lineTo(0.5, 0); arrowGeo.lineTo(0.5, 1.6);
   arrowGeo.lineTo(1.1, 1.6); arrowGeo.lineTo(0, 2.8); arrowGeo.lineTo(-1.1, 1.6);
@@ -677,50 +585,24 @@ export function buildRoadNetwork() {
   const arrowMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.45 });
   const arrowParts = [];
   for (const cx of CROSS_X) {
-    const sh1 = new THREE.ShapeGeometry(arrowGeo);
-    arrowParts.push(colored(xform(sh1, cx, 0.22, -3.4, 0, Math.PI, 0), 0xffffff));
-    const sh2 = new THREE.ShapeGeometry(arrowGeo);
-    arrowParts.push(colored(xform(sh2, cx, 0.22, 3.4, 0, 0, 0), 0xffffff));
+    arrowParts.push(colored(xform(new THREE.ShapeGeometry(arrowGeo), cx - 5, 0.22, 0.725, -Math.PI / 2, 1, -Math.PI / 2), 0xffffff));
+    arrowParts.push(colored(xform(new THREE.ShapeGeometry(arrowGeo), cx + 5, 0.22, -0.725, Math.PI / 2, 1, -Math.PI / 2), 0xffffff));
   }
   const arrowMesh = mergedMesh(arrowParts, arrowMat);
   arrowMesh.name = 'arrows';
   g.add(arrowMesh);
-  // Parking bays (white outline, worn) along the boulevard edges.
-  const bayMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.4 });
-  const bays = [];
-  for (const bx of [-48, -38, -28, -18, -8, 2, 12, 22, 32, 42]) {
-    bays.push(colored(xform(new THREE.BoxGeometry(6.4, 0.01, 0.12), bx, 0.22, -4.9), 0xffffff));
-    bays.push(colored(xform(new THREE.BoxGeometry(6.4, 0.01, 0.12), bx, 0.22, 4.9), 0xffffff));
-  }
-  const bayMesh = mergedMesh(bays, bayMat);
-  bayMesh.name = 'bays';
-  g.add(bayMesh);
   // ---------- furniture ----------
-  // Curbs: raised lip between road and sidewalk (height step is visible).
-  const curbMat = new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.95 });
-  const curbs = [
-    colored(xform(new THREE.BoxGeometry(120, 0.34, 0.3), 0, 0.17, -6.05), 0xffffff),
-    colored(xform(new THREE.BoxGeometry(120, 0.34, 0.3), 0, 0.17, 6.05), 0xffffff),
-  ];
-  const curbMesh = mergedMesh(curbs, curbMat);
-  curbMesh.name = 'curbs';
-  g.add(curbMesh);
-  // Manholes + grates.
-  const metal = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.6, metalness: 0.7 });
-  const metalParts = [];
-  for (const mx of [-32, -8, 18, 44]) metalParts.push(colored(xform(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 12), mx, 0.22, -3.4), 0xffffff));
-  for (const gx of [-24, 8, 34]) {
-    for (let i = 0; i < 4; i++) metalParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.02, 0.08), gx, 0.22, 5.5 - i * 0.18), 0xffffff));
-  }
-  const metalMesh = mergedMesh(metalParts, metal);
-  metalMesh.name = 'metal';
-  g.add(metalMesh);
-  // Hydrants, bollards, bins, benches.
+  // GRID REBUILD: the boulevard curbs, manholes, hydrants, lamps and
+  // signs now live in cbd-grid.js. What stays here is the QUAY
+  // furniture (the quay strip moved to z 12.7..14.5) and the traffic
+  // lights at the x +/-40 connectors (the grid's lights cover only its
+  // own 42 intersections).
+  // Hydrants, bins, benches on the quay paving (z 13.5).
   const red = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.5 });
   const hydParts = [];
   for (const hx of [-24, 8, 34]) {
-    hydParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 8), hx, 0.55, 7.3), 0xffffff));
-    hydParts.push(colored(xform(new THREE.SphereGeometry(0.22, 8, 6), hx, 0.95, 7.3), 0xffffff));
+    hydParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 8), hx, 0.55, 13.5), 0xffffff));
+    hydParts.push(colored(xform(new THREE.SphereGeometry(0.22, 8, 6), hx, 0.95, 13.5), 0xffffff));
   }
   const hydMesh = mergedMesh(hydParts, red);
   hydMesh.name = 'hydrants';
@@ -728,42 +610,44 @@ export function buildRoadNetwork() {
   const teal = new THREE.MeshStandardMaterial({ color: 0x2e7f8f, roughness: 0.6 });
   const bolParts = [];
   for (let x = -54; x <= 54; x += 6) {
-    bolParts.push(colored(xform(new THREE.CylinderGeometry(0.14, 0.18, 0.85, 8), x, 0.45, 8.6), 0xffffff));
-    bolParts.push(colored(xform(new THREE.SphereGeometry(0.14, 8, 6), x, 0.9, 8.6), 0xffffff));
+    bolParts.push(colored(xform(new THREE.CylinderGeometry(0.14, 0.18, 0.85, 8), x, 0.45, 12.9), 0xffffff));
+    bolParts.push(colored(xform(new THREE.SphereGeometry(0.14, 8, 6), x, 0.9, 12.9), 0xffffff));
   }
   const bolMesh = mergedMesh(bolParts, teal);
   bolMesh.name = 'bollards';
   g.add(bolMesh);
   const binMat = new THREE.MeshStandardMaterial({ color: 0x3a4a52, roughness: 0.7 });
   const binParts = [];
-  for (const bx of [-44, -14, 14, 44]) binParts.push(colored(xform(new THREE.CylinderGeometry(0.35, 0.3, 0.8, 8), bx, 0.6, 7.3), 0xffffff));
+  for (const bx of [-44, -14, 14, 44]) binParts.push(colored(xform(new THREE.CylinderGeometry(0.35, 0.3, 0.8, 8), bx, 0.6, 13.5), 0xffffff));
   const binMesh = mergedMesh(binParts, binMat);
   binMesh.name = 'bins';
   g.add(binMesh);
   const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.8 });
   const benchParts = [];
   for (const bx of [-36, 6, 26]) {
-    benchParts.push(colored(xform(new THREE.BoxGeometry(2.2, 0.12, 0.5), bx, 0.55, 7.4), 0xffffff));
-    benchParts.push(colored(xform(new THREE.BoxGeometry(0.12, 0.55, 0.5), bx - 0.9, 0.28, 7.4), 0xffffff));
-    benchParts.push(colored(xform(new THREE.BoxGeometry(0.12, 0.55, 0.5), bx + 0.9, 0.28, 7.4), 0xffffff));
+    benchParts.push(colored(xform(new THREE.BoxGeometry(2.2, 0.12, 0.5), bx, 0.55, 13.5), 0xffffff));
+    benchParts.push(colored(xform(new THREE.BoxGeometry(0.12, 0.55, 0.5), bx - 0.9, 0.28, 13.5), 0xffffff));
+    benchParts.push(colored(xform(new THREE.BoxGeometry(0.12, 0.55, 0.5), bx + 0.9, 0.28, 13.5), 0xffffff));
   }
   const benchMesh = mergedMesh(benchParts, wood);
   benchMesh.name = 'benches';
   g.add(benchMesh);
   // Traffic lights at the two main intersections (red/amber/green) —
-  // the boulevard x the x=+/-40 ring connectors.
+  // the boulevard x the x=+/-40 ring connectors. The pole stands on
+  // the boulevard's south sidewalk (z 2.0); the lenses face north over
+  // the avenue. (The old z 6.2 spot is inside a CBD block now.)
   const tlMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 });
   const tlParts = [];
   const tlLights = [];
   for (const cx of [-40, 40]) {
-    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), cx + 4.4, 1.7, 6.2), 0xffffff));
-    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), cx + 4.4, 3.6, 6.2), 0xffffff));
+    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), cx + 4.4, 1.7, 2.0), 0xffffff));
+    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), cx + 4.4, 3.6, 2.0), 0xffffff));
     for (let i = 0; i < 3; i++) {
       const col = [0xff3b30, 0xffcc00, 0x34c759][i];
       tlLights.push({ mesh: new THREE.Mesh(
         new THREE.CircleGeometry(0.16, 10),
         new THREE.MeshBasicMaterial({ color: col }),
-      ), pos: [cx + 4.4, 3.9 - i * 0.28, 5.93] });
+      ), pos: [cx + 4.4, 3.9 - i * 0.28, 1.78] });
     }
   }
   const tlMesh = mergedMesh(tlParts, tlMat);
@@ -773,67 +657,37 @@ export function buildRoadNetwork() {
     l.mesh.position.set(l.pos[0], l.pos[1], l.pos[2]);
     g.add(l.mesh);
   }
-  // Lamp posts with fictional street names + speed bumps + puddles.
-  const { group: lampGroup, cones: lampCones } = lampRow();
-  g.add(lampGroup);
-  // Lamp posts along the CBD streets (one per street, alternating
-  // sides, on the sidewalk edge) — merged, no light cones.
-  const cbdLampPoles = [];
-  const cbdLampGlobes = [];
-  CBD_STREETS_X.forEach((sx, i) => {
-    const side = i % 2 === 0 ? 1 : -1;
-    const lx = sx + side * 1.55;
-    cbdLampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), lx, 1.2, -18));
-    cbdLampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), lx, 2.5, -18));
-    const lx2 = sx - side * 1.55;
-    cbdLampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), lx2, 1.2, 6));
-    cbdLampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), lx2, 2.5, 6));
-  });
-  // Lamp posts along the east-west CBD streets (alternating sides).
-  CBD_STREETS_Z.forEach((sz, i) => {
-    const side = i % 2 === 0 ? 1 : -1;
-    const lz = sz + side * 1.55;
-    cbdLampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), -12, 1.2, lz));
-    cbdLampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), -12, 2.5, lz));
-    const lz2 = sz - side * 1.55;
-    cbdLampPoles.push(xform(new THREE.CylinderGeometry(0.05, 0.07, 2.4, 8), 12, 1.2, lz2));
-    cbdLampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), 12, 2.5, lz2));
-  });
-  const cbdLamps = new THREE.Group();
-  cbdLamps.name = 'cbdLamps';
-  cbdLamps.add(mergedMesh(cbdLampPoles, M(0x2b2b2b)));
-  cbdLamps.add(mergedMesh(cbdLampGlobes, M(0xffd9a0, { emissive: 0xffc46b, emissiveIntensity: 0.9 })));
-  g.add(cbdLamps);
-  const bumpMat = new THREE.MeshStandardMaterial({ color: 0x8a8580, roughness: 0.95 });
-  const bumpParts = [];
-  for (const bx of [-16, 16]) bumpParts.push(colored(xform(new THREE.BoxGeometry(0.6, 0.18, 11.4), bx, 0.28, 0), 0xffffff));
-  const bumpMesh = mergedMesh(bumpParts, bumpMat);
-  bumpMesh.name = 'speedbumps';
-  g.add(bumpMesh);
+  // Lamp posts, CBD lamps and speed bumps now live in cbd-grid.js
+  // (lamps along every grid street, bumps on the streets). The lamp
+  // cones here are empty — the grid's cones are wired through city.js.
+  const lampCones = [];
+  // Puddles on the boulevard lanes (storm only): the old z 2.4 spots
+  // are inside a CBD block now, so they sit in the driving lanes.
   const puddleMat = new THREE.MeshStandardMaterial({
     color: 0x9fd4d8, roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.75,
   });
   const puddleParts = [];
-  for (const px of [-34, 4, 28]) puddleParts.push(colored(xform(new THREE.CircleGeometry(1.4, 16), px, 0.23, 2.4, -Math.PI / 2, 0, 0), 0xffffff));
+  for (const [px, pz] of [[-34, 0.7], [4, -0.7], [28, 0.7]]) puddleParts.push(colored(xform(new THREE.CircleGeometry(1.4, 16), px, 0.23, pz, 0, 1, -Math.PI / 2), 0xffffff));
   const puddles = mergedMesh(puddleParts, puddleMat);
   puddles.name = 'puddles';
   puddles.visible = false;
   g.add(puddles);
   // Street-name signs (fictional names only). Small (1.5 x 0.38 m) and
   // mounted at 2.35 m on a 2.4 m pole — legible, never dominating the
-  // frame the way the old 2.4 m signs at 3.1 m did.
-  const signNames = ['VIA DEL SOLE', 'CORSO AZZURRA', 'VIA DELLE VELA', 'LUNGOMARE', 'VIA DEL FARO'];
-  // One sign per name: the two ring connectors + three CBD streets.
-  const signXs = [-40, -15, 3, 15, 40];
+  // frame the way the old 2.4 m signs at 3.1 m did. The CBD signs live
+  // in cbd-grid.js; these two mark the ring connectors at the ring
+  // avenue corners.
+  const signNames = ['VIA DEL FARO', 'VIA DEL PORTO'];
+  const signSpots = [[-44.4, -37.5], [35.6, -37.5]];
   const signGeo = new THREE.PlaneGeometry(1.5, 0.38);
   signNames.forEach((n, i) => {
-    const cx = signXs[i];
+    const [sx, sz] = signSpots[i];
     const sign = new THREE.Mesh(signGeo, new THREE.MeshBasicMaterial({ map: signTexture(n) }));
-    sign.position.set(cx - 4.4, 2.35, 6.2);
+    sign.position.set(sx, 2.35, sz);
     sign.rotation.y = Math.PI;
     g.add(sign);
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 6), M(0x3a3a3a));
-    pole.position.set(cx - 4.4, 1.2, 6.2);
+    pole.position.set(sx, 1.2, sz);
     g.add(pole);
   });
   return {

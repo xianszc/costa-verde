@@ -60,7 +60,7 @@ export const MISSIONS = [
         dialogue: [{ who: 'DOM', line: 'The roofs are the fastest road in Azzura, boy. Mind the tiles.' }] },
       { name: 'DELIVER', text: 'Drop parcels at the three north-row doors.', type: 'deliver', target: anchor('north_door_1', 3), count: 3,
         dialogue: [{ who: 'ELIO', line: 'Three doors, three parcels. Nobody saw a thing.' }] },
-      { name: 'RETURN', text: 'Return to the casino forecourt.', type: 'goto', target: anchor('casino_forecourt_old', 5),
+      { name: 'RETURN', text: 'Return to the casino forecourt.', type: 'goto', target: anchor('casino_forecourt', 5),
         dialogue: [{ who: 'VI', line: 'The old town talks, Elio. Today it says thank you.' }] },
     ],
   },

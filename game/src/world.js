@@ -815,6 +815,7 @@ function seededRandom(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+export { seededRandom };
 
 // One deterministic rule decides which windows are lit — shared by the
 // canvas facade texture AND the instanced lit windows, so the two agree and

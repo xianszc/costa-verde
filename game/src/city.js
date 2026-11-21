@@ -25,6 +25,7 @@ import {
 } from './roads.js';
 import { buildNewDistricts } from './districts.js';
 import { buildCBD } from './cbd.js';
+import { buildCBDGrid } from './cbd-grid.js';
 import { buildCommercialRing } from './commercial.js';
 
 // Shared window material for the deco facades: emissive intensity is
@@ -195,11 +196,11 @@ function buildHills() {
 // casino + the front-row decos + the back-row villas are GONE (the
 // commercial ring occupies their blocks now — the villas' blocks are
 // ring blocks, the TERRAZZA HOTEL's block is the harbormaster
-// pavilion's block). Only the park (green zone), the pavilion
-// (mission-critical: M1/M2/M4/M8/M12 stage there) and the bell tower
-// are still built from this list.
+// pavilion's block). GRID REBUILD: the park is gone too (its plot is
+// inside the new CBD; the CBD's own park block replaces it). Only the
+// pavilion (mission-critical: M1/M2/M4/M8/M12 stage there) and the
+// bell tower are still built from this list.
 const PLOTS = [
-  { id: 'park', x0: 27.7, z0: -38, x1: 35.8, z1: -30 },
   // STAGE 1 part 5: the harbormaster pavilion moves to the marina
   // strip (v3 plan) — the east end of the marina, on the promenade
   // walkway, where M1/M2/M4/M8/M12 stage. Its old block (x 45..56,
@@ -261,58 +262,17 @@ export function buildDistrict4() {
   // blocks are ring blocks). The ring has its own hotels.
   // Quay pavilion (marina hero) at the marina's east end, on the
   // promenade walkway (STAGE 1 part 5 — moved from the ring's east strip).
-  addPlot(PLOTS[1], () => buildHeroBuilding('marina'));
+  addPlot(PLOTS[0], () => buildHeroBuilding('marina'));
   // Old bell tower (M4 drop point).
-  addPlot(PLOTS[2], () => bellTower());
+  addPlot(PLOTS[1], () => bellTower());
   group.add(mergeStatic(buildings));
   // Animated bits the merge kept whole (the casino fountain) still tick.
   buildings.traverse((o) => { if (o.userData && o.userData.tick) tickers.push(o); });
 
-  // --- park green zone (Block D back): trees ONLY here + planters ---
-  // STAGE 1 part 3: the park's north edge moved south to z -38 so the
-  // green zone clears the ring avenue (z -45.5..-38.5).
-  const park = new THREE.Group();
-  park.add(box(8.1, 0.24, 8, 0x7a8b5a, 31.75, 0.12, -34));
-  const parkTrees = { round: [], cypress: [], pine: [] };
-  const parkPalms = [];
-  const prnd = seededRandom(4242);
-  for (let i = 0; i < 14; i++) {
-    const type = TREE_TYPES[i % 4];
-    const spec = {
-      x: 28 + prnd() * 7.5, z: -38 + prnd() * 7,
-      s: 0.8 + prnd() * 0.5, rot: prnd() * Math.PI * 2, tint: 0xffffff,
-    };
-    if (type === 'palm') parkPalms.push(spec);
-    else parkTrees[type].push(spec);
-  }
-  for (const type of Object.keys(parkTrees)) {
-    if (parkTrees[type].length) park.add(treeInstanced(type, parkTrees[type]));
-  }
-  // Fuller palms in the park (individual merged meshes, varied heights).
-  for (const p of parkPalms) {
-    const palmMesh = makePalmFull(2.6 + p.s * 1.6);
-    palmMesh.position.set(p.x, 0.24, p.z);
-    palmMesh.rotation.y = p.rot;
-    park.add(palmMesh);
-  }
-  const parkFountain = fountain(1.0);
-  parkFountain.position.set(30, 0.24, -34);
-  park.add(parkFountain);
-  tickers.push(parkFountain);
-  group.add(park);
-  report.treesInGreenZones += 14;
-  // Sidewalk planters with fuller palms (green zones on the sidewalk edge).
-  // STAGE 1: only the planters OUTSIDE the CBD grid — the two that stood
-  // on the north sidewalk in front of tower faces (x -12, 8) are gone;
-  // in the CBD the sidewalk runs right against the towers, so street
-  // trees belong in the plazas, not in front of tower faces.
-  for (const px of [-52, -34, 28, 48]) {
-    const palmMesh = makePalmFull(2.8 + (Math.abs(px) % 3) * 0.5);
-    palmMesh.position.set(px, 0.24, -7.2);
-    palmMesh.rotation.y = px * 0.7;
-    group.add(palmMesh);
-  }
-  report.treesInGreenZones += 4;
+  // --- park green zone: DELETED in the GRID REBUILD (Xian 21 Nov
+  // 15:22) — the old park plot (x 27.7..35.8, z -38..-30) is inside the
+  // new CBD (blocks col 5, rows 0-1). The CBD has its own green block
+  // (park, col 0 row 0) with lawn + trees + paths, built by buildCBD().
 
   // --- café tables: STAGE 1 — removed with the casino (they stood at
   // x -16..-10, z -8.2, inside the new CBD footprint; the casino moves
@@ -384,22 +344,26 @@ export function buildDistrict4() {
     cover.add(p);
     colliders.push({ x0: x - 0.75, z0: z - 0.3, x1: x + 0.75, z1: z + 0.3, id: 'cover-planter' });
   }
-  // Quay west — the combat staging spot (Elio crouches at -53.5, 11.5).
-  barrier(-52.5, 10.5);
-  crateStack(-50.5, 12.2, 0.3);
-  lowWall(-55.5, 11.2);
+  // Quay west — the combat staging spot (Elio crouches at -53.5, 13.5
+  // on the quay; the old z 11.5 spot is the CBD's south street now).
+  barrier(-52.5, 13.5);
+  crateStack(-50.5, 13.5, 0.3);
+  lowWall(-55.5, 13.5);
   // Quay east + mid-east by the crane.
-  barrier(50, 11.0);
-  crateStack(53.5, 12.0, -0.2);
-  lowWall(33, 11.6);
+  barrier(50, 13.5);
+  crateStack(53.5, 13.5, -0.2);
+  lowWall(33, 13.5);
   // Facade line: STAGE 1 — removed (the old facade line at z -9.6 is
   // inside the new CBD footprint; the towers stand there now). The quay
   // cover props stay.
   group.add(mergeStatic(cover));
 
   // --- quay details: crates, rope coils, cleats, moored boats, crane ---
+  // GRID REBUILD: everything on the quay sits at z 13.5 (the quay strip
+  // is z 12.7..14.5 now); the old z 11.5 spots are the CBD's south
+  // street (z 10.1..12.3) and would block traffic.
   const quayProps = new THREE.Group();
-  for (const [qx, qz, c] of [[-52, 11.5, 0x8a6a4a], [-50.5, 11.8, 0x2e7f8f], [52, 11.5, 0x8a6a4a], [18, 11.6, 0xe4572e]]) {
+  for (const [qx, qz, c] of [[-52, 13.5, 0x8a6a4a], [-50.5, 13.5, 0x2e7f8f], [52, 13.5, 0x8a6a4a], [18, 13.5, 0xe4572e]]) {
     quayProps.add(box(1.1, 1.1, 1.1, c, qx, 0.85, qz));
     colliders.push({ x0: qx - 0.6, z0: qz - 0.6, x1: qx + 0.6, z1: qz + 0.6, id: 'crate' });
   }
@@ -408,16 +372,16 @@ export function buildDistrict4() {
     M(0xc9a86a),
   );
   rope.rotation.x = -Math.PI / 2;
-  rope.position.set(-46, 0.35, 11.4);
+  rope.position.set(-46, 0.35, 13.5);
   quayProps.add(rope);
   // Small wooden harbor crane + barrels + fishing nets on the quay.
-  quayProps.add(box(0.5, 5.5, 0.5, 0x6a4a2a, 36, 2.75, 11.5));
-  quayProps.add(box(0.4, 0.4, 4.5, 0x6a4a2a, 36, 5.4, 11.5));
+  quayProps.add(box(0.5, 5.5, 0.5, 0x6a4a2a, 36, 2.75, 13.5));
+  quayProps.add(box(0.4, 0.4, 4.5, 0x6a4a2a, 36, 5.4, 13.5));
   quayProps.add(box(0.35, 1.6, 0.35, 0x2b2b2b, 36, 4.6, 13.4));
-  quayProps.add(cyl(0.5, 0.5, 1.0, 0x8a6a4a, 38.5, 0.8, 11.5, 10));
-  quayProps.add(cyl(0.5, 0.5, 1.0, 0x2e7f8f, 39.6, 0.8, 11.8, 10));
-  quayProps.add(box(2.2, 0.15, 1.4, 0x3a5a3a, -30, 0.4, 11.6));
-  colliders.push({ x0: 35.7, z0: 11.2, x1: 36.3, z1: 11.8, id: 'crane' });
+  quayProps.add(cyl(0.5, 0.5, 1.0, 0x8a6a4a, 38.5, 0.8, 13.5, 10));
+  quayProps.add(cyl(0.5, 0.5, 1.0, 0x2e7f8f, 39.6, 0.8, 13.5, 10));
+  quayProps.add(box(2.2, 0.15, 1.4, 0x3a5a3a, -30, 0.4, 13.5));
+  colliders.push({ x0: 35.7, z0: 13.2, x1: 36.3, z1: 13.8, id: 'crane' });
   group.add(mergeStatic(quayProps));
 
   // --- bay water + moored boats + skyline across the bay ---
@@ -461,9 +425,12 @@ export function buildDistrict4() {
   colliders.push(...nd.colliders);
   tickers.push(...nd.tickers);
 
-  // --- STAGE 1: CBD core (v3 plan) — 50 towers in the centre ---
-  // The old skyline landmass across the bay (built by buildNewDistricts)
-  // goes away in the next step; the CBD is the new skyline.
+  // --- STAGE 1: CBD core (GRID REBUILD, Xian 21 Nov 15:22) ---
+  // The road grid (avenues + streets, markings, lamps, signals) is
+  // built first — the towers stand on its blocks — then the towers.
+  const grid = buildCBDGrid({ roadMat: roads.roadMat });
+  group.add(grid.group);
+  tickers.push(...grid.tickers);
   const cbd = buildCBD();
   group.add(cbd.group);
   colliders.push(...cbd.colliders);
@@ -477,20 +444,10 @@ export function buildDistrict4() {
   colliders.push(...ring.colliders);
   tickers.push(...ring.tickers);
 
-  // --- ground detail for the lower third (title screen + low angles) ---
-  // Grass tufts on the quay land (never in the bay — the old z 14..20
-  // range sat in the water and read as dark cones poking out of it).
-  const detail = new THREE.Group();
-  const grassGeos = [];
-  const grnd = seededRandom(777);
-  for (let i = 0; i < 28; i++) {
-    grassGeos.push(colored(xform(
-      new THREE.ConeGeometry(0.22, 0.7, 5),
-      -58 + grnd() * 116, 0.35, 9.5 + grnd() * 2, 0, 1, 0, 0,
-    ), 0x5a7a44));
-  }
-  detail.add(mergedMesh(grassGeos, vertexColorMat));
-  group.add(detail);
+  // --- ground detail: DELETED in the GRID REBUILD — the grass tufts
+  // stood at z 9.5..11.5, which is CBD block row 4 + the south street
+  // now (the quay is paved). The title screen reads from the CBD, the
+  // ring and the water instead.
 
   return {
     group, colliders, tickers, roads,
@@ -506,6 +463,7 @@ export function buildDistrict4() {
       windowMat.emissiveIntensity = on ? 1.4 : 0.15;
       for (const k in neonMats) neonMats[k].emissiveIntensity = on ? 2.4 : 1.2;
       roads.setNight(on);
+      grid.setNight(on);
     },
     setWet(v) { roads.setWet(v); },
   };
