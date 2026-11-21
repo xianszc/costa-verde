@@ -527,14 +527,31 @@ function decoVilla(w, d, h, color) {
 }
 
 export function buildPromenade() {
+  // STAGE 1 part 5: the promenade + casino + marina are rebuilt on the
+  // v3 waterfront (x -30..60, z 14..35). The old promenade (x 60..108,
+  // z -40..13 — the M3(b) extension east of District 4) is gone: its
+  // boulevard extension, esplanade and quay are outside the v3 map,
+  // and the Casino Azzura + Grand Hotel Azzura now stand on the
+  // promenade row facing the bay, between the marina and the CBD.
+  // Layout (all facing the bay, +z):
+  //   casino row (z 14..28): 2 deco facades, Casino Azzura (35),
+  //     Grand Hotel Azzura (52); the casino forecourt + fountain and
+  //     the hotel forecourt + fountain on the walkway (z 28..31);
+  //   promenade walkway (z 27..31, light pavers) + quay boardwalk
+  //     (z 31..35, bollards + cleats + moored sailboats);
+  //   marina (x -30..8): 3 piers into the water (z 30..38), boat sheds
+  //     on the land side (z 22..26), the harbormaster pavilion at the
+  //     marina's east end (2, 26).
+  // The bay water starts at z 35 now (city.js moves the water plane);
+  // the water collider in buildNewDistricts is split around the piers
+  // so the pier corridors stay walkable.
   const rnd = seededRandom(20261121);
   const group = new THREE.Group();
   group.name = 'promenade';
   const colliders = [];
   const tickers = [];
 
-  // --- road surfaces (the D4 network stops at x 60; the promenade
-  // lays its own, like the old town did) ---
+  // --- surfaces: promenade walkway + quay boardwalk + marina apron ---
   const surf = (texName, seed, w, d, x, z, y, rx, rz) => {
     const tex = roadTexture(texName, seed);
     tex.repeat.set(rx, rz);
@@ -543,12 +560,12 @@ export function buildPromenade() {
     m.position.set(x, y, z);
     group.add(m);
   };
-  // Boulevard extension (asphalt) + esplanade + south walkway (light
-  // pavers) + quay boardwalk at the water edge.
-  surf('asphalt', 41, 48, 12, 84, 0, 0.05, 6, 2);
-  surf('plaza', 42, 48, 8, 84, -10, 0.12, 6, 1);
-  surf('plaza', 44, 48, 2.5, 84, 7.25, 0.12, 6, 1);
-  surf('boardwalk', 43, 48, 4.5, 84, 10.75, 0.05, 6, 1);
+  // Promenade walkway (light pavers, x 8..60, z 27..31) + quay
+  // boardwalk (x -30..60, z 31..35) + marina apron / harbor road
+  // (asphalt, x -30..8, z 22..27).
+  surf('plaza', 42, 52, 4, 34, 29, 0.12, 6, 1);
+  surf('boardwalk', 43, 90, 4, 15, 33, 0.05, 9, 1);
+  surf('asphalt', 44, 38, 5, -11, 24.5, 0.05, 4, 1);
 
   // --- buildings (merged, one draw call per material) ---
   const buildings = new THREE.Group();
@@ -559,59 +576,76 @@ export function buildPromenade() {
     buildings.add(b);
     collidersLocal.push({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, id: 'promenade' });
   };
-  // Front row (z -28..-14): deco row, Casino Azzura hero, hotel tower.
-  addPlot(66, -21, 8, 14, () => decoFacade(8, 14, 7, PR.pink));
-  addPlot(76, -21, 8, 14, () => decoFacade(8, 14, 8, PR.cyan));
-  addPlot(88, -21, 12, 14, () => casinoAzzura());
-  addPlot(101, -21, 10, 14, () => hotelAzzura());
-  // Back row (z -40..-31): pastel deco villas.
-  addPlot(68, -35.5, 8, 9, () => decoVilla(8, 9, 5, PR.peach));
-  addPlot(100, -35.5, 8, 9, () => decoVilla(8, 9, 5.5, PR.mint));
+  // Casino row (facing the bay): deco row, Casino Azzura hero, hotel.
+  addPlot(14, 21, 8, 14, () => decoFacade(8, 14, 7, PR.pink));
+  addPlot(24, 21, 8, 14, () => decoFacade(8, 14, 8, PR.cyan));
+  addPlot(35, 21, 12, 14, () => casinoAzzura());
+  addPlot(52, 21, 10, 14, () => hotelAzzura());
+  // Marina boat sheds (facing the water).
+  addPlot(-24, 24, 6, 5, () => decoVilla(6, 5, 3.5, PR.peach));
+  addPlot(-14, 24, 6, 5, () => decoVilla(6, 5, 3.5, PR.mint));
+  addPlot(-4, 24, 6, 5, () => decoVilla(6, 5, 3.5, PR.peach));
   group.add(mergeStatic(buildings));
   colliders.push(...collidersLocal);
 
   // --- fountains: casino forecourt (hero) + hotel forecourt ---
+  // On the promenade walkway, in front of the casino / hotel fronts.
   const f1 = fountain(1.4);
-  f1.position.set(88, 0.24, -10);
+  f1.position.set(35, 0.24, 30);
   group.add(f1);
   tickers.push(f1);
   const f2 = fountain(0.9);
-  f2.position.set(101, 0.24, -10);
+  f2.position.set(52, 0.24, 30);
   group.add(f2);
   tickers.push(f2);
-  colliders.push({ x0: 86.8, z0: -11.2, x1: 89.2, z1: -8.8, id: 'casino-fountain' });
-  colliders.push({ x0: 100.1, z0: -10.9, x1: 101.9, z1: -9.1, id: 'hotel-fountain' });
+  colliders.push({ x0: 33.8, z0: 28.8, x1: 36.2, z1: 31.2, id: 'casino-fountain' });
+  colliders.push({ x0: 51.1, z0: 29.1, x1: 52.9, z1: 30.9, id: 'hotel-fountain' });
 
   // --- palms (fuller makePalmFull, not the starburst classic) along
-  // the esplanade + the quay; lamps on both walks. Palms are kept
-  // modest (scale ~2.2) — the earlier ~3.5 scale read as giant green
-  // slabs that blocked the casino in every shot. ---
+  // the walkway + the quay + the marina; lamps on both walks. Palms are
+  // kept modest (scale ~2.2) — the earlier ~3.5 scale read as giant
+  // green slabs that blocked the casino in every shot. ---
   for (const [px, pz, s] of [
-    [64, -8, 1.2], [76, -8, 1.0], [94, -8, 1.3], [104, -8, 1.1],
-    [66, 12, 1.1], [78, 12, 1.25], [90, 12, 1.0], [102, 12, 1.2],
+    [10, 28, 1.2], [20, 28, 1.0], [28, 28, 1.3], [44, 28, 1.1], [58, 28, 1.2],
+    [12, 34, 1.1], [24, 34, 1.25], [40, 34, 1.0], [56, 34, 1.2],
+    [-26, 28, 1.1], [-16, 28, 1.0], [-6, 28, 1.2],
   ]) {
     const p = makePalmFull(1.6 + s * 0.6);
     p.position.set(px, 0.24, pz);
     p.rotation.y = rnd() * Math.PI * 2;
     group.add(p);
   }
-  for (const lx of [68, 80, 92, 104]) {
-    group.add(lampPost(lx, -7));
+  for (const lx of [12, 24, 36, 48, 58]) {
+    group.add(lampPost(lx, 27.5));
   }
-  for (const lx of [62, 74, 86, 98, 106]) {
-    group.add(lampPost(lx, 11.5));
+  for (const lx of [-26, -14, -2, 10, 22, 34, 46, 58]) {
+    group.add(lampPost(lx, 34.5));
   }
 
-  // --- quay: bollards + cleats + moored sailboats on the water ---
-  const quayProps = new THREE.Group();
-  for (let x = 62; x <= 106; x += 4) {
-    quayProps.add(cyl(0.18, 0.22, 0.7, PR.sea, x, 0.35, 12.6, 8));
+  // --- marina piers (walkable, into the water) + quay props ---
+  // The piers are wooden walkways on posts (top y 0.65, above the
+  // water's wave crest at ~0.58); the water collider in
+  // buildNewDistricts is split around them. The engine has no ground
+  // height, so a walking player clips the pier edge visually — the
+  // piers read as a walkway, not a wall.
+  const piers = new THREE.Group();
+  for (const px of [-24, -14, -4]) {
+    piers.add(box(2, 0.3, 8, 0x8a6a4a, px, 0.5, 34));
+    piers.add(cyl(0.15, 0.18, 0.6, PR.sea, px - 0.7, 0.7, 37.5, 8));
+    piers.add(cyl(0.15, 0.18, 0.6, PR.sea, px + 0.7, 0.7, 37.5, 8));
   }
-  for (const cx of [66, 82, 98]) {
-    quayProps.add(box(0.9, 0.25, 0.4, PR.ink, cx, 0.3, 12.6));
+  group.add(mergeStatic(piers));
+  // Quay bollards + cleats along the whole shore.
+  const quayProps = new THREE.Group();
+  for (let x = -28; x <= 58; x += 4) {
+    quayProps.add(cyl(0.18, 0.22, 0.7, PR.sea, x, 0.35, 34.6, 8));
+  }
+  for (const cx of [-20, 0, 20, 40]) {
+    quayProps.add(box(0.9, 0.25, 0.4, PR.ink, cx, 0.3, 34.6));
   }
   group.add(mergeStatic(quayProps));
-  for (const [sx, sz, sc] of [[70, 18, 1.0], [98, 18, 1.2]]) {
+  // Moored sailboats on the water (beyond the quay, z > 35).
+  for (const [sx, sz, sc] of [[-20, 42, 1.0], [10, 44, 1.2], [44, 42, 1.0]]) {
     const boat = sailboat(sc, 0xf2f0ea, sx);
     boat.position.set(sx, 0, sz);
     group.add(boat);
@@ -619,16 +653,18 @@ export function buildPromenade() {
 
   // --- traffic lanes + pedestrian paths ---
   const lanes = [
-    { name: 'promenade-boulevard', pts: loopPath(62, -4, 106, 4, 2), speed: 7 },
-    { name: 'promenade-west', pts: loopPath(62, -4, 84, 4, 2), speed: 6 },
+    { name: 'promenade-walk', pts: loopPath(10, 28.5, 58, 30.5, 2), speed: 6 },
+    { name: 'marina-road', pts: loopPath(-28, 22.5, 6, 26.5, 2), speed: 6 },
   ];
   const pedPaths = [
-    { a: { x: 62, z: -8 }, b: { x: 106, z: -8 } },
-    { a: { x: 62, z: 7.2 }, b: { x: 106, z: 7.2 } },
-    { a: { x: 62, z: 11 }, b: { x: 106, z: 11 } },
-    { a: { x: 88, z: -28 }, b: { x: 88, z: -7 } },
-    { a: { x: 70, z: -28 }, b: { x: 70, z: -7 } },
-    { a: { x: 101, z: -28 }, b: { x: 101, z: -7 } },
+    { a: { x: 8, z: 29 }, b: { x: 60, z: 29 } },
+    { a: { x: -30, z: 29 }, b: { x: 8, z: 29 } },
+    { a: { x: -30, z: 33 }, b: { x: 60, z: 33 } },
+    { a: { x: -24, z: 30 }, b: { x: -24, z: 38 } },
+    { a: { x: -14, z: 30 }, b: { x: -14, z: 38 } },
+    { a: { x: -4, z: 30 }, b: { x: -4, z: 38 } },
+    { a: { x: 35, z: 14 }, b: { x: 35, z: 28 } },
+    { a: { x: 52, z: 14 }, b: { x: 52, z: 28 } },
   ];
   return { group, colliders, lanes, pedPaths, tickers };
 }
@@ -659,10 +695,14 @@ export function buildNewDistricts() {
   lanes.push(...pr.lanes);
   pedPaths.push(...pr.pedPaths);
   tickers.push(...pr.tickers);
-  // STAGE 1: the old skyline landmass + bridge are REMOVED (buildSkyline
-  // is gone — the bay is open water). The whole bay (z 13..103) is
-  // unwalkable water now; the marina piers in part 5 will split this
-  // collider to leave walkable pier corridors.
-  colliders.push({ x0: -130, z0: 13, x1: 130, z1: 103, id: 'bay-water' });
+  // STAGE 1 part 5: the bay water starts at z 35 now (the promenade +
+  // marina fill z 14..35; city.js moves the water plane). The collider
+  // is split around the 3 marina piers (x -24, -14, -4, 2 wide, to
+  // z 38) so the pier corridors stay walkable.
+  colliders.push({ x0: -130, z0: 38, x1: 130, z1: 103, id: 'bay-water' });
+  colliders.push({ x0: -130, z0: 35, x1: -25, z1: 38, id: 'bay-water' });
+  colliders.push({ x0: -23, z0: 35, x1: -15, z1: 38, id: 'bay-water' });
+  colliders.push({ x0: -13, z0: 35, x1: -5, z1: 38, id: 'bay-water' });
+  colliders.push({ x0: -3, z0: 35, x1: 130, z1: 38, id: 'bay-water' });
   return { group, colliders, lanes, pedPaths, tickers };
 }

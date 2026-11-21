@@ -22,7 +22,9 @@ export const ANCHORS = {
   // --- mission places ---
   // The harbormaster pavilion at the east end of the quay. M1 RECON /
   // STEAL, M2 MEET / DOCK, M5 ESCAPE, M8 HARBOR, M12 EPILOGUE.
-  harbormaster_pavilion: { x: 50, z: -19, district: 'marina' },
+  // STAGE 1 part 5: the pavilion moves to the marina strip (the east
+  // end of the marina, on the promenade walkway).
+  harbormaster_pavilion: { x: 3, z: 26, district: 'marina' },
   // The middle of the boulevard. M1 ESCAPE, M4 ESCAPE, M10 race finish
   // and PODIUM.
   boulevard_mid: { x: 0, z: 0, district: 'boulevard' },
@@ -55,12 +57,14 @@ export const ANCHORS = {
   fortress_plaza: { x: -47, z: -39, district: 'old town' },
   // The Casino Azzura forecourt on the promenade (M6 MEET, M10 race
   // checkpoint 2, M12 CONFRONT / DUEL / AFTERMATH). The M12 duel spawns
-  // Aldo here, facing the boulevard.
-  casino_forecourt: { x: 88, z: -10, district: 'promenade' },
-  // The Casino Azzura entrance. It is the same point as the forecourt
-  // in the current city (the forecourt IS the entrance staging point);
-  // the layout rebuild may split them, so they are separate anchors.
-  casino_entrance: { x: 88, z: -10, district: 'promenade' },
+  // Aldo here, facing the boulevard. STAGE 1 part 5: the forecourt is
+  // on the promenade walkway, at the casino fountain.
+  casino_forecourt: { x: 35, z: 30, district: 'promenade' },
+  // The Casino Azzura entrance — at the casino's front doors (the
+  // street frontage). SPLIT from the forecourt in stage 1 part 5: the
+  // entrance is at the doors, the forecourt is at the fountain on the
+  // walkway, 3 units in front.
+  casino_entrance: { x: 35, z: 27, district: 'promenade' },
   // The west end of the boulevard (M6 VANISH).
   boulevard_west: { x: -50, z: 0, district: 'boulevard' },
   // The central plaza in the CBD core (M7 CROSS / SCAN) — the plaza
@@ -68,12 +72,14 @@ export const ANCHORS = {
   // across the bay; the landmass is gone, the plaza moved downtown.)
   skyline_plaza: { x: 0, z: 0, district: 'cbd' },
   // The quay at the shore (M7 RETURN, M8 QUAY / SIGNAL, M11 ESCAPE).
-  quay_end: { x: 0, z: 13, district: 'quay' },
+  // STAGE 1 part 5: the new quay (z 31..35), at the water's edge.
+  quay_end: { x: 0, z: 33, district: 'quay' },
   // The race start on the boulevard (M10 LINE UP) — also the drive /
   // night / storm ?shot staging car.
   race_start_1: { x: -30, z: -3.4, angle: 0, district: 'boulevard' },
-  // Race checkpoint 3 on the promenade (M10 RACE).
-  promenade_mid: { x: 60, z: 0, district: 'promenade' },
+  // Race checkpoint 3 on the promenade (M10 RACE) — the middle of the
+  // promenade walkway, in front of the casino.
+  promenade_mid: { x: 35, z: 29, district: 'promenade' },
   // The Azzura Tower lobby — LOBBY, the service LIFT and the penthouse
   // VAULT all stage here (M11). The tower stands at the CBD centre,
   // its lobby on the boulevard's north side. (Was across the bay.)
@@ -88,8 +94,10 @@ export const ANCHORS = {
 
   // --- ?shot staging: cars and players ---
   // The promenade ?shot staging car (east end of the boulevard, facing
-  // west down the deco row toward the casino).
-  boulevard_east: { x: 84, z: -3.4, angle: Math.PI, district: 'promenade' },
+  // west down the boulevard toward the CBD). STAGE 1 part 5: the old
+  // promenade extension (x 60..108) is gone, so the car stages at the
+  // boulevard's east end.
+  boulevard_east: { x: 56, z: -3.4, angle: Math.PI, district: 'promenade' },
   // The ?shot staging car on Bay Avenue — the south side of the CBD,
   // facing north up the avenue toward the Azzura Tower.
   skyline_avenue: { x: 0, z: 12, angle: Math.PI / 2, district: 'cbd' },
@@ -105,8 +113,9 @@ export const ANCHORS = {
   // east toward the bay, boats and skyline.
   sidewalk_south: { x: -30, z: 7.2, angle: 0, district: 'boulevard' },
   // The M1 ?shot staging spot: Elio southwest of the pavilion, facing
-  // its corner (the verified M1 STEAL shot).
-  mission_m1_stage: { x: 34, z: -12, angle: Math.PI / 4, district: 'marina' },
+  // its corner (the verified M1 STEAL shot). STAGE 1 part 5: the
+  // pavilion moved to the marina strip.
+  mission_m1_stage: { x: -3, z: 31, angle: Math.PI / 4, district: 'marina' },
 
   // --- ?shot staging: wheels close-ups (main.js) ---
   // The parked car spots on the north lane, and the far spots the other
@@ -125,9 +134,10 @@ export const ANCHORS = {
   // any outside/elevated camera sees the ring, not the old town. The
   // street-level shot from inside is the one that reads.
   vantage_oldtown_cam: { x: -59, y: 3.5, z: -39, look: { x: -36, y: 2, z: -39 }, district: 'old town' },
-  // Promenade: high above the boulevard's west end, looking east-down
-  // at the boulevard, the deco row, the Casino Azzura and the hotel.
-  vantage_promenade_cam: { x: 60, y: 18, z: 8, look: { x: 100, y: 0, z: -12 }, district: 'promenade' },
+  // Promenade: from over the bay, looking south at the casino row —
+  // the Casino Azzura + the hotel tower, the forecourt fountains and
+  // the walkway in front, the CBD towers behind.
+  vantage_promenade_cam: { x: 35, y: 12, z: 48, look: { x: 35, y: 3, z: 21 }, district: 'promenade' },
   // Skyline: high above the quay's east end, looking north-east across
   // the bay — bridge + monorail in front, Bay Avenue and the 12 towers.
   vantage_skyline_cam: { x: 36, y: 16, z: 30, look: { x: -8, y: 5, z: 88 }, district: 'skyline' },

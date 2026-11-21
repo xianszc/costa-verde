@@ -200,7 +200,11 @@ function buildHills() {
 // are still built from this list.
 const PLOTS = [
   { id: 'park', x0: 27.7, z0: -38, x1: 35.8, z1: -30 },
-  { id: 'pavilion-quay', x0: 45, z0: -28, x1: 56, z1: -10 },
+  // STAGE 1 part 5: the harbormaster pavilion moves to the marina
+  // strip (v3 plan) — the east end of the marina, on the promenade
+  // walkway, where M1/M2/M4/M8/M12 stage. Its old block (x 45..56,
+  // z -28..-10) is a commercial-ring block now.
+  { id: 'pavilion-quay', x0: -1, z0: 22, x1: 8, z1: 30 },
   { id: 'bell-tower', x0: -48.4, z0: -37.4, x1: -45.6, z1: -34.6 },
 ];
 
@@ -249,7 +253,8 @@ export function buildDistrict4() {
   // — the commercial ring occupies their blocks now (the TERRAZZA
   // HOTEL's block is the harbormaster pavilion's block, the villas'
   // blocks are ring blocks). The ring has its own hotels.
-  // Quay pavilion (marina hero) on the east front row.
+  // Quay pavilion (marina hero) at the marina's east end, on the
+  // promenade walkway (STAGE 1 part 5 — moved from the ring's east strip).
   addPlot(PLOTS[1], () => buildHeroBuilding('marina'));
   // Old bell tower (M4 drop point).
   addPlot(PLOTS[2], () => bellTower());
@@ -412,16 +417,22 @@ export function buildDistrict4() {
   // --- bay water + moored boats + skyline across the bay ---
   // Water sits at y 0.3 so its wave troughs never dip under the ground
   // plane (that read as brown patches through the bay).
-  const water = makeWater(260, 90, 13, 96, 48);
-  water.position.set(0, 0.3, 58);
+  // STAGE 1 part 5: the water's edge moves north to z 35 — the
+  // promenade + marina fill z 14..35 now, so the bay starts beyond the
+  // quay. The plane (260x90) is centred at z 80, spanning z 35..125,
+  // and the shoreZ shader uniform moves with it.
+  const water = makeWater(260, 90, 35, 96, 48);
+  water.position.set(0, 0.3, 80);
   water.userData.noMerge = true;
   group.add(water);
   tickers.push(water);
+  // STAGE 1 part 5: the moored boats move into the new bay (z > 35) —
+  // their old spots (z 22..32) are the promenade + marina now.
   const boats = [
-    { x: -34, z: 22, s: 1.5, sail: 0xf2f0ea, rot: 0.5, phase: 0 },
-    { x: -6, z: 30, s: 1.3, sail: 0xff5c8a, rot: 0.8, phase: 1.3 },
-    { x: 20, z: 24, s: 1.4, sail: 0x3ed6d6, rot: 0.4, phase: 2.1 },
-    { x: 44, z: 32, s: 1.2, sail: 0xf2f0ea, rot: 0.9, phase: 3.4 },
+    { x: -34, z: 48, s: 1.5, sail: 0xf2f0ea, rot: 0.5, phase: 0 },
+    { x: -6, z: 55, s: 1.3, sail: 0xff5c8a, rot: 0.8, phase: 1.3 },
+    { x: 20, z: 48, s: 1.4, sail: 0x3ed6d6, rot: 0.4, phase: 2.1 },
+    { x: 44, z: 58, s: 1.2, sail: 0xf2f0ea, rot: 0.9, phase: 3.4 },
   ];
   for (const b of boats) {
     const boat = makeSailboat(b.s, b.sail, b.phase);
