@@ -1135,6 +1135,38 @@ export function createGame(container) {
       updateCamera(1);
       renderer.render(scene, camera);
       renderer.render(scene, camera);
+    } else if (name === 'district') {
+      // District showcase (M3): stage the player car in the named
+      // district, run the simulation so traffic + pedestrians are live,
+      // and frame the district from a fixed elevated vantage.
+      // district=oldtown (promenade + skyline get their vantages when
+      // they land). The player car holds still; the traffic cars and
+      // pedestrians move through the frame.
+      const d = params.district || 'oldtown';
+      state.mode = 'play';
+      showHUD();
+      state.onFoot = false;
+      playerMesh.visible = false;
+      state.time = 18.7;
+      setStorm(false);
+      updateLighting();
+      let camFrom; let camTo;
+      if (d === 'oldtown') {
+        car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
+        camFrom = [-6, 6, -38]; camTo = [-44, 1, -58];
+      } else {
+        car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
+        camFrom = [-6, 6, -38]; camTo = [-44, 1, -58];
+      }
+      car.mesh.position.set(car.x, 0, car.z);
+      car.mesh.rotation.y = car.angle;
+      run(150, {});
+      camera.position.set(camFrom[0], camFrom[1], camFrom[2]);
+      camera.lookAt(camTo[0], camTo[1], camTo[2]);
+      camPos.copy(camera.position);
+      camLook.set(camTo[0], camTo[1], camTo[2]);
+      renderer.render(scene, camera);
+      renderer.render(scene, camera);
     } else if (name === 'wanted') {
       // 4 stars: cruisers + interceptors converge, heli spotlight,
       // roadblock ahead on the boulevard. The car holds position while
