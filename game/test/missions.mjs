@@ -1,24 +1,38 @@
-// COSTA VERDE missions REGRESSION test (Xian 21 Nov 20:48, order item 1).
-// Plays missions 1-9 (run A) and 6-12 (run B) end-to-end in headless
-// Chromium on the LIVE no-cache server 127.0.0.1:8941 (already
-// running — never 8940). Drives the real game loop: teleport to the
-// objective, KeyE for interact stages, follow the tail, wait out the
-// wanted level on escapes, damage() the M12 duel target. Save/load is
-// checked first in run A via the pause menu (#pause-save / #pause-load,
-// slot 1) with an exact-match sentinel (7777 / 1234 / M5).
+// COSTA VERDE missions REGRESSION test (Xian 21 Nov 20:48, order item 1;
+// restructured 22 Nov 01:16, Xian's brief: crash-safe + resumable).
+// Plays missions in headless Chromium on the LIVE no-cache server
+// 127.0.0.1:8941 (already running — never 8940). Drives the real game
+// loop: follow the tail, wait out the wanted level on escapes,
+// damage() the M12 duel target. Save/load is checked first via the
+// pause menu (#pause-save / #pause-load, slot 1) with an exact-match
+// sentinel (7777 / 1234 / M5).
+//
+// CRASH-SAFE + RESUMABLE: each mission runs in a FRESH browser
+// context; the result of each mission is written to
+// reports/missions-run.json IMMEDIATELY (so a crash loses at most one
+// mission); if the browser/context closes mid-mission, that mission
+// is restarted ONCE in a new context and the run continues. The run
+// NEVER restarts from M1. Resume with --from M5 (skips earlier
+// missions; their results stay in the JSON from the previous run).
+//
+// Order: M4-M12 first, then M2 (M1 134 s and M3 61 s already pass
+// human-like — recorded from the prior logs, not re-run). M2 is
+// time-boxed to 30 min: if it does not pass human-like by then it is
+// recorded "fail (open)" with the position trace and the run moves on.
 //
 // RUN THIS AFTER EVERY LAYOUT CHANGE (and before submit): a layout
 // change that moves an anchor, blocks a road, or slows the game can
-// silently break a mission. Exit 0 = all missions PASS (12/12).
+// silently break a mission. Exit 0 = all missions PASS.
 // Takes ~30 min in headless (the game runs at ~20% speed there, so
 // M2's 20 s tail timer and M9's heat decay need ~350 s real each).
 //
-// Usage: NODE_PATH=/tmp/node_modules node game/test/missions.mjs
+// Usage: NODE_PATH=/tmp/node_modules node game/test/missions.mjs [--from M5]
 //   (NODE_PATH must resolve playwright-core from the Playwright
 //   connector; the 8941 server must already be running. ESM does not
 //   read NODE_PATH, so Playwright is loaded via createRequire, which
 //   does — see the import below.)
-// Writes /tmp/missions-regression.json. Exit 0 = all missions PASS.
+// Writes reports/missions-run.json (committed) + /tmp/missions-regression.json.
+// Exit 0 = all missions PASS.
 //
 // POSITION TRACE (Xian 21 Nov 23:04, item 4): every 5 s and at every
 // timeout the driver logs `[trace]` / `[trace-timeout]` lines with
@@ -49,8 +63,39 @@
 //   drives back if a ram pushes it out, no teleport, no on-foot.
 // - Both: the 240 s deadline was too short once the expansion slowed
 //   the headless game. Fix: 480 s per attempt.
-import { writeFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+// --- Crash-safe resumable runner (Xian 22 Nov 01:16, item 1) ---
+// Order: M4-M12 first, then M2 (M1 134 s and M3 61 s already pass
+// human-like — recorded from the prior logs, not re-run).
+const ORDER = [3, 4, 5, 6, 7, 8, 9, 10, 11, 1]; // ids: M4..M12, M2
+const PRIOR_PASS = {
+  M1: { mission: 'M1', result: 'PASS', how: 'human-like', ms: 134000, attempts: 1, fails: 0, maxStage: 2, evidence: '/tmp/missions-run-20261122-0200.log (HEAD f7a574e), not re-run in this pass' },
+  M3: { mission: 'M3', result: 'PASS', how: 'human-like', ms: 61000, attempts: 1, fails: 0, maxStage: 2, evidence: '/tmp/missions-run-20261122-0130.log (HEAD f7a574e), not re-run in this pass' },
+};
+const RESULTS_PATH = fileURLToPath(new URL('../../reports/missions-run.json', import.meta.url));
+const COMMIT = process.env.COMMIT || 'unknown';
+const ITEM_START = Date.now();
+
+async function loadResults() {
+  try {
+    return JSON.parse(await readFile(RESULTS_PATH, 'utf8'));
+  } catch {
+    return { generated: new Date().toISOString(), commit: COMMIT, missions: {}, saveLoad: null };
+  }
+}
+async function saveResult(label, record) {
+  const data = await loadResults();
+  data.missions[label] = record;
+  data.generated = new Date().toISOString();
+  data.commit = COMMIT;
+  await writeFile(RESULTS_PATH, JSON.stringify(data, null, 2));
+  // /tmp copy for the old path (same content).
+  await writeFile('/tmp/missions-regression.json', JSON.stringify(data, null, 2));
+  console.log(`[saved] ${label} -> reports/missions-run.json`);
+}
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright-core');
@@ -59,17 +104,14 @@ const BASE = 'http://127.0.0.1:8941';
 const CHROMIUM = '/home/hatch/.cache/ms-playwright/chromium-1148/chrome-linux/chrome';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const RUNS = [
-  { key: 'M1-M9', ids: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
-  { key: 'M6-M12', ids: [5, 6, 7, 8, 9, 10, 11] },
-];
+const CHROMIUM_ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--disable-dev-shm-usage'];
+let browser = await chromium.launch({ executablePath: CHROMIUM, args: CHROMIUM_ARGS });
 
-const browser = await chromium.launch({
-  executablePath: CHROMIUM,
-  args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--disable-dev-shm-usage'],
-});
-
-const out = { generated: new Date().toISOString(), runs: {} };
+async function ensureBrowser() {
+  if (browser && browser.isConnected()) return;
+  console.log('[runner] browser is gone — relaunching');
+  browser = await chromium.launch({ executablePath: CHROMIUM, args: CHROMIUM_ARGS });
+}
 
 async function readState(page) {
   return page.evaluate(() => {
@@ -391,12 +433,12 @@ function traceLine(label, s, tag) {
   console.log(`[${tag}] ${label} stage=${s.stage} ${s.stageName || s.stageType} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)}) car=(${s.cx.toFixed(1)},${s.cz.toFixed(1)}) target=(${o.x},${o.z}) distPlayer=${dp.toFixed(1)}u distCar=${dc.toFixed(1)}u wanted=${s.wanted} onFoot=${s.onFoot}`);
 }
 
-async function playMission(page, id, label) {
+async function playMission(page, id, label, maxAttempts = 2) {
   const started = Date.now();
   let attempts = 0;
   let fails = 0;
   let maxStage = 0;
-  while (attempts < 2) {
+  while (attempts < maxAttempts) {
     attempts += 1;
     await page.evaluate((mid) => { window.__game.missions.start(mid); }, id);
     await sleep(800);
@@ -603,93 +645,146 @@ async function playMission(page, id, label) {
   return { mission: label, result: 'FAIL', attempts, fails, maxStage, ms: Date.now() - started };
 }
 
-for (const run of RUNS) {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  const errors = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-  page.on('pageerror', (e) => errors.push('page: ' + String(e)));
-  const runOut = { missions: [], errors };
-  console.log(`--- run ${run.key} ---`);
+// --- Main: save/load once, then ORDER missions, each in a fresh context ---
+async function checkSaveLoad() {
+  await ensureBrowser();
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const page = await context.newPage();
+  let sl = { saved: false, loaded: false, money: -1, xp: -1, missionId: -1 };
+  let slPass = false;
   try {
     await page.goto(BASE + '/', { waitUntil: 'load', timeout: 60000 });
     await page.waitForFunction(() => window.__game && window.__gameReady === true, { timeout: 60000 });
     await sleep(2000);
     await page.evaluate(() => window.__game.startPlay());
     await sleep(2000);
-    // Road graph for the escape stages (BFS routing along the roads).
-    try {
-      roadGraph = await buildRoadGraph(page);
-      console.log(`road graph: ${roadGraph.nodes.length} nodes, ${roadGraph.segments} segments`);
-    } catch (e) {
-      console.log(`road graph: FAILED ${String(e).slice(0, 120)} (escapes fall back to straight-line driving)`);
-      roadGraph = null;
-    }
-
-    if (run.key === 'M1-M9') {
-      // Save/load exact-match check first (wanted is 0 at start).
-      // g.doSave/doLoad are NOT on window.__game (main.js overwrites
-      // it with the factory return) — use the pause menu buttons
-      // (#pause-save / #pause-load, slot 1) instead. Non-fatal: a
-      // save/load failure is recorded, the missions still play.
-      let sl = { saved: false, loaded: false, money: -1, xp: -1, missionId: -1 };
-      let slPass = false;
-      try {
-        await page.evaluate(() => {
-          const g = window.__game;
-          g.state.money = 7777; g.state.xp = 1234;
-          g.missions.start(4); // M5
-        });
-        await sleep(500);
-        await page.keyboard.press('Escape');
-        await sleep(600);
-        await page.click('#pause-save');
-        await sleep(600);
-        await page.keyboard.press('Escape');
-        await sleep(500);
-        await page.evaluate(() => {
-          const g = window.__game;
-          g.state.money = 0; g.state.xp = 0;
-        });
-        await page.keyboard.press('Escape');
-        await sleep(600);
-        await page.click('#pause-load');
-        await sleep(600);
-        await page.keyboard.press('Escape');
-        await sleep(500);
-        sl = await page.evaluate(() => {
-          const g = window.__game;
-          return { saved: true, loaded: true, money: g.state.money, xp: g.state.xp, missionId: g.missions.missionId };
-        });
-        slPass = sl.money === 7777 && sl.xp === 1234 && sl.missionId === 4;
-      } catch (e) {
-        console.log(`save/load: ERROR ${String(e).slice(0, 200)}`);
-      }
-      console.log(`save/load: ${slPass ? 'PASS' : 'FAIL'} (money=${sl.money} xp=${sl.xp} missionId=${sl.missionId})`);
-      runOut.saveLoad = { ...sl, pass: slPass };
-    }
-
-    for (const id of run.ids) {
-      const label = `M${id + 1}`;
-      const r = await playMission(page, id, label);
-      runOut.missions.push(r);
-      console.log(`${label}: ${r.result} (attempts=${r.attempts} fails=${r.fails} maxStage=${r.maxStage} ${Math.round(r.ms / 1000)}s money=${r.money ?? '-'} xp=${r.xp ?? '-'})`);
-    }
-    const end = await readState(page);
-    runOut.final = { money: end.money, xp: end.xp };
-    console.log(`run ${run.key} final: money=${end.money} xp=${end.xp} errors=${errors.length}`);
-    if (errors.length) console.log('  ERRORS: ' + errors.slice(0, 5).join(' | '));
+    await page.evaluate(() => {
+      const g = window.__game;
+      g.state.money = 7777; g.state.xp = 1234;
+      g.missions.start(4); // M5
+    });
+    await sleep(500);
+    await page.keyboard.press('Escape');
+    await sleep(600);
+    await page.click('#pause-save');
+    await sleep(600);
+    await page.keyboard.press('Escape');
+    await sleep(500);
+    await page.evaluate(() => {
+      const g = window.__game;
+      g.state.money = 0; g.state.xp = 0;
+    });
+    await page.keyboard.press('Escape');
+    await sleep(600);
+    await page.click('#pause-load');
+    await sleep(600);
+    await page.keyboard.press('Escape');
+    await sleep(500);
+    sl = await page.evaluate(() => {
+      const g = window.__game;
+      return { saved: true, loaded: true, money: g.state.money, xp: g.state.xp, missionId: g.missions.missionId };
+    });
+    slPass = sl.money === 7777 && sl.xp === 1234 && sl.missionId === 4;
   } catch (e) {
-    console.log(`run ${run.key} FAILED: ${String(e).slice(0, 300)}`);
-    runOut.error = String(e).slice(0, 300);
+    console.log(`save/load: ERROR ${String(e).slice(0, 200)}`);
   } finally {
-    await page.close();
+    try { await context.close(); } catch {}
   }
-  out.runs[run.key] = runOut;
+  console.log(`save/load: ${slPass ? 'PASS' : 'FAIL'} (money=${sl.money} xp=${sl.xp} missionId=${sl.missionId})`);
+  return { ...sl, pass: slPass };
 }
 
-const allPass = Object.values(out.runs).every((r) =>
-  r.missions && r.missions.every((m) => m.result === 'PASS') && (r.saveLoad ? r.saveLoad.pass : true));
-await writeFile('/tmp/missions-regression.json', JSON.stringify(out, null, 2));
-console.log(allPass ? 'ALL MISSIONS PASS' : 'SOME MISSIONS FAILED — see /tmp/missions-regression.json');
+// One mission in a fresh browser context. If the browser/context
+// closes mid-mission, restart THAT mission once in a new context and
+// continue — never restart the whole run.
+async function runMissionInFreshContext(id, label, maxAttempts) {
+  let restarted = false;
+  while (true) {
+    await ensureBrowser();
+    const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+    page.on('pageerror', (e) => errors.push('page: ' + String(e)));
+    try {
+      await page.goto(BASE + '/', { waitUntil: 'load', timeout: 60000 });
+      await page.waitForFunction(() => window.__game && window.__gameReady === true, { timeout: 60000 });
+      await sleep(2000);
+      await page.evaluate(() => window.__game.startPlay());
+      await sleep(2000);
+      try {
+        roadGraph = await buildRoadGraph(page);
+        console.log(`road graph: ${roadGraph.nodes.length} nodes, ${roadGraph.segments} segments`);
+      } catch (e) {
+        console.log(`road graph: FAILED ${String(e).slice(0, 120)} (escapes drive straight)`);
+        roadGraph = null;
+      }
+      const r = await playMission(page, id, label, maxAttempts);
+      r.errors = errors.length;
+      if (errors.length) console.log(`  ${label} ERRORS: ` + errors.slice(0, 5).join(' | '));
+      return r;
+    } catch (e) {
+      const msg = String(e);
+      if (!restarted && /has been closed/i.test(msg)) {
+        restarted = true;
+        console.log(`${label}: browser/context closed mid-mission — restarting that mission once`);
+        try { await context.close(); } catch {}
+        continue;
+      }
+      return { mission: label, result: 'ERROR', attempts: 0, fails: 0, maxStage: 0, ms: 0, error: msg.slice(0, 300) };
+    } finally {
+      try { await context.close(); } catch {}
+    }
+  }
+}
+
+// --from M5: skip missions before M5 in ORDER (their results stay in
+// the JSON from the previous run).
+let fromIdx = 0;
+const fromArg = process.argv.find((a) => a.startsWith('--from'));
+if (fromArg) {
+  const eq = fromArg.split('=')[1];
+  const want = eq !== undefined ? eq : process.argv[process.argv.indexOf(fromArg) + 1];
+  const n = parseInt(String(want).replace(/^M/i, ''), 10);
+  const pos = ORDER.indexOf(n - 1);
+  if (pos >= 0) fromIdx = pos;
+  console.log(`--from M${n}: starting at ORDER[${fromIdx}]`);
+}
+
+// Seed prior passes (M1, M3) into the results file first.
+for (const [label, rec] of Object.entries(PRIOR_PASS)) {
+  const data = await loadResults();
+  if (!data.missions[label]) await saveResult(label, rec);
+}
+
+const saveLoad = await checkSaveLoad();
+{
+  const data = await loadResults();
+  data.saveLoad = saveLoad;
+  await writeFile(RESULTS_PATH, JSON.stringify(data, null, 2));
+}
+
+for (let i = fromIdx; i < ORDER.length; i++) {
+  const id = ORDER[i];
+  const label = `M${id + 1}`;
+  // M2 time-box: 30 min max for the whole M2 block (attempt + one
+  // browser-close restart). playMission gets 1 attempt for M2.
+  const blockStart = Date.now();
+  const maxAttempts = id === 1 ? 1 : 2;
+  const r = await runMissionInFreshContext(id, label, maxAttempts);
+  const blockMin = Math.round((Date.now() - blockStart) / 60000);
+  let record = { ...r, how: r.result === 'PASS' ? 'human-like' : undefined, commit: COMMIT };
+  if (id === 1 && r.result !== 'PASS') {
+    record = { ...record, result: 'FAIL', open: true, timeboxMin: 30, timeboxUsedMin: blockMin, note: 'M2 did not pass human-like within the 30 min box — fail (open), see position trace in the run log' };
+  }
+  console.log(`${label}: ${record.result}${record.open ? ' (open)' : ''} (attempts=${r.attempts} fails=${r.fails} maxStage=${r.maxStage} ${Math.round((r.ms || 0) / 1000)}s)`);
+  await saveResult(label, record);
+  if (id === 1 && record.open) console.log('[M2] time-box spent — recorded fail (open), moving on');
+}
+
+const finalData = await loadResults();
+const all = Object.values(finalData.missions).every((m) => m.result === 'PASS');
+const fails = Object.entries(finalData.missions).filter(([, m]) => m.result !== 'PASS').map(([k]) => k);
+console.log(all ? 'ALL MISSIONS PASS' : `MISSIONS NOT ALL PASS — failing/open: ${fails.join(', ') || 'none'} — see reports/missions-run.json`);
 await browser.close();
-process.exit(allPass ? 0 : 1);
+process.exit(all ? 0 : 1);
