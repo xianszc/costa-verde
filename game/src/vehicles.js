@@ -381,6 +381,12 @@ export function stepCar(car, input, dt, colliders, nowSec) {
     if (closing > 2) {
       car.damage = Math.min(100, car.damage + closing * 0.6);
       car.speed *= 0.4;
+    } else if (closing > 0.5) {
+      // Pushing into a wall: the wall stops the car (scrub speed) but
+      // a gentle bump deals NO damage — otherwise a car grinding in
+      // a corner at low speed wrecks itself in seconds (25 damage in
+      // 2 s) and fails the mission as 'wrecked'.
+      car.speed *= 0.4;
     }
   }
   car.x = res.x;
