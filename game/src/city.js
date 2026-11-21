@@ -204,6 +204,148 @@ function buildHills() {
   return mergeStatic(g);
 }
 
+// ---------- Hills terraces + cliff villas + funicular (2d, Xian 21 Nov 17:58) ----------
+// Four stepped terrace platforms climbing the ridge front (z -106..-130),
+// each a solid stone fill with a flat top, split into west/east segments
+// around a 4-wide funicular slot at x -2..2. Villas (2-3 floors, warm
+// walls + terracotta roofs) stand on each terrace's exposed strip —
+// 120 in total, all merged into ONE vertex-colored mesh (1 draw call).
+// The funicular climbs the slot on a straight incline from the north
+// residential (z -105, y 0) to the hilltop (z -130, y 8); its car is a
+// ticker. A hilltop chapel + viewpoint crowns T4. The terraces return
+// the retaining walls + olive rows removed in 2a (they stood in the
+// north-ext footprint); the olive rows are replanted along T1/T2 here.
+function buildHillsTerraces() {
+  const g = new THREE.Group();
+  g.name = 'hills-terraces';
+  const parts = [];
+  const rnd = seededRandom(20261121);
+  const WALL_COLORS = [0xf5efe2, 0xe8dcc0, 0xdfc9a8, 0xf0e0c8];
+  const ROOF_COLORS = [0xb4552d, 0x9a4a28, 0xc06a3a, 0x8a3f22];
+  // Terrace levels: [topY, zSouth, zNorth]. Each platform is a solid
+  // fill from y 0 to topY, so it reads as a built terrace (retaining
+  // wall on the south face, flat top), not a floating slab.
+  const LEVELS = [
+    { y: 2, z0: -106, z1: -118 },
+    { y: 4, z0: -112, z1: -124 },
+    { y: 6, z0: -118, z1: -130 },
+    { y: 8, z0: -124, z1: -136 },
+  ];
+  for (const L of LEVELS) {
+    const depth = L.z1 - L.z0;
+    const cz = (L.z0 + L.z1) / 2;
+    // Platform fill (stone), west + east of the funicular slot.
+    for (const [x0, x1] of [[-80, -2], [2, 80]]) {
+      const w = x1 - x0;
+      const cx = (x0 + x1) / 2;
+      parts.push(colored(xform(new THREE.BoxGeometry(w, L.y, depth), cx, L.y / 2, cz), 0x9a8a72));
+      // Flat top (dry grass / earth) so the villas sit on soil, not stone.
+      parts.push(colored(xform(new THREE.BoxGeometry(w, 0.15, depth), cx, L.y + 0.07, cz), 0x8fa05e));
+    }
+    // Retaining wall face (lighter stone) on the south edge, west + east.
+    for (const [x0, x1] of [[-80, -2], [2, 80]]) {
+      const w = x1 - x0;
+      const cx = (x0 + x1) / 2;
+      parts.push(colored(xform(new THREE.BoxGeometry(w, L.y, 0.4), cx, L.y / 2, L.z0 + 0.2), 0xcbb894));
+    }
+  }
+  // Villas on each terrace's exposed strip (south of the next level's
+  // south edge), ~30 per terrace. A villa: walls + terracotta roof.
+  let villaCount = 0;
+  for (let li = 0; li < LEVELS.length; li++) {
+    const L = LEVELS[li];
+    const nextZ0 = li + 1 < LEVELS.length ? LEVELS[li + 1].z0 : L.z1;
+    const stripZ0 = L.z0 + 1;
+    const stripZ1 = nextZ0 - 1;
+    const stripCz = (stripZ0 + stripZ1) / 2;
+    for (let x = -78; x <= 78; x += 5.5) {
+      if (x > -6 && x < 6) continue; // funicular slot
+      const jx = x + (rnd() - 0.5) * 1.6;
+      const jz = stripCz + (rnd() - 0.5) * 1.2;
+      const w = 2.6 + rnd() * 0.8;
+      const d = 2.6 + rnd() * 0.8;
+      const h = 2.2 + rnd() * 1.4; // 2-3 floors
+      const wall = WALL_COLORS[Math.floor(rnd() * WALL_COLORS.length)];
+      const roof = ROOF_COLORS[Math.floor(rnd() * ROOF_COLORS.length)];
+      parts.push(colored(xform(new THREE.BoxGeometry(w, h, d), jx, L.y + h / 2, jz), wall));
+      parts.push(colored(xform(new THREE.BoxGeometry(w + 0.4, 0.35, d + 0.4), jx, L.y + h + 0.17, jz), roof));
+      villaCount++;
+    }
+  }
+  // Olive rows along T1/T2 (the 2a removal, replanted at the hills front).
+  const olives = [];
+  for (let i = 0; i < 24; i++) {
+    const x = -78 + rnd() * 156;
+    if (x > -6 && x < 6) continue;
+    olives.push({ x, z: -108 - rnd() * 8, s: 0.9 + rnd() * 0.5, rot: rnd() * Math.PI * 2, tint: 0xa8b078 });
+  }
+  g.add(mergedMesh(parts, vertexColorMat));
+  g.add(treeInstanced('round', olives));
+  // Hilltop chapel + viewpoint on T4 (landmark): white chapel, bell
+  // tower, and a stone viewpoint platform with a low parapet.
+  const chapel = [];
+  chapel.push(colored(xform(new THREE.BoxGeometry(5, 3.5, 4), -14, 8 + 1.75, -132), 0xf5efe2));
+  chapel.push(colored(xform(new THREE.BoxGeometry(5.6, 0.4, 4.6), -14, 8 + 3.7, -132), 0xb4552d));
+  chapel.push(colored(xform(new THREE.BoxGeometry(1.4, 6, 1.4), -10.5, 8 + 3, -132), 0xf5efe2));
+  chapel.push(colored(xform(new THREE.ConeGeometry(1.2, 1.6, 4), -10.5, 8 + 6.8, -132), 0x8a3f22));
+  chapel.push(colored(xform(new THREE.BoxGeometry(8, 0.4, 6), 8, 8 + 0.2, -131), 0xcbb894));
+  chapel.push(colored(xform(new THREE.BoxGeometry(8, 0.8, 0.4), 8, 8 + 0.4, -128.2), 0x9a8a72));
+  g.add(mergedMesh(chapel, vertexColorMat));
+  // Funicular: straight incline in the slot, from the north residential
+  // (0, 0, -105) to the hilltop (0, 8, -130). Two rails + trestle posts
+  // + a car that shuttles (ticker). Stations are small shelters.
+  const fun = new THREE.Group();
+  fun.name = 'funicular';
+  const run = Math.hypot(25, 8); // dz 25, dy 8
+  const ang = Math.atan2(8, 25);
+  const railGeos = [];
+  for (const s of [-0.7, 0.7]) {
+    const rail = new THREE.BoxGeometry(0.12, 0.12, run);
+    rail.rotateX(-ang);
+    rail.translate(s, 4.2, -117.5);
+    railGeos.push(colored(rail, 0x3a3a3a));
+  }
+  // Trestle posts under the track every ~5 units.
+  for (let t = 0; t <= 5; t++) {
+    const z = -105 - t * 5;
+    const y = (t * 5 / 25) * 8;
+    railGeos.push(colored(xform(new THREE.BoxGeometry(0.25, y + 0.4, 0.25), 0, (y + 0.4) / 2, z), 0x6a5a42));
+  }
+  fun.add(mergedMesh(railGeos, vertexColorMat));
+  // Stations: bottom (north residential edge) + top (T4).
+  const stGeos = [];
+  stGeos.push(colored(xform(new THREE.BoxGeometry(4, 0.3, 3), 0, 0.15, -104), 0xcbb894));
+  stGeos.push(colored(xform(new THREE.BoxGeometry(4, 2.2, 0.25), 0, 1.1, -105.4), 0xf5efe2));
+  stGeos.push(colored(xform(new THREE.BoxGeometry(4.4, 0.25, 3.4), 0, 2.3, -104), 0xb4552d));
+  stGeos.push(colored(xform(new THREE.BoxGeometry(4, 0.3, 3), 0, 8.15, -130.5), 0xcbb894));
+  stGeos.push(colored(xform(new THREE.BoxGeometry(4, 2.2, 0.25), 0, 9.1, -131.9), 0xf5efe2));
+  stGeos.push(colored(xform(new THREE.BoxGeometry(4.4, 0.25, 3.4), 0, 10.3, -130.5), 0xb4552d));
+  fun.add(mergedMesh(stGeos, vertexColorMat));
+  // Car: red cabin that shuttles between the stations (ticker).
+  const car = new THREE.Group();
+  car.name = 'funicular-car';
+  const carBody = colored(xform(new THREE.BoxGeometry(1.8, 1.6, 2.4), 0, 0.9, 0), 0xc0392b);
+  const carRoof = colored(xform(new THREE.BoxGeometry(2.0, 0.2, 2.6), 0, 1.8, 0), 0xf5efe2);
+  const carGlass = colored(xform(new THREE.BoxGeometry(1.9, 0.7, 2.5), 0, 1.2, 0), 0x2a4a5a);
+  car.add(mergedMesh([carBody, carRoof, carGlass], vertexColorMat));
+  car.rotation.x = -ang;
+  car.position.set(0, 0.4, -105);
+  fun.add(car);
+  fun.userData.tick = (t) => {
+    // 40 s round trip: up 18 s, dwell 2 s, down 18 s, dwell 2 s.
+    const cyc = (t % 40) / 40;
+    let u;
+    if (cyc < 0.45) u = cyc / 0.45;
+    else if (cyc < 0.5) u = 1;
+    else if (cyc < 0.95) u = 1 - (cyc - 0.5) / 0.45;
+    else u = 0;
+    car.position.set(0, 0.4 + u * 8, -105 - u * 25);
+  };
+  g.add(fun);
+  g.userData.villaCount = villaCount;
+  return { group: g, tickers: [fun], villaCount };
+}
+
 // ---------- Mediterranean ground + terrain dressing (A, Xian 21 Nov 16:48) ----------
 // The flat tan ground plane read as an empty orange dune in the oblique /
 // bay shots. A canvas texture mottles it into olive-green grass + ochre
@@ -521,6 +663,12 @@ export function buildDistrict4() {
 
   // --- hills to the north (moved behind the old-town wall, z -90+) ---
   group.add(buildHills());
+
+  // --- hills terraces + cliff villas + funicular (2d) ---
+  const terraces = buildHillsTerraces();
+  group.add(terraces.group);
+  tickers.push(...terraces.tickers);
+  report.hillsVillas = terraces.villaCount;
 
   // --- terrain dressing (A): terraces + trees + rocks outside the city ---
   const dressing = buildTerrainDressing();
