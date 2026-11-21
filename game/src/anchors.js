@@ -186,7 +186,7 @@ export const ANCHORS = {
   vantage_cbd_street: { x: -30, y: 3, z: 0.725, look: { x: 30, y: 6, z: 0 }, district: 'cbd' },
   // Bay: from the east over the water, looking west-northwest at the
   // skyline in 3/4 — the cluster reads in profile, the water in front.
-  vantage_cbd_bay: { x: 55, y: 14, z: 38, look: { x: -5, y: 45, z: -9 }, district: 'cbd' },
+  vantage_cbd_bay: { x: 15, y: 7, z: 90, look: { x: 0, y: 32, z: -12 }, district: 'cbd' },
   // Top: high oblique from the south (over the bay), looking down the
   // CBD grid — the tower heights, the boulevard and the bay all read.
   // (A true straight-down lookAt is degenerate in Three.js — the

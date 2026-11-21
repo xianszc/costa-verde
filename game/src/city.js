@@ -168,20 +168,23 @@ function buildHills() {
     m.position.set(x, y, z);
     return m;
   };
-  g.add(ridge(0x9aa88a, -40, -2, -128, 70, 22, 18));
-  g.add(ridge(0x8a9a7a, 30, -3, -120, 80, 26, 20));
-  g.add(ridge(0x7a8a68, -70, -1, -112, 50, 16, 14));
-  g.add(ridge(0x6a7a58, 10, -2, -102, 55, 14, 12));
-  g.add(ridge(0x5a6a48, -25, -1, -98, 45, 9, 8));
+  g.add(ridge(0x8fa05e, -40, -2, -128, 70, 22, 18));
+  g.add(ridge(0x7f9052, 30, -3, -120, 80, 26, 20));
+  g.add(ridge(0x6f8048, -70, -1, -112, 50, 16, 14));
+  g.add(ridge(0x5f703e, 10, -2, -102, 55, 14, 12));
+  g.add(ridge(0x4f6034, -25, -1, -98, 45, 9, 8));
+  // Side ridges so the horizon is not flat on the east / west (A).
+  g.add(ridge(0x7f9052, -118, -2, -108, 45, 18, 16));
+  g.add(ridge(0x7f9052, 118, -2, -108, 45, 18, 16));
   // Cypress silhouettes + villa dots on the near ridge, behind the wall.
   const rnd = seededRandom(99);
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 22; i++) {
     const x = -55 + rnd() * 110;
     const t = makeTree('cypress', 1.6 + rnd() * 1.2);
     t.position.set(x, 4 + rnd() * 2, -90 - rnd() * 6);
     g.add(t);
   }
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 8; i++) {
     const x = -48 + i * 19 + rnd() * 4;
     const v = new THREE.Group();
     v.add(box(3, 2, 2.5, 0xf5efe2, 0, 1, 0));
@@ -190,6 +193,106 @@ function buildHills() {
     g.add(v);
   }
   return mergeStatic(g);
+}
+
+// ---------- Mediterranean ground + terrain dressing (A, Xian 21 Nov 16:48) ----------
+// The flat tan ground plane read as an empty orange dune in the oblique /
+// bay shots. A canvas texture mottles it into olive-green grass + ochre
+// dry grass + dirt patches, and the dressing scatters stone pines, olive
+// rows, cypress and rocks on the land OUTSIDE the city footprint
+// (x -72..72, z -68..35) plus terraced retaining walls behind the city,
+// in front of the hills.
+function groundTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const ctx = c.getContext('2d');
+  const rnd = seededRandom(20261121);
+  ctx.fillStyle = '#8a9a5a'; ctx.fillRect(0, 0, 512, 512);
+  const blob = (color, n, rMin, rMax) => {
+    ctx.fillStyle = color;
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * 512, y = rnd() * 512, r = rMin + rnd() * (rMax - rMin);
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * (0.5 + rnd() * 0.5), rnd() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+  blob('#a89a5e', 60, 12, 42); // ochre dry grass
+  blob('#7a8a4e', 50, 10, 36); // deeper green
+  blob('#6a7a44', 30, 8, 26);  // dark green
+  blob('#9a7a4a', 26, 8, 24);  // dirt patches
+  blob('#b8a86a', 24, 6, 18);  // pale dry grass
+  // Fine speckle so the ground is not flat at street level.
+  for (let i = 0; i < 2600; i++) {
+    ctx.fillStyle = rnd() > 0.5 ? 'rgba(60,70,35,0.16)' : 'rgba(240,230,190,0.14)';
+    ctx.fillRect(rnd() * 512, rnd() * 512, 1.6, 1.6);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(6, 5);
+  return tex;
+}
+
+function buildTerrainDressing() {
+  const g = new THREE.Group();
+  g.name = 'terrain-dressing';
+  const colliders = [];
+  const rnd = seededRandom(20261121);
+  // Terraced retaining walls behind the city (north strip z -72..-84),
+  // low stone steps the olive rows sit in front of.
+  const wallGeos = [];
+  for (const [z, h] of [[-72, 0.6], [-78, 0.9], [-84, 1.2]]) {
+    wallGeos.push(colored(xform(new THREE.BoxGeometry(140, h, 0.8), 0, h / 2, z), 0xb8a888));
+    wallGeos.push(colored(xform(new THREE.BoxGeometry(140.4, 0.14, 1.0), 0, h + 0.07, z), 0x8a7a5e));
+    colliders.push({ x0: -70, z0: z - 0.5, x1: 70, z1: z + 0.5, id: 'terrace-wall' });
+  }
+  g.add(mergedMesh(wallGeos, vertexColorMat));
+  // Trees — all OUTSIDE the city footprint (x -72..72, z -68..35) and
+  // off the water (z > 35) and out of the hills (z < -90).
+  const pines = [], olives = [], cypress = [];
+  const push = (arr, x, z, sMin, sMax) => arr.push({
+    x, z, s: sMin + rnd() * (sMax - sMin), rot: rnd() * Math.PI * 2, tint: 0xffffff,
+  });
+  // Olive rows in front of each terrace wall (north strip).
+  for (const z of [-71, -77, -83]) {
+    for (let x = -66; x <= 66; x += 4.2) {
+      if (rnd() < 0.85) push(olives, x + (rnd() - 0.5) * 1.6, z + (rnd() - 0.5) * 0.8, 0.9, 1.3);
+    }
+  }
+  // East + west strips: mixed pines, olives, cypress.
+  for (let i = 0; i < 90; i++) {
+    const side = rnd() > 0.5 ? 1 : -1;
+    const x = side * (76 + rnd() * 48);
+    const z = -64 + rnd() * 92;
+    const r = rnd();
+    if (r < 0.45) push(pines, x, z, 1.0, 1.6);
+    else if (r < 0.8) push(olives, x, z, 0.9, 1.4);
+    else push(cypress, x, z, 1.0, 1.5);
+  }
+  // A few pines + cypress on the near hills' apron (z -86..-90).
+  for (let i = 0; i < 14; i++) {
+    const x = -60 + rnd() * 120, z = -86 - rnd() * 4;
+    if (rnd() > 0.5) push(pines, x, z, 1.1, 1.5); else push(cypress, x, z, 1.0, 1.4);
+  }
+  // Olive tint: silver-green (multiplies the round tree's greens).
+  for (const o of olives) o.tint = 0xa8b078;
+  g.add(treeInstanced('pine', pines));
+  g.add(treeInstanced('round', olives));
+  g.add(treeInstanced('cypress', cypress));
+  // Rocks: flattened grey-tan boulders, merged into one mesh.
+  const rockGeos = [];
+  for (let i = 0; i < 26; i++) {
+    const side = rnd() > 0.5 ? 1 : -1;
+    const x = side * (76 + rnd() * 50);
+    const z = -64 + rnd() * 92;
+    const s = 0.5 + rnd() * 1.1;
+    rockGeos.push(colored(
+      xform(new THREE.DodecahedronGeometry(s, 0), x, s * 0.35, z, rnd() * Math.PI, rnd() * Math.PI, 0),
+      0x9a8a72));
+  }
+  g.add(mergedMesh(rockGeos, vertexColorMat));
+  return { group: g, colliders };
 }
 
 // Plot list for District 4 (validated before building). STAGE 1: the
@@ -216,10 +319,10 @@ export function buildDistrict4() {
   const colliders = [];
   const tickers = [];
 
-  // --- ground base (dry grass / sand, under everything) ---
+  // --- ground base (Mediterranean grass / dry grass / dirt, A) ---
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(260, 200),
-    new THREE.MeshStandardMaterial({ color: 0xa89a72, roughness: 1, flatShading: true }),
+    new THREE.MeshStandardMaterial({ map: groundTexture(), roughness: 1, flatShading: true }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, 0, -20);
@@ -421,6 +524,11 @@ export function buildDistrict4() {
 
   // --- hills to the north (moved behind the old-town wall, z -90+) ---
   group.add(buildHills());
+
+  // --- terrain dressing (A): terraces + trees + rocks outside the city ---
+  const dressing = buildTerrainDressing();
+  group.add(dressing.group);
+  colliders.push(...dressing.colliders);
 
   // --- M3 districts (old town now; promenade east + skyline land next) ---
   const nd = buildNewDistricts();

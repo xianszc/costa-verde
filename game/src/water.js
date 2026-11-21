@@ -17,14 +17,14 @@ export function makeWater(width, depth, shoreZ, segX = 96, segZ = 48, opts = {})
     uniforms: {
       uTime: { value: 0 },
       uDeep: { value: new THREE.Color(opts.deep ?? 0x256b7d) },
-      uShallow: { value: new THREE.Color(opts.shallow ?? 0x3fa8b8) },
-      uSky: { value: new THREE.Color(opts.sky ?? 0xf7c98a) },
+      uShallow: { value: new THREE.Color(opts.shallow ?? 0x45bcd0) },
+      uSky: { value: new THREE.Color(opts.sky ?? 0xeed9ae) },
       uSunDir: { value: (opts.sunDir ?? new THREE.Vector3(-0.55, 0.45, 0.3)).normalize() },
       uSunColor: { value: new THREE.Color(0xffe9a8) },
       uShoreZ: { value: shoreZ },
-      uFogColor: { value: new THREE.Color(0xf2a35e) },
-      uFogNear: { value: 70 },
-      uFogFar: { value: 175 },
+      uFogColor: { value: new THREE.Color(0xf7d9a8) },
+      uFogNear: { value: 80 },
+      uFogFar: { value: 220 },
     },
     vertexShader: `
       uniform float uTime;
@@ -65,9 +65,9 @@ export function makeWater(width, depth, shoreZ, segX = 96, segZ = 48, opts = {})
         float depthT = clamp((vWorldPos.z - uShoreZ) / 45.0, 0.0, 1.0);
         vec3 base = mix(uShallow, uDeep, depthT);
         // Sky reflection grows with the grazing angle; kept modest
-        // (0.3) so a low camera does not paint the water in big tan
-        // blotches that read as sandbars.
-        vec3 col = mix(base, uSky, fres * 0.3);
+        // (0.22) so a low camera does not paint the water in big tan
+        // blotches that read as sandbars — the bay stays turquoise.
+        vec3 col = mix(base, uSky, fres * 0.22);
         // Sun glitter: tight specular, small amplitude, broken up by a
         // hash so it sparkles in dots instead of painting white bands.
         vec3 R = reflect(-normalize(uSunDir), N);

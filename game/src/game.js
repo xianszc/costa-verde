@@ -90,7 +90,7 @@ export function createGame(container) {
 
   const scene = new THREE.Scene();
   scene.background = skyTexture('golden');
-  scene.fog = new THREE.Fog(0xf2a35e, 70, 190);
+  scene.fog = new THREE.Fog(0xf7d9a8, 80, 220);
 
   const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
 
@@ -788,7 +788,7 @@ export function createGame(container) {
       // the west, rim only 0.4): lift the warm east fill so the
       // promenade + old town east faces keep their colour.
       rim.intensity = 0.75 + elev * 0.4;
-      scene.fog.color.setHex(phase === 'dusk' ? 0xe8836b : 0xf2a35e);
+      scene.fog.color.setHex(phase === 'dusk' ? 0xe8836b : 0xf7d9a8);
     } else {
       sun.color.setHex(0x8aa8d8);
       sun.intensity = 0.3;
