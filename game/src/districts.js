@@ -212,6 +212,17 @@ function fortressWall(x0, x1, z) {
   }
   return g;
 }
+// Fortress wall segment running north-south (the old town's west wall).
+function fortressWallNS(z0, z1, x) {
+  const g = new THREE.Group();
+  const w = z1 - z0;
+  g.add(box(1.2, 5, w, OT.stone, x, 2.5, (z0 + z1) / 2));
+  g.add(box(1.6, 0.4, w, OT.stoneDark, x, 5.2, (z0 + z1) / 2));
+  for (let z = z0 + 0.8; z <= z1 - 0.5; z += 1.6) {
+    g.add(box(1.3, 0.7, 0.6, OT.stone, x, 5.75, z));
+  }
+  return g;
+}
 function bastion(x, z) {
   const g = new THREE.Group();
   g.add(cyl(2.5, 2.8, 7, OT.stone, x, 3.5, z, 14));
@@ -403,6 +414,44 @@ export function buildOldTown() {
     const t = makeTree('cypress', 1.4 + rnd() * 0.8);
     t.position.set(-70 + i * 7 + rnd() * 2, 0, -50.5);
     group.add(t);
+  }
+
+  // --- 2b (Xian 21 Nov 17:58): the old town grows west (x -96..-72,
+  // z -80..-30) — the generator builds the terraced houses; this is
+  // the fortress wall around the new quarter + its cobbled alleys.
+  // North wall (z -80) with doors at the N-S alleys (x -95, -84, -73);
+  // west wall (x -96) with a west gate at the main alley (z -42).
+  // The E-W alleys run to x -70 so they join the pocket's main street.
+  const wallW = new THREE.Group();
+  wallW.add(fortressWall(-94, -85, -80));
+  wallW.add(fortressWall(-83, -74, -80));
+  wallW.add(fortressWallNS(-80, -43, -96));
+  wallW.add(fortressWallNS(-41, -30, -96));
+  wallW.add(bastion(-96, -80));
+  wallW.add(bastion(-72, -80));
+  group.add(mergeStatic(wallW));
+  colliders.push({ x0: -94, z0: -81.4, x1: -85, z1: -78.6, id: 'fortress-wall' });
+  colliders.push({ x0: -83, z0: -81.4, x1: -74, z1: -78.6, id: 'fortress-wall' });
+  colliders.push({ x0: -97.4, z0: -80, x1: -94.6, z1: -43, id: 'fortress-wall' });
+  colliders.push({ x0: -97.4, z0: -41, x1: -94.6, z1: -30, id: 'fortress-wall' });
+  colliders.push({ x0: -98.8, z0: -82.8, x1: -93.2, z1: -77.2, id: 'bastion' });
+  colliders.push({ x0: -74.8, z0: -82.8, x1: -69.2, z1: -77.2, id: 'bastion' });
+  // Cobble alleys: E-W along every block row, N-S along every column.
+  const cobTexW = roadTexture('cobble', 34);
+  cobTexW.repeat.set(12, 1);
+  const cobEwMat = new THREE.MeshStandardMaterial({ map: cobTexW, roughness: 0.95, flatShading: true });
+  const cobTexW2 = roadTexture('cobble', 35);
+  cobTexW2.repeat.set(1, 25);
+  const cobNsMat = new THREE.MeshStandardMaterial({ map: cobTexW2, roughness: 0.95, flatShading: true });
+  for (const az of [-79, -70, -61, -52, -43, -34]) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(26, 0.3, 2), cobEwMat);
+    s.position.set(-83, 0.05, az);
+    group.add(s);
+  }
+  for (const ax of [-95, -84, -73]) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 50), cobNsMat);
+    s.position.set(ax, 0.05, -55);
+    group.add(s);
   }
 
   // --- traffic lanes + pedestrian paths ---
@@ -599,13 +648,16 @@ export function buildPromenade() {
     m.position.set(x, y, z);
     group.add(m);
   };
-  // Promenade walkway (light pavers, x 8..72, z 27..31) + quay
-  // boardwalk (x -30..72, z 31..35) + marina apron / harbor road
-  // (asphalt, x -30..8, z 22..27). ITEM 2 (D): the walkway + quay
-  // extend east to x 72 with the promenade's east extension.
-  surf('plaza', 42, 64, 4, 40, 29, 0.12, 8, 1);
-  surf('boardwalk', 43, 102, 4, 21, 33, 0.05, 10, 1);
-  surf('asphalt', 44, 38, 5, -11, 24.5, 0.05, 4, 1);
+  // Promenade walkway (light pavers, x -96..108, z 27..31) + quay
+  // boardwalk (x -96..108, z 31..35) + marina apron / harbor road
+  // (asphalt, x -36..8, z 22..27). ITEM 2 (D): the walkway + quay
+  // extend east to x 72 with the promenade's east extension. 2b: the
+  // walkway + quay run the whole waterfront (x -96..108) with the
+  // promenade's east + west extensions; the apron extends west to
+  // x -36 for the new boat shed at (-33, 24).
+  surf('plaza', 42, 204, 4, 6, 29, 0.12, 26, 1);
+  surf('boardwalk', 43, 204, 4, 6, 33, 0.05, 20, 1);
+  surf('asphalt', 44, 44, 5, -14, 24.5, 0.05, 5, 1);
 
   // --- buildings (merged, one draw call per material) ---
   const buildings = new THREE.Group();
@@ -647,6 +699,8 @@ export function buildPromenade() {
   addPlot(-14, 24, 6, 5, () => decoVilla(6, 5, 3.5, PR.mint));
   addPlot(-4, 24, 6, 5, () => decoVilla(6, 5, 3.5, PR.peach));
   addPlot(1, 24, 5, 5, () => decoVilla(5, 5, 3.5, PR.mint));
+  // 2b: one more shed west on the extended apron (-33, 24).
+  addPlot(-33, 24, 5, 5, () => decoVilla(5, 5, 3.5, PR.mint));
   group.add(mergeStatic(buildings));
   colliders.push(...collidersLocal);
 
@@ -692,23 +746,24 @@ export function buildPromenade() {
   // piers read as a walkway, not a wall. ITEM 2 (D): 6 piers now
   // (was 3) so the marina reads as a working harbour.
   const piers = new THREE.Group();
-  for (const px of [-28, -24, -19, -14, -9, -4]) {
+  for (const px of [-33, -28, -24, -19, -14, -9, -4, 2, 7]) {
     piers.add(box(2, 0.3, 8, 0x8a6a4a, px, 0.5, 34));
     piers.add(cyl(0.15, 0.18, 0.6, PR.sea, px - 0.7, 0.7, 37.5, 8));
     piers.add(cyl(0.15, 0.18, 0.6, PR.sea, px + 0.7, 0.7, 37.5, 8));
   }
   group.add(mergeStatic(piers));
-  // Quay bollards + cleats along the whole shore.
+  // Quay bollards + cleats along the whole shore (x -96..108, 2b).
   const quayProps = new THREE.Group();
-  for (let x = -28; x <= 70; x += 4) {
+  for (let x = -96; x <= 108; x += 4) {
     quayProps.add(cyl(0.18, 0.22, 0.7, PR.sea, x, 0.35, 34.6, 8));
   }
-  for (const cx of [-20, 0, 20, 40, 60]) {
+  for (const cx of [-80, -60, -40, -20, 0, 20, 40, 60, 80, 92, 104]) {
     quayProps.add(box(0.9, 0.25, 0.4, PR.ink, cx, 0.3, 34.6));
   }
   group.add(mergeStatic(quayProps));
-  // Moored sailboats on the water (beyond the quay, z > 35).
-  for (const [sx, sz, sc] of [[-26, 42, 1.0], [-20, 42, 1.0], [-10, 44, 1.2], [0, 42, 1.0], [10, 44, 1.2], [44, 42, 1.0], [60, 44, 1.1]]) {
+  // Moored sailboats on the water (beyond the quay, z > 35). 2b: 13
+  // boats now (was 7) so the harbour reads busy along the whole shore.
+  for (const [sx, sz, sc] of [[-33, 42, 1.0], [-26, 42, 1.0], [-20, 42, 1.0], [-10, 44, 1.2], [0, 42, 1.0], [10, 44, 1.2], [20, 42, 1.0], [30, 44, 1.1], [44, 42, 1.0], [52, 42, 1.0], [60, 44, 1.1], [70, 44, 1.0], [76, 42, 1.0]]) {
     const boat = sailboat(sc, 0xf2f0ea, sx);
     boat.position.set(sx, 0, sz);
     group.add(boat);
@@ -724,7 +779,7 @@ export function buildPromenade() {
     sw.add(b);
     swColliders.push({ x0: x - w / 2, z0: z - d / 2, x1: x + w / 2, z1: z + d / 2, id: 'marina' });
   };
-  for (const [cx, ccol] of [[-56, PR.peach], [-48, PR.mint], [-40, PR.peach], [-34, PR.mint]]) {
+  for (const [cx, ccol] of [[-60, PR.peach], [-56, PR.peach], [-52, PR.mint], [-48, PR.mint], [-40, PR.peach], [-37, PR.mint], [-34, PR.mint], [-30, PR.peach]]) {
     swAdd(cx, 18, 4, 5, () => decoVilla(4, 5, 3.5, ccol));
   }
   swAdd(-44, 18, 8, 6, () => decoVilla(8, 6, 4, PR.cream)); // fish market
@@ -781,15 +836,19 @@ export function buildNewDistricts() {
   tickers.push(...pr.tickers);
   // STAGE 1 part 5: the bay water starts at z 35 now (the promenade +
   // marina fill z 14..35; city.js moves the water plane). The collider
-  // is split around the 6 marina piers (x -28, -24, -19, -14, -9, -4,
-  // 2 wide, to z 38) so the pier corridors stay walkable.
+  // is split around the 9 marina piers (x -33, -28, -24, -19, -14,
+  // -9, -4, 2, 7; 2 wide, to z 38) so the pier corridors stay
+  // walkable. 2b: 3 piers added (-33, 2, 7).
   colliders.push({ x0: -130, z0: 38, x1: 130, z1: 103, id: 'bay-water' });
-  colliders.push({ x0: -130, z0: 35, x1: -29, z1: 38, id: 'bay-water' });
+  colliders.push({ x0: -130, z0: 35, x1: -34, z1: 38, id: 'bay-water' });
+  colliders.push({ x0: -32, z0: 35, x1: -29, z1: 38, id: 'bay-water' });
   colliders.push({ x0: -27, z0: 35, x1: -25, z1: 38, id: 'bay-water' });
   colliders.push({ x0: -23, z0: 35, x1: -20, z1: 38, id: 'bay-water' });
   colliders.push({ x0: -18, z0: 35, x1: -15, z1: 38, id: 'bay-water' });
   colliders.push({ x0: -13, z0: 35, x1: -10, z1: 38, id: 'bay-water' });
   colliders.push({ x0: -8, z0: 35, x1: -5, z1: 38, id: 'bay-water' });
-  colliders.push({ x0: -3, z0: 35, x1: 130, z1: 38, id: 'bay-water' });
+  colliders.push({ x0: -3, z0: 35, x1: 1, z1: 38, id: 'bay-water' });
+  colliders.push({ x0: 3, z0: 35, x1: 6, z1: 38, id: 'bay-water' });
+  colliders.push({ x0: 8, z0: 35, x1: 130, z1: 38, id: 'bay-water' });
   return { group, colliders, lanes, pedPaths, tickers };
 }

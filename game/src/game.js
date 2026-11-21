@@ -184,6 +184,12 @@ export function createGame(container) {
     { lane: laneIdx('ringext-north'), color: 0x2e7f8f, kind: 'sedan' },
     { lane: laneIdx('ringext-east'), color: 0xe8b93c, kind: 'pickup' },
     { lane: laneIdx('ringext-west'), color: 0xd9553a, kind: 'van' },
+    // NEW PLAN 2b: one car on each new loop. (The 'promenade-west'
+    // van above now drives the new west promenade loop — its name
+    // fell back to lane 0 ever since the GRID REBUILD deleted the
+    // old boulevard lanes; the 'promenade-boulevard' sedan still does.)
+    { lane: laneIdx('promenade-east'), color: 0x3a6fd9, kind: 'sedan' },
+    { lane: laneIdx('oldtown-west'), color: 0xf2f0ea, kind: 'van' },
   ]);
   for (const t of traffic) scene.add(t.mesh);
 
@@ -191,8 +197,8 @@ export function createGame(container) {
   // 7 cars on the grid's own lanes (5 civilian + 2 police patrol):
   // CORSO AZZURRA both ways (3 cars — the avenue is the busiest
   // street), LUNGOMARE both ways, a patrol on VIA DEL SOLE and one
-  // on the z 11.2 street. Total cars in the world: 9 loop + 7 graph
-  // = 16 (was 13 before the ring-ext cars).
+  // on the z 11.2 street. Total cars in the world: 11 loop + 7 graph
+  // = 18 (was 16 before the 2b cars).
   const cbdTraffic = createCbdTraffic([
     { axis: 'NS', index: 3, dir: -1, lane: 0, kind: 'sedan', color: 0xd9553a },
     { axis: 'NS', index: 3, dir: 1, lane: 1, kind: 'van', color: 0x3a6fd9 },

@@ -406,7 +406,12 @@ function fillBlockPerimeter(b, def, rnd, pools, atlas, state) {
       spots.push({ x, z: zc, ry: i % 2 ? 0 : Math.PI, edge: i % 2 ? 'south' : 'north', main: true });
     }
   }
-  const nZ = bd >= 13 ? Math.max(1, Math.floor((bd - 8.8) / 5)) : 0;
+  // Side buildings fill the block's middle (east/west edges) — but
+  // only on blocks wide enough: the two side buildings sit at
+  // x0+2.2 and x1-2.2 with ~4.2 of depth along X when rotated, so on
+  // a block narrower than 9 they overlap each other (the promenade
+  // sliver, 6 wide, hit this). Narrow blocks keep just the two rows.
+  const nZ = (bd >= 13 && bw >= 9) ? Math.max(1, Math.floor((bd - 8.8) / 5)) : 0;
   for (let i = 0; i < nZ; i++) {
     const z = b.z0 + (i + 1) * (bd / (nZ + 1));
     spots.push({ x: b.x0 + 2.2, z, ry: -Math.PI / 2, edge: 'west', main: false });
@@ -433,15 +438,27 @@ function fillBlockPerimeter(b, def, rnd, pools, atlas, state) {
 function fillBlockRows(b, def, rnd, pools, atlas, state) {
   const bw = b.x1 - b.x0;
   const bd = b.z1 - b.z0;
+  // def.depth caps the house depth so shallow blocks (old town) get
+  // two tight rows instead of one deep row; def.houseW [min,max]
+  // narrows the terraced houses. Row centers sit dMax/2 + 0.2 inside
+  // the block edge so no house overhangs its block.
+  const dMax = def.depth || 4.4;
   const twoRows = bd >= 7;
   const rows = twoRows
-    ? [{ z: b.z0 + 2.0, ry: Math.PI }, { z: b.z1 - 2.0, ry: 0 }]
+    ? [{ z: b.z0 + dMax / 2 + 0.2, ry: Math.PI }, { z: b.z1 - dMax / 2 - 0.2, ry: 0 }]
     : [{ z: (b.z0 + b.z1) / 2, ry: 0 }];
   for (const row of rows) {
     let x = b.x0 + 0.2;
     while (x < b.x1 - 2.2) {
-      const w = 2.5 + rnd() * 1.2;
-      const d = 3.6 + rnd() * 0.8;
+      let w = def.houseW
+        ? def.houseW[0] + rnd() * (def.houseW[1] - def.houseW[0])
+        : 2.5 + rnd() * 1.2;
+      // Never let a house overhang its block: cap the width at the
+      // remaining space, and stop the row if less than a narrow
+      // house fits (a wide draw at the row's end used to escape).
+      w = Math.min(w, b.x1 - 0.2 - x);
+      if (w < 2.0) break;
+      const d = Math.min(3.6 + rnd() * 0.8, dMax);
       const floors = def.floors[0] + Math.floor(rnd() * (def.floors[1] - def.floors[0] + 1));
       const color = def.palette[Math.floor(rnd() * def.palette.length)];
       const s = { x: x + w / 2, z: row.z, ry: row.ry, edge: row.ry === 0 ? 'south' : 'north', main: true };
@@ -588,5 +605,87 @@ export const RING_EXT_DEF = {
     { a: { x: -70, z: -87.8 }, b: { x: 70, z: -87.8 } },
     { a: { x: 85.2, z: -29 }, b: { x: 85.2, z: 10 } },
     { a: { x: -85.2, z: -24 }, b: { x: -85.2, z: 10 } },
+  ],
+};
+
+// --- zone definitions: 2b old town west + promenade east/west (Xian 21 Nov 17:58) ---
+// OLD TOWN WEST: the empty strip x -96..-72, z -80..-30 (west of the
+// pocket, north of the west outer columns). Terraced townhouse rows
+// (depth 3.0, width 2.2-3.0, 2-4 floors) on a 2 x 5 block grid;
+// alleys are cobbled by hand in districts.js (no asphalt here), so
+// no roadsNs/roadsEw — the alley lines are minimap-only (allNs/allEw).
+// 10 blocks, 1 park -> 9 x 6 = 54 houses; old town 32 -> 86.
+export const OLD_TOWN_EXT_DEF = {
+  id: 'oldtown-ext', seed: 20261121, style: 'townhouse', floors: [2, 4],
+  palette: PALETTE_TOWNHOUSE, shopfronts: false, spacing: 3.2,
+  idPrefix: 'otx', fill: 'rows', depth: 3.0, houseW: [2.2, 3.0],
+  rects: [
+    {
+      x0: -96, z0: -80, x1: -72, z1: -30,
+      ns: [{ x: -95, w: 2 }, { x: -84, w: 2 }, { x: -73, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [{ z: -79, w: 2 }, { z: -70, w: 2 }, { z: -61, w: 2 }, { z: -52, w: 2 }, { z: -43, w: 2 }, { z: -34, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+    },
+  ],
+  parks: [4],
+  // Alley lines, minimap only (the cobble slabs are hand-built).
+  allNs: [
+    { x: -95, w: 2, z0: -80, z1: -30 }, { x: -84, w: 2, z0: -80, z1: -30 },
+    { x: -73, w: 2, z0: -80, z1: -30 },
+  ],
+  allEw: [
+    { z: -79, w: 2, x0: -96, x1: -72 }, { z: -70, w: 2, x0: -96, x1: -72 },
+    { z: -61, w: 2, x0: -96, x1: -72 }, { z: -52, w: 2, x0: -96, x1: -72 },
+    { z: -43, w: 2, x0: -96, x1: -72 }, { z: -34, w: 2, x0: -96, x1: -72 },
+  ],
+  lanes: [
+    { name: 'oldtown-west', x0: -95, z0: -79, x1: -74, z1: -31, speed: 6 },
+  ],
+  pedPaths: [
+    { a: { x: -95, z: -42 }, b: { x: -73, z: -42 } },
+    { a: { x: -84, z: -79 }, b: { x: -84, z: -31 } },
+    { a: { x: -95, z: -57 }, b: { x: -73, z: -57 } },
+  ],
+};
+
+// PROMENADE EXTENSION: the waterfront strip east (x 72..108) and west
+// (x -97..-63) of the existing promenade, z 14..30. One wide block
+// per side, two rows of commercial shopfront buildings (3-5 floors)
+// facing the quay (north row) and the walkway/bay (south row). No
+// roads built — the quay street (z 12.7) and the walkway (z 29) are
+// the circulation. The west strip is SPLIT by the west boundary road
+// (x -72.5, z -68..22, roads.js) — the block west of it (x -96..-75)
+// and the sliver east of it (x -70..-64) are separate rects, so no
+// building ever stands on that road. East 20 + west 12 + sliver 2
+// = +34 -> promenade 27 -> 61.
+export const PROMENADE_EXT_DEF = {
+  id: 'promenade-ext', seed: 20261121, style: 'commercial', floors: [3, 5],
+  palette: PALETTE_COMMERCIAL, shopfronts: true, spacing: 3.2,
+  idPrefix: 'promext', fill: 'perimeter',
+  rects: [
+    {
+      x0: 72, z0: 14, x1: 108, z1: 30,
+      ns: [{ x: 72.5, w: 2 }, { x: 108, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [{ z: 12.7, w: 2 }, { z: 29, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+    },
+    {
+      x0: -97, z0: 14, x1: -74, z1: 30,
+      ns: [{ x: -97, w: 2 }, { x: -74, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [{ z: 12.7, w: 2 }, { z: 29, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+    },
+    {
+      x0: -71, z0: 14, x1: -63, z1: 30,
+      ns: [{ x: -71, w: 2 }, { x: -63, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+      ew: [{ z: 12.7, w: 2 }, { z: 29, w: 2 }].map((s) => ({ ...s, kind: 'street' })),
+    },
+  ],
+  lanes: [
+    { name: 'promenade-east', x0: 73, z0: 28.5, x1: 107, z1: 30.5, speed: 6 },
+    { name: 'promenade-west', x0: -95, z0: 28.5, x1: -64, z1: 30.5, speed: 6 },
+  ],
+  pedPaths: [
+    { a: { x: 73, z: 29 }, b: { x: 107, z: 29 } },
+    { a: { x: -95, z: 29 }, b: { x: -64, z: 29 } },
+    { a: { x: 73, z: 33 }, b: { x: 107, z: 33 } },
+    { a: { x: -95, z: 33 }, b: { x: -64, z: 33 } },
   ],
 };

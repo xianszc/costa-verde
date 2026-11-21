@@ -1,17 +1,17 @@
-// Ring-extension zone test (NEW PLAN 2a, Xian 21 Nov 17:58 — the
-// commercial ring's third column + outer columns). Fails if any
-// ring-ext building footprint intersects a road rect (roads.js +
+// Zone overlap tests (NEW PLAN 2a/2b, Xian 21 Nov 17:58). Fails if any
+// generator-zone building footprint intersects a road rect (roads.js +
 // CBD grid + the zone's own roads + the boulevard median), another
-// ring-ext footprint, or a CBD tower / podium footprint; or if a
-// building escapes its derived block; or if a non-park block holds
-// no building. Signs are skipped (atlas=null) — they do not affect
-// footprints. The zone's buildings sit inside blocks derived from
-// the streets with a 0.2 setback, so they clear every road by
-// construction; this test proves it on the real numbers.
+// footprint in the same zone, a CBD tower / podium footprint, or a
+// neighbouring hand-built district footprint; or if a building escapes
+// its derived block; or if a non-park block holds no building. Signs
+// are skipped (atlas=null) — they do not affect footprints. The
+// districts' footprints are conservative bounding rects (the Node test
+// has no DOM, so buildNewDistricts cannot run here) covering the real
+// buildings adjacent to each zone.
 //
 // Usage: node game/test/zone-overlap.mjs   (from the repo root)
 // Exit 0 = PASS, exit 1 = FAIL.
-import { createPools, buildZoneInto, deriveBlocks, RING_EXT_DEF } from '../src/blocks.js';
+import { createPools, buildZoneInto, deriveBlocks, RING_EXT_DEF, PROMENADE_EXT_DEF, OLD_TOWN_EXT_DEF } from '../src/blocks.js';
 import { roadRects, boulevardMedianSegments } from '../src/roads.js';
 import { cbdGridRoadRects } from '../src/cbd-grid.js';
 import { buildCBD } from '../src/cbd.js';
@@ -24,74 +24,76 @@ function contains(outer, inner) {
     && inner.z0 >= outer.z0 - 0.001 && inner.z1 <= outer.z1 + 0.001;
 }
 
-const pools = createPools();
-const ext = buildZoneInto(RING_EXT_DEF, pools, null);
-const footprints = ext.colliders;
-
-// The zone's own road rects (from the def's road lists).
-const zoneRoads = [];
-for (const s of RING_EXT_DEF.roadsNs) zoneRoads.push({ x0: s.x - s.w / 2, z0: s.z0, x1: s.x + s.w / 2, z1: s.z1, id: `zone-ns@${s.x}` });
-for (const s of RING_EXT_DEF.roadsEw) zoneRoads.push({ x0: s.x0, z0: s.z - s.w / 2, x1: s.x1, z1: s.z + s.w / 2, id: `zone-ew@${s.z}` });
-
-const roads = [
+const cbd = buildCBD();
+const baseRoads = [
   ...roadRects().map((r, i) => ({ ...r, id: `road#${i}` })),
   ...cbdGridRoadRects().map((r, i) => ({ ...r, id: `cbd-road#${i}` })),
   ...boulevardMedianSegments().map((s) => ({ ...s, id: 'boulevard-median' })),
-  ...zoneRoads,
+];
+// Neighbouring hand-built districts (bounding rects, id = district).
+const DISTRICT_RECTS = [
+  { x0: 8, z0: 14, x1: 72, z1: 28, id: 'promenade-row' },
+  { x0: -62, z0: 15, x1: -28, z1: 21, id: 'marina-sw' },
+  { x0: -35, z0: 21, x1: 8, z1: 27, id: 'marina-sheds' },
+  { x0: -1, z0: 22, x1: 8, z1: 30, id: 'pavilion' },
+  { x0: -72, z0: -52, x1: -34, z1: -26, id: 'oldtown-pocket' },
+  { x0: -72, z0: -53.4, x1: -34, z1: -50.6, id: 'fortress-wall' },
 ];
 
-let roadOverlaps = [];
-for (const f of footprints) {
-  for (const r of roads) {
-    if (overlaps(f, r)) roadOverlaps.push(`${f.id} [${f.x0.toFixed(2)},${f.z0.toFixed(2)}-${f.x1.toFixed(2)},${f.z1.toFixed(2)}] x ${r.id} [${r.x0},${r.z0}-${r.x1},${r.z1}]`);
+function checkZone(def, label) {
+  const pools = createPools();
+  const ext = buildZoneInto(def, pools, null);
+  const footprints = ext.colliders;
+  const zoneRoads = [];
+  for (const s of (def.roadsNs || [])) zoneRoads.push({ x0: s.x - s.w / 2, z0: s.z0, x1: s.x + s.w / 2, z1: s.z1, id: `zone-ns@${s.x}` });
+  for (const s of (def.roadsEw || [])) zoneRoads.push({ x0: s.x0, z0: s.z - s.w / 2, x1: s.x1, z1: s.z + s.w / 2, id: `zone-ew@${s.z}` });
+  const roads = [...baseRoads, ...zoneRoads];
+
+  const problems = [];
+  for (const f of footprints) {
+    for (const r of roads) {
+      if (overlaps(f, r)) problems.push(`${label}: ${f.id} x road ${r.id} [${r.x0},${r.z0}-${r.x1},${r.z1}]`);
+    }
   }
-}
-
-let selfOverlaps = [];
-for (let i = 0; i < footprints.length; i++) {
-  for (let j = i + 1; j < footprints.length; j++) {
-    const a = footprints[i], b = footprints[j];
-    if (overlaps(a, b)) selfOverlaps.push(`${a.id} x ${b.id}`);
+  for (let i = 0; i < footprints.length; i++) {
+    for (let j = i + 1; j < footprints.length; j++) {
+      if (overlaps(footprints[i], footprints[j])) problems.push(`${label}: ${footprints[i].id} x ${footprints[j].id}`);
+    }
   }
-}
-
-const cbd = buildCBD();
-let cbdOverlaps = [];
-for (const f of footprints) {
-  for (const t of cbd.colliders) {
-    if (overlaps(f, t)) cbdOverlaps.push(`${f.id} x ${t.id}`);
+  for (const f of footprints) {
+    for (const t of cbd.colliders) {
+      if (overlaps(f, t)) problems.push(`${label}: ${f.id} x CBD ${t.id}`);
+    }
   }
+  for (const f of footprints) {
+    for (const d of DISTRICT_RECTS) {
+      if (overlaps(f, d)) problems.push(`${label}: ${f.id} x district ${d.id}`);
+    }
+  }
+  let blocks = [];
+  for (const r of def.rects) blocks = blocks.concat(deriveBlocks(r.ns, r.ew, r));
+  const parkSet = new Set(def.parks || []);
+  for (const f of footprints) {
+    if (!blocks.some((b) => contains(b, f))) problems.push(`${label}: ${f.id} escapes its block`);
+  }
+  blocks.forEach((b, i) => {
+    const n = footprints.filter((f) => contains(b, f)).length;
+    if (parkSet.has(i)) { if (n !== 0) problems.push(`${label}: park block ${i} holds ${n} buildings`); }
+    else if (n === 0) problems.push(`${label}: block ${i} [${b.x0},${b.z0}-${b.x1},${b.z1}] holds no building`);
+  });
+  console.log(`${label}: ${ext.count} buildings, ${ext.blocks} blocks (${ext.parks} parks), ${footprints.length} footprints, ${roads.length} road rects, ${problems.length} problems`);
+  for (const p of problems.slice(0, 15)) console.log(`    ${p}`);
+  if (problems.length > 15) console.log(`    ... and ${problems.length - 15} more`);
+  return { ext, problems };
 }
 
-// Every building must lie inside one derived block.
-let blocks = [];
-for (const r of RING_EXT_DEF.rects) blocks = blocks.concat(deriveBlocks(r.ns, r.ew, r));
-const parkSet = new Set(RING_EXT_DEF.parks || []);
-let escaped = [];
-for (const f of footprints) {
-  if (!blocks.some((b) => contains(b, f))) escaped.push(`${f.id} escapes its block`);
-}
-let emptyBlocks = [];
-blocks.forEach((b, i) => {
-  const n = footprints.filter((f) => contains(b, f)).length;
-  if (parkSet.has(i)) { if (n !== 0) emptyBlocks.push(`park block ${i} holds ${n} buildings`); }
-  else if (n === 0) emptyBlocks.push(`block ${i} [${b.x0},${b.z0}-${b.x1},${b.z1}] holds no building`);
-});
-
-const total = roadOverlaps.length + selfOverlaps.length + cbdOverlaps.length + escaped.length + emptyBlocks.length;
-console.log(`zone overlap test: ${ext.count} buildings, ${ext.blocks} blocks (${ext.parks} parks), ${footprints.length} footprints, ${roads.length} road rects`);
-console.log(`  building-vs-road overlaps: ${roadOverlaps.length}`);
-for (const o of roadOverlaps.slice(0, 20)) console.log(`    ${o}`);
-if (roadOverlaps.length > 20) console.log(`    ... and ${roadOverlaps.length - 20} more`);
-console.log(`  building-vs-building overlaps: ${selfOverlaps.length}`);
-for (const o of selfOverlaps.slice(0, 10)) console.log(`    ${o}`);
-console.log(`  building-vs-CBD overlaps: ${cbdOverlaps.length}`);
-for (const o of cbdOverlaps.slice(0, 10)) console.log(`    ${o}`);
-console.log(`  buildings outside their block: ${escaped.length}`);
-for (const o of escaped.slice(0, 10)) console.log(`    ${o}`);
-console.log(`  empty / wrongly-filled blocks: ${emptyBlocks.length}`);
-for (const o of emptyBlocks.slice(0, 10)) console.log(`    ${o}`);
+const results = [
+  checkZone(RING_EXT_DEF, 'ring-ext'),
+  checkZone(PROMENADE_EXT_DEF, 'promenade-ext'),
+  checkZone(OLD_TOWN_EXT_DEF, 'oldtown-ext'),
+];
+const total = results.reduce((s, r) => s + r.problems.length, 0);
 console.log(total === 0
-  ? 'PASS: ring-ext buildings clear all roads, each other, the CBD, and sit inside their blocks'
+  ? 'PASS: all zones clear all roads, each other, the CBD and the neighbouring districts, and sit inside their blocks'
   : `FAIL: ${total} problems`);
 process.exit(total === 0 ? 0 : 1);
