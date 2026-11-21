@@ -129,6 +129,24 @@ async function setKeys(page, { w, a, d, s }) {
 }
 async function releaseKeys(page) { await setKeys(page, {}); }
 
+// Steering keys for the car toward a heading error `diff` (target
+// angle minus car angle). Forward when the target is ahead; REVERSE
+// (with inverted steering) when the target is behind the car — a
+// U-turn. stepCar flips turnRate when speed < 0, so steering inverts
+// while reversing: to turn the nose toward a larger angle while
+// reversing, press D, not A. Driving forward at a behind-target goes
+// the wrong way, and the low-speed turn rate (steerAuthority 0 at
+// standstill) is too slow to turn around before the no-progress
+// reverse interrupts — that was the M2 tail timeout: the car drove
+// east to the boulevard end (44.6,-5.5) and wedged while the smuggler
+// went west to -37.4, 82.1u away.
+function carSteerKeys(diff, speed, cap) {
+  if (Math.abs(diff) > 2.2) {
+    return { w: false, a: diff < -0.15, d: diff > 0.15, s: true };
+  }
+  return { w: Math.abs(speed) < cap, a: diff > 0.15, d: diff < -0.15, s: false };
+}
+
 // Drive the car to a fixed point (tx, tz) within radius r. Returns
 // true when reached. Steers toward the point, throttles to cap u/s,
 // reverses out if stuck (no progress 8 s, max 3 reverses).
@@ -147,7 +165,9 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
       reverses++;
       const desired = Math.atan2(-(tz - c.z), tx - c.x);
       const diff = normAngle(desired - c.angle);
-      await setKeys(page, { s: true, a: diff > 0, d: diff <= 0 });
+      // Backing out: the car moves backward, so the steering is
+      // inverted (see carSteerKeys).
+      await setKeys(page, { s: true, a: diff < 0, d: diff >= 0 });
       reversingUntil = Date.now() + 2000;
       lastProgress = Date.now();
       await sleep(300);
@@ -155,7 +175,7 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
     }
     const desired = Math.atan2(-(tz - c.z), tx - c.x);
     const diff = normAngle(desired - c.angle);
-    await setKeys(page, { w: Math.abs(c.speed) < cap, a: diff > 0.15, d: diff < -0.15, s: false });
+    await setKeys(page, carSteerKeys(diff, c.speed, cap));
     await sleep(300);
   }
   await releaseKeys(page);
@@ -293,7 +313,9 @@ async function followTail(page, timeoutMs) {
       reverses++;
       const desired = Math.atan2(-(o.z - c.z), o.x - c.x);
       const diff = normAngle(desired - car.angle);
-      await setKeys(page, { s: true, a: diff > 0, d: diff <= 0 });
+      // Backing out: inverted steering while reversing (see
+      // carSteerKeys).
+      await setKeys(page, { s: true, a: diff < 0, d: diff >= 0 });
       reversingUntil = Date.now() + 2000;
       lastProgress = Date.now();
       await sleep(300);
@@ -302,7 +324,7 @@ async function followTail(page, timeoutMs) {
     const desired = Math.atan2(-(o.z - c.z), o.x - c.x);
     const diff = normAngle(desired - car.angle);
     const cap = d > 10 ? 12 : 6;
-    await setKeys(page, { w: Math.abs(car.speed) < cap, a: diff > 0.15, d: diff < -0.15, s: false });
+    await setKeys(page, carSteerKeys(diff, car.speed, cap));
     await sleep(300);
   }
   await releaseKeys(page);
