@@ -619,15 +619,16 @@ export function buildCBDGrid(opts = {}) {
     { text: 'VIA DEL PORTO', x: 38, z: -6.2, ry: 0 },
   ];
   const signGeo = new THREE.PlaneGeometry(1.5, 0.38);
+  const signPoles = [];
   for (const sp of signSpots) {
     const sign = new THREE.Mesh(signGeo, new THREE.MeshBasicMaterial({ map: signTexture(sp.text) }));
     sign.position.set(sp.x, 2.35, sp.z);
     sign.rotation.y = sp.ry;
     g.add(sign);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 6), M(0x3a3a3a));
-    pole.position.set(sp.x, 1.2, sp.z);
-    g.add(pole);
+    // 2b draw-call cut: all six poles in one merged mesh.
+    signPoles.push(xform(new THREE.CylinderGeometry(0.04, 0.04, 2.4, 6), sp.x, 1.2, sp.z));
   }
+  g.add(mergedMesh(signPoles, M(0x3a3a3a)));
   // Bus stops: shelter + bench on the boulevard (south sidewalk,
   // z 2.75) and the N-S avenue (east sidewalk, x 2.75) — the widened
   // avenue's sidewalk centres (the old 1.5 spots are in the road now).

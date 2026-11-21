@@ -25,29 +25,26 @@ import {
 
 // Wheel arches for one car: a dark half-torus lip over each wheel plus a
 // dark recess disc on the body side behind each wheel, so the wheel reads
-// as sitting INSIDE an arch instead of pasted on a flat slab. Both are
-// merged into one mesh each per car (2 draw calls per car, not 8).
-function buildArches(wheelPos, halfWidth) {
-  const lips = [];
-  const discs = [];
+// as sitting INSIDE an arch instead of pasted on a flat slab. Returned
+// as vertex-colored parts (2b draw-call cut) so the caller merges them
+// into the car's single body mesh — not 2 extra draw calls per car.
+function archParts(wheelPos, halfWidth) {
+  const parts = [];
   for (const [wx, wz, r] of wheelPos) {
     const side = Math.sign(wz);
-    lips.push(colored(
+    parts.push(colored(
       xform(new THREE.TorusGeometry(r + 0.06, 0.055, 8, 18, Math.PI),
         wx, r, side * (halfWidth + 0.005)),
       0x1c1c1c,
     ));
     // Shadow disc on the body side, just behind the wheel's outer face.
     const disc = new THREE.CircleGeometry(r * 1.15, 18);
-    discs.push(colored(
+    parts.push(colored(
       xform(disc, wx, r, side * (halfWidth - 0.004), side < 0 ? Math.PI : 0, 1, 0, 0),
       0x0d0d0d,
     ));
   }
-  const group = new THREE.Group();
-  group.add(mergedMesh(lips, vertexColorMat));
-  group.add(mergedMesh(discs, vertexColorMat));
-  return group;
+  return parts;
 }
 
 // Soft footprint shadow texture (M3 leftover 1): a radial gradient that
@@ -82,7 +79,6 @@ function getSoftShadowTex() {
 function mountWheels(g, wheelPos, halfWidth) {
   const rigs = [];
   const spins = [];
-  const blobGeos = [];
   for (const [wx, wz, r, specName] of wheelPos) {
     const rig = buildWheelRig(specName);
     rig.position.set(wx, r, wz);
@@ -90,11 +86,6 @@ function mountWheels(g, wheelPos, halfWidth) {
     g.add(rig);
     rigs.push(rig);
     spins.push(rig.userData.spin);
-    // Faint dot under each wheel only (opacity 0.14, smaller than the
-    // tyre) — the footprint ellipse below carries the shadow.
-    blobGeos.push(xform(
-      new THREE.CircleGeometry(r * 0.85, 12), wx, 0.02, wz, 0, 1, -Math.PI / 2, 0,
-    ));
   }
   // One soft footprint ellipse per car, sized to the wheelbase + body
   // overhang: low opacity, feathered edge, no hard black disc anywhere.
@@ -112,13 +103,11 @@ function mountWheels(g, wheelPos, halfWidth) {
   shadow.castShadow = false;
   shadow.receiveShadow = false;
   g.add(shadow);
-  const blobMat = new THREE.MeshBasicMaterial({
-    color: 0x000000, transparent: true, opacity: 0.14, depthWrite: false,
-  });
-  const blobs = mergedMesh(blobGeos, blobMat);
-  blobs.castShadow = false;
-  blobs.receiveShadow = false;
-  g.add(blobs);
+  // 2b draw-call cut: the per-wheel contact blobs are GONE (one merged
+  // mesh per car, 21 cars). They were opacity 0.14 dots under each
+  // wheel; the footprint ellipse above (opacity 0.32, sized to the
+  // wheelbase) carries the whole contact shadow, so the wheels still
+  // read planted.
   g.userData.wheelRigs = rigs;
   g.userData.wheels = spins;
   // Rear-wheel local offsets, for drift skid marks.
@@ -134,12 +123,10 @@ export const ROAD_Y = 0.2;
 // Side glass panels for a cabin block: two thin dark panes on the body
 // sides, so the cabin reads as windows instead of a solid slab.
 function sideGlass(g, x, y, len, halfWidth) {
+  // 2b draw-call cut: both side panes in one merged mesh.
   const mat = new THREE.MeshStandardMaterial({ color: 0x1a2e40, roughness: 0.15, metalness: 0.3 });
-  for (const s of [-1, 1]) {
-    const p = new THREE.Mesh(new THREE.BoxGeometry(len, 0.32, 0.04), mat);
-    p.position.set(x, y, s * (halfWidth + 0.01));
-    g.add(p);
-  }
+  const geos = [-1, 1].map((s) => xform(new THREE.BoxGeometry(len, 0.32, 0.04), x, y, s * (halfWidth + 0.01)));
+  g.add(mergedMesh(geos, mat));
 }
 
 // Rectangular headlamp: a slim emissive box, not a white sphere.
@@ -159,12 +146,21 @@ export function buildStella() {
   // Sports spec: big wheels (r 0.38), low body.
   const g = new THREE.Group();
   g.name = 'stella';
+  // Wheels: flush with the body side (half-width 0.95, tyre width 0.30
+  // → center at ±0.805, outer face at 0.955), inside real arches.
+  // Defined up here so the arch parts merge into the body mesh.
+  const r = WHEEL_SPECS.sport.radius;
+  const wheelPos = [
+    [1.45, 0.805, r, 'sport'], [1.45, -0.805, r, 'sport'],
+    [-1.45, 0.805, r, 'sport'], [-1.45, -0.805, r, 'sport'],
+  ];
   const body = [
     colored(xform(new THREE.BoxGeometry(4.4, 0.55, 1.9), 0, 0.55, 0), 0xe4572e),
     colored(xform(new THREE.BoxGeometry(2.6, 0.5, 1.7), -0.2, 0.95, 0), 0xe4572e),
     colored(xform(new THREE.BoxGeometry(2.2, 0.42, 1.5), -0.2, 0.85, 0), 0xf7ebd7),
     colored(xform(new THREE.BoxGeometry(1.0, 0.18, 1.6), 1.9, 0.62, 0), 0xf2a541),
     colored(xform(new THREE.BoxGeometry(0.5, 0.3, 1.7), -2.1, 0.6, 0), 0xc0392b),
+    ...archParts(wheelPos.map(([x, z, rr]) => [x, z, rr]), 0.95),
   ];
   g.add(mergedMesh(body, vertexColorMat));
   // Windshield: kept INSIDE the roofline (cabin top is y 1.20) — short
@@ -178,19 +174,12 @@ export function buildStella() {
   g.add(glass);
   // Side windows on the cabin block.
   sideGlass(g, -0.2, 1.0, 1.5, 0.85);
-  // Rectangular headlamps + taillights.
+  // Rectangular headlamps + taillights (2b draw-call cut: each pair in
+  // one merged mesh instead of two).
   const headMat = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 });
-  for (const s of [-0.6, 0.6]) {
-    const h = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.36), headMat);
-    h.position.set(2.22, 0.62, s);
-    g.add(h);
-  }
+  g.add(mergedMesh([-0.6, 0.6].map((s) => xform(new THREE.BoxGeometry(0.1, 0.16, 0.36), 2.22, 0.62, s)), headMat));
   const tailMat = new THREE.MeshStandardMaterial({ color: 0xc0392b, emissive: 0xff2a2a, emissiveIntensity: 0.5 });
-  for (const s of [-0.6, 0.6]) {
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.3), tailMat);
-    t.position.set(-2.22, 0.62, s);
-    g.add(t);
-  }
+  g.add(mergedMesh([-0.6, 0.6].map((s) => xform(new THREE.BoxGeometry(0.08, 0.16, 0.3), -2.22, 0.62, s)), tailMat));
   // Rear window + chrome rear bumper so the car reads from behind.
   const rearWindow = new THREE.Mesh(
     new THREE.BoxGeometry(0.06, 0.42, 1.4),
@@ -204,13 +193,8 @@ export function buildStella() {
   bumper.position.set(-2.24, 0.35, 0);
   g.add(rearWindow, bumper);
   // Wheels: flush with the body side (half-width 0.95, tyre width 0.30
-  // → center at ±0.805, outer face at 0.955), inside real arches.
-  const r = WHEEL_SPECS.sport.radius;
-  const wheelPos = [
-    [1.45, 0.805, r, 'sport'], [1.45, -0.805, r, 'sport'],
-    [-1.45, 0.805, r, 'sport'], [-1.45, -0.805, r, 'sport'],
-  ];
-  g.add(buildArches(wheelPos.map(([x, z, rr]) => [x, z, rr]), 0.95));
+  // → center at ±0.805, outer face at 0.955) — arches already merged
+  // into the body above; mountWheels adds the spinning rigs.
   mountWheels(g, wheelPos, 0.95);
   g.userData.headMat = headMat;
   g.userData.tailMat = tailMat;
@@ -223,6 +207,14 @@ export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null) {
   const specName = wheelSpec || (kind === 'pickup' ? 'pickup' : kind === 'van' ? 'van' : 'sedan');
   const spec = WHEEL_SPECS[specName];
   const r = spec.radius;
+  // Wheels flush with the body side, inside real arches. Defined up
+  // here so the arch parts merge into the body mesh (2b draw-call cut).
+  const halfWidth = kind === 'sedan' ? 0.925 : 0.95;
+  const wz = halfWidth - spec.width / 2 + 0.005;
+  const wheelPos = [
+    [1.4, wz, r, specName], [1.4, -wz, r, specName],
+    [-1.4, wz, r, specName], [-1.4, -wz, r, specName],
+  ];
   const parts = [];
   if (kind === 'van') {
     parts.push(colored(xform(new THREE.BoxGeometry(4.2, 1.5, 1.9), 0, 1.05, 0), color));
@@ -242,26 +234,16 @@ export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null) {
     parts.push(colored(xform(new THREE.BoxGeometry(2.2, 0.5, 1.6), -0.2, 1.0, 0), color));
     parts.push(colored(xform(new THREE.BoxGeometry(1.9, 0.4, 1.4), -0.2, 0.95, 0), 0x2e4a5e));
   }
+  parts.push(...archParts(wheelPos.map(([x, z, rr]) => [x, z, rr]), halfWidth));
   g.add(mergedMesh(parts, vertexColorMat));
   // Side windows on the cabin.
   if (kind === 'van') sideGlass(g, 1.6, 1.05, 0.9, 0.85);
   else if (kind === 'pickup') sideGlass(g, 1.2, 1.15, 1.1, 0.85);
   else sideGlass(g, -0.2, 1.05, 1.5, 0.8);
-  // Rectangular headlamps (no white round eyes).
+  // Rectangular headlamps (no white round eyes). 2b draw-call cut:
+  // both lamps in one merged mesh.
   const headMat = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 });
-  for (const s of [-0.55, 0.55]) {
-    const h = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.32), headMat);
-    h.position.set(2.1, 0.6, s);
-    g.add(h);
-  }
-  // Wheels flush with the body side, inside real arches.
-  const halfWidth = kind === 'sedan' ? 0.925 : 0.95;
-  const wz = halfWidth - spec.width / 2 + 0.005;
-  const wheelPos = [
-    [1.4, wz, r, specName], [1.4, -wz, r, specName],
-    [-1.4, wz, r, specName], [-1.4, -wz, r, specName],
-  ];
-  g.add(buildArches(wheelPos.map(([x, z, rr]) => [x, z, rr]), halfWidth));
+  g.add(mergedMesh([-0.55, 0.55].map((s) => xform(new THREE.BoxGeometry(0.1, 0.15, 0.32), 2.1, 0.6, s)), headMat));
   mountWheels(g, wheelPos, halfWidth);
   g.userData.headMat = headMat;
   return g;

@@ -10,10 +10,10 @@
 import * as THREE from '../vendor/three.module.min.js';
 import {
   M, box, cyl, cone, sph, archTop, mergedMesh, mergeStatic, colored,
-  xform, vertexColorMat, fountain, lampPost, makeTree, sailboat,
+  xform, vertexColorMat, fountain, lampRow, treeInstanced, sailboat,
 } from './world.js';
 import { roadTexture, seededRandom } from './roads.js';
-import { makePalmFull } from './vegetation.js';
+import { palmInstanced } from './vegetation.js';
 
 // Ground height for the player / pedestrians.
 // STAGE 1: the ground is FLAT everywhere (y 0). The old skyline
@@ -402,19 +402,20 @@ export function buildOldTown() {
   lines.add(laundryLine(-38, -36, -38, -30, 3.2));
   lines.add(laundryLine(-68, -44, -62, -44, 3.4));
   lines.add(laundryLine(-68, -34, -62, -34, 3.2));
-  group.add(lines);
-  for (const lx of [-70, -60, -50, -40]) {
-    const lamp = lampPost(lx, -43.5);
-    group.add(lamp);
-    const lamp2 = lampPost(lx + 2, -34.5);
-    group.add(lamp2);
-  }
+  // 2b draw-call cut: the lines are static — merge them by material
+  // instead of one group per line.
+  group.add(mergeStatic(lines));
+  // 2b draw-call cut (Xian 21 Nov 18:41): lampRow merges a whole row
+  // into 2 meshes (poles + globes) instead of 2 meshes per lamp post.
+  group.add(lampRow([-70, -60, -50, -40], -43.5));
+  group.add(lampRow([-68, -58, -48, -38], -34.5));
   // Cypress trees in the wall's green strip (never on a road).
+  // 2b draw-call cut: one InstancedMesh for the whole row.
+  const cypressSpots = [];
   for (let i = 0; i < 6; i++) {
-    const t = makeTree('cypress', 1.4 + rnd() * 0.8);
-    t.position.set(-70 + i * 7 + rnd() * 2, 0, -50.5);
-    group.add(t);
+    cypressSpots.push({ x: -70 + i * 7 + rnd() * 2, z: -50.5, s: 1.4 + rnd() * 0.8, rot: rnd() * Math.PI * 2 });
   }
+  group.add(treeInstanced('cypress', cypressSpots));
 
   // --- 2b (Xian 21 Nov 17:58): the old town grows west (x -96..-72,
   // z -80..-30) — the generator builds the terraced houses; this is
@@ -721,22 +722,16 @@ export function buildPromenade() {
   // the walkway + the quay + the marina; lamps on both walks. Palms are
   // kept modest (scale ~2.2) — the earlier ~3.5 scale read as giant
   // green slabs that blocked the casino in every shot. ---
-  for (const [px, pz, s] of [
+  // 2b draw-call cut: one InstancedMesh for all 12 palms (static).
+  const palmSpots = [
     [10, 28, 1.2], [20, 28, 1.0], [28, 28, 1.3], [44, 28, 1.1], [58, 28, 1.2],
     [12, 34, 1.1], [24, 34, 1.25], [40, 34, 1.0], [56, 34, 1.2],
     [-26, 28, 1.1], [-16, 28, 1.0], [-6, 28, 1.2],
-  ]) {
-    const p = makePalmFull(1.6 + s * 0.6);
-    p.position.set(px, 0.24, pz);
-    p.rotation.y = rnd() * Math.PI * 2;
-    group.add(p);
-  }
-  for (const lx of [12, 24, 36, 48, 58]) {
-    group.add(lampPost(lx, 27.5));
-  }
-  for (const lx of [-26, -14, -2, 10, 22, 34, 46, 58]) {
-    group.add(lampPost(lx, 34.5));
-  }
+  ];
+  group.add(palmInstanced(palmSpots.map(([px, pz, s]) => ({ x: px, z: pz, s: 1.6 + s * 0.6, rot: rnd() * Math.PI * 2 }))));
+  // 2b draw-call cut: lampRow merges each walk's lamps into 2 meshes.
+  group.add(lampRow([12, 24, 36, 48, 58], 27.5));
+  group.add(lampRow([-26, -14, -2, 10, 22, 34, 46, 58], 34.5));
 
   // --- marina piers (walkable, into the water) + quay props ---
   // The piers are wooden walkways on posts (top y 0.65, above the
@@ -763,7 +758,8 @@ export function buildPromenade() {
   group.add(mergeStatic(quayProps));
   // Moored sailboats on the water (beyond the quay, z > 35). 2b: 13
   // boats now (was 7) so the harbour reads busy along the whole shore.
-  for (const [sx, sz, sc] of [[-33, 42, 1.0], [-26, 42, 1.0], [-20, 42, 1.0], [-10, 44, 1.2], [0, 42, 1.0], [10, 44, 1.2], [20, 42, 1.0], [30, 44, 1.1], [44, 42, 1.0], [52, 42, 1.0], [60, 44, 1.1], [70, 44, 1.0], [76, 42, 1.0]]) {
+  const boatSpots = [[-33, 42, 1.0], [-26, 42, 1.0], [-20, 42, 1.0], [-10, 44, 1.2], [0, 42, 1.0], [10, 44, 1.2], [20, 42, 1.0], [30, 44, 1.1], [44, 42, 1.0], [52, 42, 1.0], [60, 44, 1.1], [70, 44, 1.0], [76, 42, 1.0]];
+  for (const [sx, sz, sc] of boatSpots) {
     const boat = sailboat(sc, 0xf2f0ea, sx);
     boat.position.set(sx, 0, sz);
     group.add(boat);

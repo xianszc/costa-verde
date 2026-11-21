@@ -160,23 +160,26 @@ function bellTower() {
 function buildHills() {
   const g = new THREE.Group();
   g.name = 'hills';
+  // 2b draw-call cut: ridges + villas are vertex-colored now, so
+  // mergeStatic folds the whole ridge line (7 ridges, 22 cypress,
+  // 8 villas) into ONE mesh (was 8, one per material). The cypress
+  // keep their y — they sit on the ridge slope, not at ground level.
+  // The seeded rnd() order is unchanged, so the layout is identical.
+  const parts = [];
   const ridge = (color, x, y, z, sx, sy, sz) => {
-    const m = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 24, 12),
-      new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true }),
-    );
-    m.scale.set(sx, sy, sz);
-    m.position.set(x, y, z);
-    return m;
+    const geo = new THREE.SphereGeometry(1, 24, 12);
+    geo.scale(sx, sy, sz);
+    geo.translate(x, y, z);
+    parts.push(colored(geo, color));
   };
-  g.add(ridge(0x8fa05e, -40, -2, -128, 70, 22, 18));
-  g.add(ridge(0x7f9052, 30, -3, -120, 80, 26, 20));
-  g.add(ridge(0x6f8048, -70, -1, -112, 50, 16, 14));
-  g.add(ridge(0x5f703e, 10, -2, -102, 55, 14, 12));
-  g.add(ridge(0x4f6034, -25, -1, -98, 45, 9, 8));
+  ridge(0x8fa05e, -40, -2, -128, 70, 22, 18);
+  ridge(0x7f9052, 30, -3, -120, 80, 26, 20);
+  ridge(0x6f8048, -70, -1, -112, 50, 16, 14);
+  ridge(0x5f703e, 10, -2, -102, 55, 14, 12);
+  ridge(0x4f6034, -25, -1, -98, 45, 9, 8);
   // Side ridges so the horizon is not flat on the east / west (A).
-  g.add(ridge(0x7f9052, -118, -2, -108, 45, 18, 16));
-  g.add(ridge(0x7f9052, 118, -2, -108, 45, 18, 16));
+  ridge(0x7f9052, -118, -2, -108, 45, 18, 16);
+  ridge(0x7f9052, 118, -2, -108, 45, 18, 16);
   // Cypress silhouettes + villa dots on the near ridge, behind the wall.
   const rnd = seededRandom(99);
   for (let i = 0; i < 22; i++) {
@@ -187,12 +190,12 @@ function buildHills() {
   }
   for (let i = 0; i < 8; i++) {
     const x = -48 + i * 19 + rnd() * 4;
-    const v = new THREE.Group();
-    v.add(box(3, 2, 2.5, 0xf5efe2, 0, 1, 0));
-    v.add(box(3.3, 0.3, 2.8, 0xb4552d, 0, 2.1, 0));
-    v.position.set(x, 4 + rnd() * 2, -92 - rnd() * 4);
-    g.add(v);
+    const y = 4 + rnd() * 2;
+    const z = -92 - rnd() * 4;
+    parts.push(colored(xform(new THREE.BoxGeometry(3, 2, 2.5), x, y + 1, z), 0xf5efe2));
+    parts.push(colored(xform(new THREE.BoxGeometry(3.3, 0.3, 2.8), x, y + 2.1, z), 0xb4552d));
   }
+  g.add(mergedMesh(parts, vertexColorMat));
   return mergeStatic(g);
 }
 

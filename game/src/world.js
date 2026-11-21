@@ -443,13 +443,8 @@ export function sailboat(scale = 1, sailColor = 0xf2f0ea, phase = 0) {
   });
   g.add(sail);
   // Wake: a fading V triangle trailing behind the stern (-Z).
-  const wakeShape = new THREE.Shape();
-  wakeShape.moveTo(0, 0);
-  wakeShape.lineTo(-1.1, -4.2);
-  wakeShape.lineTo(1.1, -4.2);
-  wakeShape.closePath();
   const wake = new THREE.Mesh(
-    new THREE.ShapeGeometry(wakeShape),
+    boatWakeGeometry(),
     new THREE.MeshBasicMaterial({ color: 0xeaf6f2, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false }),
   );
   wake.rotation.x = -Math.PI / 2;
@@ -462,6 +457,21 @@ export function sailboat(scale = 1, sailColor = 0xf2f0ea, phase = 0) {
   };
   g.scale.setScalar(scale);
   return g;
+}
+
+// Shared wake triangle (fading V trailing behind a stern). Cached —
+// the geometry is the same for every boat; only the transform differs.
+let wakeGeoCache = null;
+export function boatWakeGeometry() {
+  if (!wakeGeoCache) {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0);
+    s.lineTo(-1.1, -4.2);
+    s.lineTo(1.1, -4.2);
+    s.closePath();
+    wakeGeoCache = new THREE.ShapeGeometry(s);
+  }
+  return wakeGeoCache;
 }
 
 // ---------- district data ----------
