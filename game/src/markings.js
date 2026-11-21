@@ -2,12 +2,17 @@
 // All three marking systems (CBD grid, ring/connectors, generator zones)
 // record their markings here: one registry, one fixed layer order, one
 // audit. Placement rules (Xian 22 Nov 01:16 brief, item 2):
-//   - one zebra per approach, OUTSIDE the intersection box;
-//   - stop line 1.5 m before the zebra (approach side), spanning the
-//     approach lanes but NOT the bus lane strip and NOT the edge line;
+//   - one zebra per approach, OUTSIDE the intersection box (bars 2.0
+//     long parallel to traffic, spaced 0.7 across the road width);
+//   - stop line 1.0 m behind the zebra (approach side), spanning the
+//     approach lanes but NOT the bus lane strip, NOT the edge line and
+//     NOT the double yellow;
 //   - nothing else inside the intersection box (box junction only);
-//   - dashes / edges / bus lane are gapped at intersections, at stop
-//     lines and at turn arrows — no two markings share an area.
+//   - dashes / edges / bus lane are gapped at intersections and at
+//     zebra bands; each dash is skipped when it would land on a stop
+//     line; turn arrows are placed 3.5 behind the stop only where
+//     they fit (shapeIfFree) — the 11.2 grid spacing leaves no room
+//     for them on the short blocks. No two markings share an area.
 // Layer order (y, lower = under): box < bus < dash < edge/yellow <
 // zebra < stop < arrow. Any residual overlap renders deterministically.
 import * as THREE from '../vendor/three.module.min.js';
@@ -64,6 +69,28 @@ export function createMarkings() {
   function shape(type, geo, cx, cz, ry) {
     return add(type, colored(xform(geo, cx, MARK_Y[type], cz, ry, 1, -Math.PI / 2), 0xffffff));
   }
+  // Shape, placed ONLY when its rect overlaps nothing already recorded
+  // (turn arrows: the 11.2 grid spacing leaves no room for them on the
+  // short blocks — they appear wherever the approach geometry allows,
+  // and are skipped where they would collide with a neighbour's
+  // zebra/stop/box). Returns true when placed. Skipped shapes are
+  // counted on the registry (audit().skipped).
+  let skipped = 0;
+  function shapeIfFree(type, geo, cx, cz, ry) {
+    const g = colored(xform(geo, cx, MARK_Y[type], cz, ry, 1, -Math.PI / 2), 0xffffff);
+    g.computeBoundingBox();
+    const bb = g.boundingBox;
+    const EPS = 0.001;
+    for (const it of items) {
+      if (bb.min.x < it.x1 - EPS && bb.max.x > it.x0 + EPS && bb.min.z < it.z1 - EPS && bb.max.z > it.z0 + EPS) {
+        skipped++;
+        return false;
+      }
+    }
+    items.push({ type, x0: +bb.min.x.toFixed(3), z0: +bb.min.z.toFixed(3), x1: +bb.max.x.toFixed(3), z1: +bb.max.z.toFixed(3) });
+    parts[type].push(g);
+    return true;
+  }
   // Overlap audit over the recorded rects (exact AABB, epsilon 0.001 —
   // touching edges do not count). Spatial hash, same method as the
   // page audit (game/test/markings-audit.mjs), so the two agree.
@@ -100,7 +127,7 @@ export function createMarkings() {
       }
     }
     const total = Object.values(byPair).reduce((s, v) => s + v, 0);
-    return { total, byPair, samples, count: items.length };
+    return { total, byPair, samples, count: items.length, skipped };
   }
   // Merged meshes, one per type, named mark-<type> (the page audit
   // collects them by name). The registry rects are also exposed on
@@ -116,45 +143,55 @@ export function createMarkings() {
     if (typeof window !== 'undefined') window.__markingAudit = { items, audit: audit() };
     return group;
   }
-  return { items, parts, add, box, shape, audit, build };
+  return { items, parts, add, box, shape, shapeIfFree, audit, build };
 }
 
 // --- Placement rules (shared by the three systems) --------------------
 // Intersection box for a crossing at (cx, cz): N-S road half-width hn,
 // E-W road half-width he. Box: x [cx-hn, cx+hn], z [cz-he, cz+he].
 // A leg zebra crosses ONE road, on ONE leg, outside the box. Its bars
-// are long in the road's direction (parallel to traffic, 3.0 long —
+// are long in the road's direction (parallel to traffic, 2.0 long —
 // one crosswalk width) and spaced across the road's width (0.7 step).
-// The band centre sits (crossHalf + 1.5 + 0.4) out from the
+// The band centre sits (boxHalf + BAR_LEN/2 + 0.4) out from the
 // intersection centre along the leg.
 // The stop line belongs to the traffic ENTERING the intersection on
 // that leg: 1.5 m before the zebra (further out), spanning the inbound
 // lanes only — NOT the bus lane strip, NOT the edge line (avenue:
-// 0.7..1.35, centre 1.025, len 0.65; street: 0.2..0.7, centre 0.45,
-// len 0.5). Turn arrows sit 3.5 m behind the stop line, one per
+// 0.7..1.35, centre 1.025, len 0.65; street: 0.05..0.55, centre 0.3,
+// len 0.5 — the street stop ends before the edge line at 0.6).
 // inbound general lane (never in the bus lane).
-export const ZEBRA_BAR_LEN = 3.0;
+export const ZEBRA_BAR_LEN = 2.0;
 export const ZEBRA_MARGIN = 0.4;
-export const STOP_GAP = 1.5;
+export const STOP_GAP = 1.0;
 export const ARROW_BEHIND = 3.5;
 
-export function zebraOffsets(crossHalf) {
+export function zebraOffsets(crossHalf, edge) {
+  // Symmetric offsets, no centre bar (the centre holds the median on
+  // avenues and the double yellow on streets — a stripe must not cover
+  // either), step 0.7, capped so the outermost stripe ends 0.05 clear
+  // of the edge line. `edge` is the edge line's offset from the
+  // centreline (avenue 1.7, street 0.6, connector 3.2).
+  const maxOff = (edge === undefined ? crossHalf - 0.5 : edge) - 0.225;
   const offs = [];
-  for (let o = -crossHalf + 0.35; o <= crossHalf - 0.3; o += 0.7) offs.push(+o.toFixed(2));
-  return offs.length ? offs : [0];
+  for (let o = 0.35; o <= maxOff + 0.001; o += 0.7) offs.push(-+o.toFixed(2), +o.toFixed(2));
+  return offs.length ? offs.sort((a, b) => a - b) : [0];
 }
 
 // One zebra per approach, OUTSIDE the box. leg: 'W' | 'E' (crosses the
 // E-W road, on the west/east leg) or 'S' | 'N' (crosses the N-S road).
-// crossHalf: half-width of the road being crossed. Returns the band
-// centre {x, z} (for the stop line + arrows, further out on the leg).
-export function zebraApproach(m, cx, cz, leg, crossHalf) {
-  const offs = zebraOffsets(crossHalf);
+// crossHalf: half-width of the road being crossed (sets the bar
+// spacing across it). boxHalf: half-width of the road the zebra sits
+// ALONG (the intersection box's extent along the leg — the band must
+// clear it). Returns the band centre {x, z} (for the stop line +
+// arrows, further out on the leg).
+export function zebraApproach(m, cx, cz, leg, crossHalf, boxHalf, edge) {
+  const offs = zebraOffsets(crossHalf, edge);
+  const d = (boxHalf === undefined ? crossHalf : boxHalf) + ZEBRA_BAR_LEN / 2 + ZEBRA_MARGIN;
   let bx, bz;
-  if (leg === 'W') { bx = cx - (crossHalf + 1.5 + ZEBRA_MARGIN); bz = cz; }
-  if (leg === 'E') { bx = cx + (crossHalf + 1.5 + ZEBRA_MARGIN); bz = cz; }
-  if (leg === 'S') { bx = cx; bz = cz - (crossHalf + 1.5 + ZEBRA_MARGIN); }
-  if (leg === 'N') { bx = cx; bz = cz + (crossHalf + 1.5 + ZEBRA_MARGIN); }
+  if (leg === 'W') { bx = cx - d; bz = cz; }
+  if (leg === 'E') { bx = cx + d; bz = cz; }
+  if (leg === 'S') { bx = cx; bz = cz - d; }
+  if (leg === 'N') { bx = cx; bz = cz + d; }
   if (leg === 'W' || leg === 'E') {
     // Bars long in x (parallel to E-W traffic), spaced in z across the road.
     for (const dz of offs) m.box('zebra', bx, bz + dz, ZEBRA_BAR_LEN, 0.35);
@@ -166,24 +203,93 @@ export function zebraApproach(m, cx, cz, leg, crossHalf) {
 
 // Stop line 1.5 m before the zebra on the same leg (further from the
 // intersection). `lane` is {len, c} — the inbound-lane span, signed
-// from the road centreline (positive = the leg's inbound half).
+// from the road centreline. Right-hand traffic: the W leg (eastbound)
+// is on the south half (z + c), the E leg (westbound) on the north
+// half (z - c); the S leg (southbound, z < cz) on the west half
+// (x - c), the N leg (northbound, z > cz) on the east half (x + c).
+// `lane` overrides the kind default (avenue 0.7..1.35, street 0.05..0.55
+// — the street stop must end before the edge line at 0.6)
+// — e.g. the 7-wide ring connector: {len: 2.8, c: 1.6}.
 // Returns the stop centre {x, z} (for the arrows, 3.5 m behind it).
-export function stopForApproach(m, bandCentre, leg, kind) {
-  const lane = kind === 'avenue' ? { len: 0.65, c: 1.025 } : { len: 0.5, c: 0.45 };
+export function stopForApproach(m, bandCentre, leg, kind, laneOverride) {
+  const lane = laneOverride || (kind === 'avenue' ? { len: 0.65, c: 1.025 } : { len: 0.35, c: 0.325 });
   const d = ZEBRA_BAR_LEN / 2 + STOP_GAP + 0.2;
   let sx = bandCentre.x, sz = bandCentre.z;
   if (leg === 'W') { sx -= d; m.box('stop', sx, bandCentre.z + lane.c, 0.4, lane.len); }
   if (leg === 'E') { sx += d; m.box('stop', sx, bandCentre.z - lane.c, 0.4, lane.len); }
-  if (leg === 'S') { sz -= d; m.box('stop', bandCentre.x + lane.c, sz, lane.len, 0.4); }
-  if (leg === 'N') { sz += d; m.box('stop', bandCentre.x - lane.c, sz, lane.len, 0.4); }
+  if (leg === 'S') { sz -= d; m.box('stop', bandCentre.x - lane.c, sz, lane.len, 0.4); }
+  if (leg === 'N') { sz += d; m.box('stop', bandCentre.x + lane.c, sz, lane.len, 0.4); }
   return { x: sx, z: sz, lane };
+}
+
+// Turn arrows 3.5 m behind the stop line, one per inbound GENERAL lane
+// (never in the bus lane). `stop` is the stop centre from
+// stopForApproach. Lanes (from the centreline): avenue left 0.825 +
+// straight 1.175 (the 1.525 lane is the bus lane — no arrow); street
+// left 0.15 + right 0.45. `lanesOverride` is [{off, ry}] — e.g. the
+// 7-wide ring connector (one lane per direction): [{off: 1.6, ry}].
+// ry: north 0, east -PI/2, south PI, west PI/2.
+// Arrows are placed with shapeIfFree: on the 11.2 grid the approach
+// zones of adjacent intersections overlap, so an arrow that would
+// collide with a neighbour's zebra/stop/box is skipped (the registry
+// counts it). Returns the number placed.
+export function arrowsForApproach(m, stop, leg, kind, lanesOverride) {
+  const d = ARROW_BEHIND;
+  const lanes = lanesOverride || (kind === 'avenue'
+    ? [{ off: 0.825, ry: null }, { off: 1.175, ry: null }]
+    : [{ off: 0.15, ry: null }, { off: 0.45, ry: null }]);
+  // ry per lane: [inner (left turn), outer (straight / right turn)].
+  const rys = {
+    W: [0, -Math.PI / 2], // eastbound: left -> north, straight -> east
+    E: [Math.PI, Math.PI / 2], // westbound: left -> south, straight -> west
+    S: [-Math.PI / 2, Math.PI], // southbound: left -> east, straight -> south
+    N: [Math.PI / 2, 0], // northbound: left -> west, straight -> north
+  }[leg];
+  if (kind === 'street' && !lanesOverride) rys[1] = { W: Math.PI, E: 0, S: Math.PI / 2, N: -Math.PI / 2 }[leg]; // right turn
+  const geo = arrowGeometry();
+  let placed = 0;
+  const put = (x, z, ry) => { if (m.shapeIfFree('arrow', geo, x, z, ry)) placed++; };
+  if (lanesOverride) {
+    // One straight arrow per approach (the override carries its ry).
+    lanes.forEach((L) => {
+      if (leg === 'W') put(stop.x - d, stop.z + L.off, L.ry);
+      if (leg === 'E') put(stop.x + d, stop.z - L.off, L.ry);
+      if (leg === 'S') put(stop.x - L.off, stop.z - d, L.ry);
+      if (leg === 'N') put(stop.x + L.off, stop.z + d, L.ry);
+    });
+    return placed;
+  }
+  lanes.forEach((L, i) => {
+    const ry = rys[i];
+    if (leg === 'W') put(stop.x - d, stop.z + L.off, ry);
+    if (leg === 'E') put(stop.x + d, stop.z - L.off, ry);
+    if (leg === 'S') put(stop.x - L.off, stop.z - d, ry);
+    if (leg === 'N') put(stop.x + L.off, stop.z + d, ry);
+  });
+  return placed;
+}
+
+// A small turn arrow (1.0 long, 0.16 wide), pointing north (+Y) in the
+// shape's own plane at ry 0 — the registry's shape() flattens it
+// (rotateX -PI/2) and turns it, so this geometry must stay UNROTATED
+// (rotating it here would stand it upright again). 0.16 wide so it
+// sits inside one lane without touching the lane dividers (avenue
+// dividers at +/-1.0/1.35, street divider at +/-0.3).
+export function arrowGeometry() {
+  const sh = new THREE.Shape();
+  sh.moveTo(-0.04, -0.5); sh.lineTo(0.04, -0.5); sh.lineTo(0.04, 0.1);
+  sh.lineTo(0.08, 0.1); sh.lineTo(0, 0.5); sh.lineTo(-0.08, 0.1);
+  sh.lineTo(-0.04, 0.1); sh.closePath();
+  return new THREE.ShapeGeometry(sh);
 }
 
 // Yellow box junction in the intersection centre (avenues only). Bars
 // butt-jointed: the horizontal bars are inset by the vertical bars'
-// half-width so the corners do not overlap.
+// half-width so the corners do not overlap. The box spans the
+// intersection exactly (never wider — a wider box would run into the
+// zebra bands, which start 0.4 outside the box).
 export function boxJunction(m, cx, cz, hn, he) {
-  const bw = Math.min(2 * hn + 1, 4), bd = Math.min(2 * he + 1, 4);
+  const bw = Math.min(2 * hn, 4), bd = Math.min(2 * he, 4);
   m.box('box', cx, cz - bd / 2, bw - 0.12, 0.12);
   m.box('box', cx, cz + bd / 2, bw - 0.12, 0.12);
   m.box('box', cx - bw / 2, cz, 0.12, bd);

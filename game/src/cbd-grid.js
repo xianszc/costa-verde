@@ -32,6 +32,10 @@ import {
   box, mergedMesh, colored, xform, vertexColorMat, M, treeInstanced,
 } from './world.js';
 import { seededRandom } from './world.js';
+import {
+  createMarkings, zebraApproach, stopForApproach, arrowsForApproach, boxJunction,
+  ZEBRA_BAR_LEN, STOP_GAP,
+} from './markings.js';
 
 // --- the street list (the single source of truth) ---
 // axis 'x': a north-south street (constant x, runs along z).
@@ -249,19 +253,6 @@ function segmentsAlong(from, to, gaps) {
   return out.filter(([a, b]) => b - a > 0.5);
 }
 
-// A small turn arrow, laid flat (shape points +Y; rotateX(-90) makes
-// it point north/-Z; the ry argument then turns it). 1.0 long, 0.25 wide.
-function flatArrow(x, z, ry, s = 1) {
-  const sh = new THREE.Shape();
-  sh.moveTo(-0.06, -0.5); sh.lineTo(0.06, -0.5); sh.lineTo(0.06, 0.1);
-  sh.lineTo(0.125, 0.1); sh.lineTo(0, 0.5); sh.lineTo(-0.125, 0.1);
-  sh.lineTo(-0.06, 0.1); sh.closePath();
-  const g = new THREE.ShapeGeometry(sh);
-  g.rotateX(-Math.PI / 2);
-  g.scale(s, 1, s);
-  return xform(g, x, 0.22, z, ry);
-}
-
 export function buildCBDGrid(opts = {}) {
   const g = new THREE.Group();
   g.name = 'cbdGrid';
@@ -338,166 +329,149 @@ export function buildCBDGrid(opts = {}) {
     g.add(planterMesh);
   }
 
-  // ---------- markings ----------
+  // ---------- markings (registry: one source of truth, fixed layers) ----------
   // Lane geometry: avenue lanes 0.35 wide (centres +/-0.825/1.175/1.525,
   // dividers at +/-1.0/1.35, edges at +/-1.7, median +/-0.65);
   // street lanes 0.3 wide (centres +/-0.15/0.45, dividers at +/-0.3,
   // double yellow at +/-0.08, edges at +/-0.6).
-  const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.75 });
-  const yellowMat = new THREE.MeshBasicMaterial({ color: 0xe8c33d, transparent: true, opacity: 0.65 });
-  const whiteMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.7 });
-  const greenMat = new THREE.MeshBasicMaterial({ color: 0x3a9a6a, transparent: true, opacity: 0.55 });
-  const dashes = [];
-  const yellows = [];
-  const whites = [];
-  const greens = [];
-  // Gaps (intersection spans) along each road, for dashes/edges.
-  const nsGapAt = (s) => CBD_EW.map((e) => [e.z - e.w / 2 - 0.6, e.z + e.w / 2 + 0.6]);
-  const ewGapAt = (s) => CBD_NS.map((n) => [n.x - n.w / 2 - 0.6, n.x + n.w / 2 + 0.6]);
+  // The ring connectors (x +/-40, 7 wide) cross the boulevard: the grid
+  // owns that intersection too (below), so the boulevard's gaps include
+  // them and roads.js draws NO boulevard markings of its own.
+  const CONNECTOR_X = [-40, 40];
+  const CONNECTOR_HALF = 3.5;
+  const m = createMarkings();
+  // Longitudinal gaps along a road, per crossing (centre c, half h):
+  // the intersection box (+0.6) and the zebra bands on both legs
+  // ([c +/- (h+0.4), c +/- (h+BAR_LEN+0.4)]). The strips (edge / bus /
+  // yellow) are cut only there — a stop line never reaches the edge or
+  // the bus lane, and the (0.16-wide) arrows never reach them either.
+  // The dashes are cut there too, and each dash is additionally skipped
+  // when it would land on a stop line (dashBlocked, below).
+  const gapsForCrossing = (c, h) => {
+    const gaps = [[c - h - 0.6, c + h + 0.6]];
+    for (const s of [-1, 1]) gaps.push([c + s * (h + 0.4), c + s * (h + ZEBRA_BAR_LEN + 0.4)]);
+    // segmentsAlong walks the gaps in order.
+    return gaps.map(([a, b]) => [Math.min(a, b), Math.max(a, b)]).sort((p, q) => p[0] - q[0]);
+  };
+  const allGaps = (crossings) => crossings.flatMap(({ c, h }) => gapsForCrossing(c, h)).sort((p, q) => p[0] - q[0]);
+  // Stop lines on this road, for the dash skip: {p (along the road),
+  // side (+1 = the +offset half, -1 = the -offset half)}. The stop sits
+  // BAR_LEN + 0.6 + STOP_GAP out from the crossing centre (band centre
+  // + BAR_LEN/2 + STOP_GAP + 0.2). A dash at (p, side, off) is skipped
+  // when it overlaps a stop on its side: |p - stop.p| < 0.7 and off
+  // inside the stop's lateral span (avenue 0.7..1.35, street 0.15..0.55).
+  // Sides are axis-dependent (right-hand traffic): on a N-S road the
+  // -leg stop is on the -offset half; on an E-W road it is on the
+  // +offset half (eastbound is on the south half).
+  const stopSpans = (crossings, swap) => crossings.flatMap(({ c, h }) => [
+    { p: c - (h + ZEBRA_BAR_LEN + 0.6 + STOP_GAP), side: swap ? 1 : -1 },
+    { p: c + (h + ZEBRA_BAR_LEN + 0.6 + STOP_GAP), side: swap ? -1 : 1 },
+  ]);
+  const dashBlocked = (p, side, off, stops, kind) => {
+    const [lo, hi] = kind === 'avenue' ? [0.7, 1.35] : [0.15, 0.5];
+    if (off < lo - 0.06 || off > hi + 0.06) return false;
+    return stops.some((st) => st.side === side && Math.abs(p - st.p) < 0.7);
+  };
   for (const s of CBD_NS) {
-    const gaps = nsGapAt(s);
-    const segs = segmentsAlong(s.z0, s.z1, gaps);
+    const crossings = CBD_EW.map((e) => ({ c: e.z, h: e.w / 2 }));
+    const segs = segmentsAlong(s.z0, s.z1, allGaps(crossings));
+    const stops = stopSpans(crossings, false);
     const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
     for (const [a, b] of segs) {
       for (const off of divs) {
         for (const side of [-1, 1]) {
-          for (let z = a + 1; z <= b - 1; z += 4) {
-            dashes.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, 2), s.x + side * off, 0.22, z), 0xffffff));
+          for (let z = a + 0.5; z <= b - 0.5; z += 2.5) {
+            if (dashBlocked(z, side, off, stops, s.kind)) continue;
+            m.box('dash', s.x + side * off, z, 0.12, 1);
           }
         }
       }
-      // Edge lines (solid white) + double yellow (streets) + bus lane (avenues).
+    }
+    for (const [a, b] of segs) {
       for (const side of [-1, 1]) {
         const e = s.kind === 'avenue' ? 1.7 : 0.6;
-        whites.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, b - a), s.x + side * e, 0.22, (a + b) / 2), 0xffffff));
-        if (s.kind === 'avenue') greens.push(colored(xform(new THREE.BoxGeometry(0.08, 0.01, b - a), s.x + side * 1.45, 0.22, (a + b) / 2), 0xffffff));
-        else yellows.push(colored(xform(new THREE.BoxGeometry(0.08, 0.01, b - a), s.x + side * 0.08, 0.22, (a + b) / 2), 0xffffff));
+        m.box('edge', s.x + side * e, (a + b) / 2, 0.12, b - a);
+        if (s.kind === 'avenue') m.box('bus', s.x + side * 1.45, (a + b) / 2, 0.08, b - a);
+        else m.box('yellow', s.x + side * 0.08, (a + b) / 2, 0.08, b - a);
       }
     }
   }
   for (const s of CBD_EW) {
-    const gaps = ewGapAt(s);
-    const segs = segmentsAlong(s.x0, s.x1, gaps);
+    const crossings = CBD_NS.map((n) => ({ c: n.x, h: n.w / 2 }));
+    // The boulevard also meets the ring connectors at x +/-40.
+    if (s.z === 0) for (const cx of CONNECTOR_X) crossings.push({ c: cx, h: CONNECTOR_HALF });
+    crossings.sort((p, q) => p.c - q.c);
+    const segs = segmentsAlong(s.x0, s.x1, allGaps(crossings));
+    const stops = stopSpans(crossings, true);
     const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
     for (const [a, b] of segs) {
       for (const off of divs) {
         for (const side of [-1, 1]) {
-          for (let x = a + 1; x <= b - 1; x += 4) {
-            dashes.push(colored(xform(new THREE.BoxGeometry(2, 0.01, 0.12), x, 0.22, s.z + side * off), 0xffffff));
+          for (let x = a + 0.5; x <= b - 0.5; x += 2.5) {
+            if (dashBlocked(x, side, off, stops, s.kind)) continue;
+            m.box('dash', x, s.z + side * off, 1, 0.12);
           }
         }
       }
+    }
+    for (const [a, b] of segs) {
       for (const side of [-1, 1]) {
         const e = s.kind === 'avenue' ? 1.7 : 0.6;
-        whites.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.12), (a + b) / 2, 0.22, s.z + side * e), 0xffffff));
-        if (s.kind === 'avenue') greens.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.08), (a + b) / 2, 0.22, s.z + side * 1.45), 0xffffff));
-        else yellows.push(colored(xform(new THREE.BoxGeometry(b - a, 0.01, 0.08), (a + b) / 2, 0.22, s.z + side * 0.08), 0xffffff));
+        m.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.12);
+        if (s.kind === 'avenue') m.box('bus', (a + b) / 2, s.z + side * 1.45, b - a, 0.08);
+        else m.box('yellow', (a + b) / 2, s.z + side * 0.08, b - a, 0.08);
       }
     }
   }
-  const dashMesh = mergedMesh(dashes, dashMat);
-  dashMesh.name = 'cbd-dashes';
-  g.add(dashMesh);
-  const yellowMesh = mergedMesh(yellows, yellowMat);
-  yellowMesh.name = 'cbd-yellow';
-  g.add(yellowMesh);
-  const whiteMesh = mergedMesh(whites, whiteMat);
-  whiteMesh.name = 'cbd-edges';
-  g.add(whiteMesh);
-  if (greens.length) {
-    const greenMesh = mergedMesh(greens, greenMat);
-    greenMesh.name = 'cbd-buslane';
-    g.add(greenMesh);
-  }
 
   // ---------- zebras, stop lines, turn arrows, box junctions ----------
-  const zebraParts = [];
-  const stopParts = [];
-  const arrowParts = [];
-  const boxParts = [];
-  CBD_NS.forEach((ns, ix) => {
-    CBD_EW.forEach((ew, iz) => {
-      const cx = ns.x, cz = ew.z;
-      const hn = ns.w / 2, he = ew.w / 2;
-      const ave = ns.kind === 'avenue' || ew.kind === 'avenue';
-      // Zebra bars are spaced across the road being crossed (avenues
-      // are wider, so their bars spread further apart).
-      const eOffs = ew.kind === 'avenue' ? [-1.35, -0.45, 0.45, 1.35] : [-0.45, -0.15, 0.15, 0.45];
-      const nOffs = ns.kind === 'avenue' ? [-1.35, -0.45, 0.45, 1.35] : [-0.45, -0.15, 0.15, 0.45];
-      // Zebra across the E-W road (bars long in x, spaced in z).
-      for (const dz of eOffs) {
-        zebraParts.push(colored(xform(new THREE.BoxGeometry(2 * hn + 0.4, 0.01, 0.35), cx, 0.22, cz + dz), 0xffffff));
-      }
-      // Zebra across the N-S road (bars long in z, spaced in x).
-      for (const dx of nOffs) {
-        zebraParts.push(colored(xform(new THREE.BoxGeometry(0.35, 0.01, 2 * he + 0.4), cx + dx, 0.22, cz), 0xffffff));
-      }
-      // Stop lines, one per approach, spanning the approach half
-      // (median edge to road edge): avenue 0.95 long centred 1.175
-      // out, street 0.5 long centred 0.45 out.
-      const stopGeom = (kind) => (kind === 'avenue' ? { len: 0.95, c: 1.175 } : { len: 0.5, c: 0.45 });
-      const ewStop = stopGeom(ew.kind);
-      const nsStop = stopGeom(ns.kind);
-      // E-W road, west approach (eastbound, south half): stop at x = cx - hn - 1.4.
-      stopParts.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, ewStop.len), cx - hn - 1.4, 0.22, cz + ewStop.c), 0xffffff));
-      // E-W road, east approach (westbound, north half).
-      stopParts.push(colored(xform(new THREE.BoxGeometry(0.4, 0.01, ewStop.len), cx + hn + 1.4, 0.22, cz - ewStop.c), 0xffffff));
-      // N-S road, south approach (northbound, east half).
-      stopParts.push(colored(xform(new THREE.BoxGeometry(nsStop.len, 0.01, 0.4), cx + nsStop.c, 0.22, cz - he - 1.4), 0xffffff));
-      // N-S road, north approach (southbound, west half).
-      stopParts.push(colored(xform(new THREE.BoxGeometry(nsStop.len, 0.01, 0.4), cx - nsStop.c, 0.22, cz + he + 1.4), 0xffffff));
-      // Turn arrows: flatArrow points north at ry 0; east is -PI/2,
-      // west +PI/2, south PI (Three.js +Y rotation). Each approach
-      // gets a left arrow in its inner (median-side) lane, a straight
-      // arrow in the middle lane (avenues), and a right arrow in its
-      // outer lane. Placed 3.5 behind the stop line.
-      const lanes = (kind) => (kind === 'avenue' ? [-1.525, -1.175, -0.825, 0.825, 1.175, 1.525] : [-0.45, -0.15, 0.15, 0.45]);
-      // Eastbound (south half of the E-W road): left = north, straight
-      // = east, right = south.
-      const ewL = lanes(ew.kind).filter((v) => v > 0);
-      arrowParts.push(flatArrow(cx - hn - 5, cz + ewL[0], 0)); // left -> north
-      if (ewL.length > 2) arrowParts.push(flatArrow(cx - hn - 5, cz + ewL[1], -Math.PI / 2)); // straight -> east
-      arrowParts.push(flatArrow(cx - hn - 5, cz + ewL[ewL.length - 1], Math.PI)); // right -> south
-      // Westbound (north half): left = south, straight = west, right = north.
-      const ewLW = lanes(ew.kind).filter((v) => v < 0);
-      arrowParts.push(flatArrow(cx + hn + 5, cz + ewLW[ewLW.length - 1], Math.PI)); // left -> south
-      if (ewLW.length > 2) arrowParts.push(flatArrow(cx + hn + 5, cz + ewLW[1], Math.PI / 2)); // straight -> west
-      arrowParts.push(flatArrow(cx + hn + 5, cz + ewLW[0], 0)); // right -> north
-      // Northbound (east half of the N-S road): left = west, straight =
-      // north, right = east.
-      const nsL = lanes(ns.kind).filter((v) => v > 0);
-      arrowParts.push(flatArrow(cx + nsL[0], cz + he + 5, Math.PI / 2)); // left -> west
-      if (nsL.length > 2) arrowParts.push(flatArrow(cx + nsL[1], cz + he + 5, 0)); // straight -> north
-      arrowParts.push(flatArrow(cx + nsL[nsL.length - 1], cz + he + 5, -Math.PI / 2)); // right -> east
-      // Southbound (west half): left = east, straight = south, right = west.
-      const nsLW = lanes(ns.kind).filter((v) => v < 0);
-      arrowParts.push(flatArrow(cx + nsLW[nsLW.length - 1], cz - he - 5, -Math.PI / 2)); // left -> east
-      if (nsLW.length > 2) arrowParts.push(flatArrow(cx + nsLW[1], cz - he - 5, Math.PI)); // straight -> south
-      arrowParts.push(flatArrow(cx + nsLW[0], cz - he - 5, Math.PI / 2)); // right -> west
-      // Yellow box junction in the intersection centre (avenues only).
-      if (ave) {
-        const bw = Math.min(2 * hn + 1, 4), bd = Math.min(2 * he + 1, 4);
-        boxParts.push(colored(xform(new THREE.BoxGeometry(bw, 0.01, 0.12), cx, 0.22, cz - bd / 2), 0xffffff));
-        boxParts.push(colored(xform(new THREE.BoxGeometry(bw, 0.01, 0.12), cx, 0.22, cz + bd / 2), 0xffffff));
-        boxParts.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, bd), cx - bw / 2, 0.22, cz), 0xffffff));
-        boxParts.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, bd), cx + bw / 2, 0.22, cz), 0xffffff));
-      }
+  // One zebra per approach, OUTSIDE the box; the stop line 1.5 before
+  // it (inbound lanes only); the arrows 3.5 behind the stop (one per
+  // inbound general lane, never in the bus lane); the box junction
+  // butt-jointed (avenues only). The boulevard also meets the ring
+  // connectors at x +/-40 — the grid draws those four legs too (the
+  // connector is 7 wide, one lane per direction).
+  // One intersection's approach furniture. Zebras, stops and the box
+  // junction are placed in the first pass; the arrows go in a second
+  // pass over ALL intersections (shapeIfFree must see the boxes and
+  // zebras of LATER intersections too, not just earlier ones).
+  // `skipLegs` drops a whole leg (zebra + stop + arrows): the ring
+  // connector's inner legs face a grid street 6.4 away, and a zebra
+  // band cannot fit between the connector and that street.
+  const allLegs = [];
+  const intersectionMarkings = (cx, cz, hn, he, nsKind, ewKind, connLane, skipLegs = []) => {
+    const ave = nsKind === 'avenue' || ewKind === 'avenue';
+    const ewEdge = ewKind === 'avenue' ? 1.7 : 0.6;
+    const nsEdge = connLane ? 3.2 : (nsKind === 'avenue' ? 1.7 : 0.6);
+    for (const leg of ['W', 'E']) {
+      if (skipLegs.includes(leg)) continue;
+      const band = zebraApproach(m, cx, cz, leg, he, hn, ewEdge);
+      const stop = stopForApproach(m, band, leg, ewKind);
+      allLegs.push({ stop, leg, kind: ewKind });
+    }
+    for (const leg of ['S', 'N']) {
+      if (skipLegs.includes(leg)) continue;
+      const band = zebraApproach(m, cx, cz, leg, hn, he, nsEdge);
+      const stop = stopForApproach(m, band, leg, nsKind, connLane);
+      allLegs.push({ stop, leg, kind: nsKind, conn: !!connLane });
+    }
+    if (ave) boxJunction(m, cx, cz, hn, he);
+  };
+  CBD_NS.forEach((ns) => {
+    CBD_EW.forEach((ew) => {
+      intersectionMarkings(ns.x, ew.z, ns.w / 2, ew.w / 2, ns.kind, ew.kind);
     });
   });
-  const zebraMesh = mergedMesh(zebraParts, whiteMat);
-  zebraMesh.name = 'cbd-zebras';
-  g.add(zebraMesh);
-  const stopMesh = mergedMesh(stopParts, whiteMat);
-  stopMesh.name = 'cbd-stoplines';
-  g.add(stopMesh);
-  const arrowMesh = mergedMesh(arrowParts, whiteMat);
-  arrowMesh.name = 'cbd-arrows';
-  g.add(arrowMesh);
-  if (boxParts.length) {
-    const boxMesh = mergedMesh(boxParts, yellowMat);
-    boxMesh.name = 'cbd-boxjunctions';
-    g.add(boxMesh);
+  // The boulevard x the ring connectors (x +/-40, 7 wide). The inner
+  // leg of each faces a grid street 6.4 away (VIA DEL FARO / DEL
+  // PORTO) — that leg is skipped; the street's own zebra covers it.
+  for (const cx of CONNECTOR_X) {
+    intersectionMarkings(cx, 0, CONNECTOR_HALF, 2.4, 'street', 'avenue', { len: 2.8, c: 1.6 }, cx < 0 ? ['E'] : ['W']);
   }
+  for (const { stop, leg, kind, conn } of allLegs) {
+    arrowsForApproach(m, stop, leg, kind, conn ? [{ off: 1.6, ry: leg === 'S' ? Math.PI : 0 }] : undefined);
+  }
+  m.build(g);
 
   // ---------- speed bumps (mid-block on the secondary streets) ----------
   const bumpMat = new THREE.MeshStandardMaterial({ color: 0x8a8580, roughness: 0.95 });
