@@ -91,5 +91,5 @@ crossing-skipped trees/benches and skipped lamps outweigh them.
   with 33e8d61 (car stalls x=-44.7), M9 FAIL busted while laying low;
   M10/M11 open (triage table 23614f5). The GAME fixes for these were
   NOT part of item 3 and are still undone.
-- Item 3 box used: ~2 h 25 min (03:21 launch of b8bedb35, incl. the
+- Item 3 box used: ~2 h 05 min (03:21 launch of b8bedb35, incl. the
   04:42 context-limit relaunch; this run 04:42-05:25 WIB).
