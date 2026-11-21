@@ -139,9 +139,11 @@ export function buildCBD() {
   car.position.set(0, 8.6, 0);
   deck.add(car);
   group.add(deck);
-  tickers.push({
-    tick(dt, t) { car.position.x = Math.sin(t * 0.12) * 20; },
-  });
+  // The monorail car glides on a sine ticker. Tickers must be THREE
+  // objects with userData.tick (step() calls tk.userData.tick) — a
+  // plain { tick } object crashes the frame loop.
+  deck.userData.tick = (t) => { car.position.x = Math.sin(t * 0.12) * 20; };
+  tickers.push(deck);
 
   return {
     group, colliders, tickers,
