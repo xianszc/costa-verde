@@ -60,7 +60,7 @@ export const CBD_EW = [
   { z: 11.2, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL MOLO' },
 ];
 // Sidewalk width beside each road (avenue 0.7 = 7 m, street 0.4 = 4 m).
-export function sidewalkW(s) { return s.kind === 'avenue' ? 0.7 : 0.4; }
+export function sidewalkW(s) { return s.kind === 'avenue' ? 0.7 : 0.5; }
 // Road surface half-width (lanes + median, no sidewalks).
 // Avenue: 3 lanes/direction x 0.35 + median 1.3 = 3.4 (half 1.7).
 // Street: 2 lanes/direction x 0.3 + double yellow = 1.4 (half 0.7).
@@ -505,6 +505,9 @@ export function buildCBDGrid(opts = {}) {
   // ---------- lamp posts (ONE side only, B — tidy, evenly spaced) ----------
   // N-S streets: east sidewalk. E-W streets: north sidewalk.
   // The old double row read as clutter; one row lights the street.
+  // The pole stands in the furniture strip next to the kerb (0.04 out
+  // from the road edge) — never in the middle of the sidewalk, so the
+  // full walking width stays clear.
   const lampPoles = [];
   const lampGlobes = [];
   const lampAt = (x, z) => {
@@ -512,15 +515,13 @@ export function buildCBDGrid(opts = {}) {
     lampGlobes.push(xform(new THREE.SphereGeometry(0.16, 10, 8), x, 2.5, z));
   };
   for (const s of CBD_NS) {
-    const sw = sidewalkW(s);
     for (let z = s.z0 + 4; z <= s.z1 - 4; z += 8) {
-      lampAt(s.x + s.w / 2 + sw / 2, z);
+      lampAt(s.x + s.w / 2 + 0.04, z);
     }
   }
   for (const s of CBD_EW) {
-    const sw = sidewalkW(s);
     for (let x = s.x0 + 4; x <= s.x1 - 4; x += 8) {
-      lampAt(x, s.z - s.w / 2 - sw / 2);
+      lampAt(x, s.z - s.w / 2 - 0.04);
     }
   }
   const lampGroup = new THREE.Group();
@@ -535,8 +536,11 @@ export function buildCBDGrid(opts = {}) {
   CBD_NS.forEach((ns, ix) => {
     CBD_EW.forEach((ew, iz) => {
       const cx = ns.x, cz = ew.z;
-      const hn = ns.w / 2 + sidewalkW(ns) + 0.3;
-      const he = ew.w / 2 + sidewalkW(ew) + 0.3;
+      // Corner poles stand ON the sidewalk corner (0.1 inside its outer
+      // edge) — never beyond it, where the grid's north edge meets the
+      // ring's streets and the pole would stand on their asphalt.
+      const hn = ns.w / 2 + sidewalkW(ns) - 0.1;
+      const he = ew.w / 2 + sidewalkW(ew) - 0.1;
       for (const [dx, dz] of [[1, -1], [-1, -1], [1, 1], [-1, 1]]) {
         const px = cx + dx * hn, pz = cz + dz * he;
         tlParts.push(colored(xform(new THREE.CylinderGeometry(0.08, 0.08, 3.3, 8), px, 1.65, pz), 0xffffff));
@@ -651,24 +655,33 @@ export function buildCBDGrid(opts = {}) {
   // CORSO AZZURRA median, so that median keeps low planters only.
   const busStopPts = busStops.map((b) => ({ x: b.x, z: b.z }));
   const nearBusStop = (x, z) => busStopPts.some((p) => Math.hypot(p.x - x, p.z - z) < 2.5);
+  // A tree/bench/bin is skipped when it would stand in a crossing
+  // (its trunk/footprint on the crossing road's asphalt).
+  const inCrossingNS = (z) => CBD_EW.some((e) => Math.abs(z - e.z) < e.w / 2 + 0.3);
+  const RING_X = [-63, -54, -44, -40, 40, 44, 53, 62];
+  const inCrossingEW = (x) => CBD_NS.some((n) => Math.abs(x - n.x) < n.w / 2 + 0.3)
+    || RING_X.some((rx) => Math.abs(x - rx) < (Math.abs(rx) === 40 ? 3.5 : 1) + 0.3);
   const aveTrees = [];
-  // CORSO AZZURRA sidewalks (x +/-2.75), z -42..9, every 6.
+  // CORSO AZZURRA sidewalks, z -42..9, every 6. Trunks on the OUTER
+  // edge (x +/-3.02) with a SMALL canopy (scale 0.5-0.55, reach 0.63):
+  // the canopy ends 0.03 clear of the asphalt (road edge 2.4) and
+  // 0.25 short of the shop fronts (towers sit back 0.8+ from the curb).
   for (let z = -42; z <= 9; z += 6) {
     for (const side of [-1, 1]) {
-      const x = side * 2.75;
-      if (nearBusStop(x, z)) continue;
-      aveTrees.push({ x, z, s: 0.75 + rnd() * 0.2, rot: rnd() * Math.PI * 2 });
+      const x = side * 3.02;
+      if (nearBusStop(x, z) || inCrossingNS(z)) continue;
+      aveTrees.push({ x, z, s: 0.5 + rnd() * 0.05, rot: rnd() * Math.PI * 2 });
     }
   }
-  // LUNGOMARE sidewalks (z +/-2.75), x -56..56, every 6.
+  // LUNGOMARE sidewalks (z +/-3.02), x -56..56, every 6.
   for (let x = -56; x <= 56; x += 6) {
     for (const side of [-1, 1]) {
-      const z = side * 2.75;
-      if (nearBusStop(x, z)) continue;
-      // The direction-sign poles stand at (x +/-8, z +/-2.05) —
+      const z = side * 3.02;
+      if (nearBusStop(x, z) || inCrossingEW(x)) continue;
+      // The direction-sign poles stand at (x +/-8, z +/-2.44) —
       // keep the trees 1.5 clear of them.
-      if (Math.hypot(x - 8, z - 2.05) < 1.5 || Math.hypot(x + 8, z + 2.05) < 1.5) continue;
-      aveTrees.push({ x, z, s: 0.75 + rnd() * 0.2, rot: rnd() * Math.PI * 2 });
+      if (Math.hypot(x - 8, z - 2.44) < 1.5 || Math.hypot(x + 8, z + 2.44) < 1.5) continue;
+      aveTrees.push({ x, z, s: 0.5 + rnd() * 0.05, rot: rnd() * Math.PI * 2 });
     }
   }
   if (aveTrees.length) {
@@ -681,8 +694,13 @@ export function buildCBDGrid(opts = {}) {
   // CORSO AZZURRA gets NO median trees: the avenue-shot camera looks
   // straight down its median, and a cypress there blocks the
   // vanishing point (B fix — the low planters are the median there).
+  // A cypress within 0.6 of a street edge is skipped (its canopy would
+  // hang over the crossing).
   const medTrees = [];
-  for (let x = -27; x <= 27; x += 6) medTrees.push({ x, z: 0, s: 0.9 + rnd() * 0.2, rot: rnd() * Math.PI * 2 });
+  for (let x = -27; x <= 27; x += 6) {
+    if (CBD_NS.some((n) => Math.abs(x - n.x) < n.w / 2 + 0.6)) continue;
+    medTrees.push({ x, z: 0, s: 0.9 + rnd() * 0.2, rot: rnd() * Math.PI * 2 });
+  }
   if (medTrees.length) {
     const medTreeMesh = treeInstanced('cypress', medTrees);
     medTreeMesh.name = 'cbd-median-trees';
@@ -690,36 +708,38 @@ export function buildCBDGrid(opts = {}) {
   }
   // Benches + bins on the avenue sidewalks, every ~12, alternating
   // sides, offset from the trees (trees every 6, benches/bins every
-  // 12 at the midpoints) and clear of the bus stops.
+  // 12 at the midpoints) and clear of the bus stops and crossings.
+  // Narrowed (0.25 wide) and set on the OUTER edge of the sidewalk so
+  // the kerb-side walking band stays >= 2.5 m clear.
   const benchWood = [];
   const binParts = [];
   let bi = 0;
   for (let z = -39; z <= 9; z += 12, bi++) {
     const side = bi % 2 === 0 ? 1 : -1;
-    const x = side * 2.75;
-    if (nearBusStop(x, z)) continue;
-    benchWood.push(colored(xform(new THREE.BoxGeometry(0.45, 0.1, 1.6), x, 0.55, z), 0xffffff));
-    benchWood.push(colored(xform(new THREE.BoxGeometry(0.45, 0.55, 0.1), x, 0.28, z - 0.65), 0xffffff));
-    benchWood.push(colored(xform(new THREE.BoxGeometry(0.45, 0.55, 0.1), x, 0.28, z + 0.65), 0xffffff));
+    const x = side * 2.97;
+    if (nearBusStop(x, z) || inCrossingNS(z)) continue;
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.25, 0.1, 1.2), x, 0.55, z), 0xffffff));
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.25, 0.55, 0.1), x, 0.28, z - 0.5), 0xffffff));
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.25, 0.55, 0.1), x, 0.28, z + 0.5), 0xffffff));
   }
   for (let z = -33; z <= 3; z += 12, bi++) {
     const side = bi % 2 === 0 ? 1 : -1;
-    const x = side * 2.75;
-    if (nearBusStop(x, z)) continue;
+    const x = side * 2.88;
+    if (nearBusStop(x, z) || inCrossingNS(z)) continue;
     binParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.2, 0.6, 8), x, 0.3, z), 0xffffff));
   }
   for (let x = -54; x <= 54; x += 12, bi++) {
     const side = bi % 2 === 0 ? 1 : -1;
-    const z = side * 2.75;
-    if (nearBusStop(x, z)) continue;
-    benchWood.push(colored(xform(new THREE.BoxGeometry(1.6, 0.1, 0.45), x, 0.55, z), 0xffffff));
-    benchWood.push(colored(xform(new THREE.BoxGeometry(0.1, 0.55, 0.45), x - 0.65, 0.28, z), 0xffffff));
-    benchWood.push(colored(xform(new THREE.BoxGeometry(0.1, 0.55, 0.45), x + 0.65, 0.28, z), 0xffffff));
+    const z = side * 2.97;
+    if (nearBusStop(x, z) || inCrossingEW(x)) continue;
+    benchWood.push(colored(xform(new THREE.BoxGeometry(1.2, 0.1, 0.25), x, 0.55, z), 0xffffff));
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.1, 0.55, 0.25), x - 0.5, 0.28, z), 0xffffff));
+    benchWood.push(colored(xform(new THREE.BoxGeometry(0.1, 0.55, 0.25), x + 0.5, 0.28, z), 0xffffff));
   }
   for (let x = -48; x <= 48; x += 12, bi++) {
     const side = bi % 2 === 0 ? 1 : -1;
-    const z = side * 2.75;
-    if (nearBusStop(x, z)) continue;
+    const z = side * 2.88;
+    if (nearBusStop(x, z) || inCrossingEW(x)) continue;
     binParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.2, 0.6, 8), x, 0.3, z), 0xffffff));
   }
   if (benchWood.length) {
@@ -741,9 +761,11 @@ export function buildCBDGrid(opts = {}) {
   CBD_NS.forEach((s, i) => {
     if (s.kind !== 'street') return;
     metalParts.push(colored(xform(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 12), s.x, 0.22, -28 + (i % 2) * 8), 0xffffff));
-    // Hydrant on the east sidewalk (road edge + sidewalk centre).
-    hydParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 8), s.x + 1.3, 0.55, -18), 0xffffff));
-    hydParts.push(colored(xform(new THREE.SphereGeometry(0.22, 8, 6), s.x + 1.3, 0.95, -18), 0xffffff));
+    // Hydrant on the east sidewalk: its 0.26 base radius must clear the
+    // road edge (1.1), so its centre sits at 1.37 — touching the kerb,
+    // 0.02 past the sidewalk's outer edge (harmless, next to a wall).
+    hydParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 8), s.x + 1.37, 0.55, -18), 0xffffff));
+    hydParts.push(colored(xform(new THREE.SphereGeometry(0.22, 8, 6), s.x + 1.37, 0.95, -18), 0xffffff));
   });
   CBD_EW.forEach((s, i) => {
     if (s.kind !== 'street') return;
@@ -810,18 +832,19 @@ export function buildCBDGrid(opts = {}) {
   }
   // {x, z, ry (board facing), dir, y}: eastbound approach faces west
   // (ry -PI/2), westbound faces east, northbound faces south (ry 0),
-  // southbound faces north (ry PI). Poles stand on the SIDEWALK at the
-  // approach corner — never in a driving lane — with the straight
-  // board below the right-turn board.
+  // southbound faces north (ry PI). Poles stand in the furniture strip
+  // on the sidewalk at the approach corner (0.04 out from the road
+  // edge) — never in a driving lane — with the straight board below
+  // the right-turn board. The boards hang over the approach lanes.
   const dirBoards = [
-    { x: -8, z: 2.05, ry: -Math.PI / 2, dir: 'straight', y: 2.6 },
-    { x: -8, z: 2.05, ry: -Math.PI / 2, dir: 'right', y: 3.7 },
-    { x: 8, z: -2.05, ry: Math.PI / 2, dir: 'straight', y: 2.6 },
-    { x: 8, z: -2.05, ry: Math.PI / 2, dir: 'right', y: 3.7 },
-    { x: 2.05, z: 8, ry: 0, dir: 'straight', y: 2.6 },
-    { x: 2.05, z: 8, ry: 0, dir: 'right', y: 3.7 },
-    { x: -2.05, z: -8, ry: Math.PI, dir: 'straight', y: 2.6 },
-    { x: -2.05, z: -8, ry: Math.PI, dir: 'right', y: 3.7 },
+    { x: -8, z: 2.44, ry: -Math.PI / 2, dir: 'straight', y: 2.6 },
+    { x: -8, z: 2.44, ry: -Math.PI / 2, dir: 'right', y: 3.7 },
+    { x: 8, z: -2.44, ry: Math.PI / 2, dir: 'straight', y: 2.6 },
+    { x: 8, z: -2.44, ry: Math.PI / 2, dir: 'right', y: 3.7 },
+    { x: 2.44, z: 8, ry: 0, dir: 'straight', y: 2.6 },
+    { x: 2.44, z: 8, ry: 0, dir: 'right', y: 3.7 },
+    { x: -2.44, z: -8, ry: Math.PI, dir: 'straight', y: 2.6 },
+    { x: -2.44, z: -8, ry: Math.PI, dir: 'right', y: 3.7 },
   ];
   const boardGeos = { straight: [], right: [] };
   const boardPoles = [];

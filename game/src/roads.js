@@ -788,7 +788,10 @@ export function buildRoadNetwork() {
   g.add(hydMesh);
   const teal = new THREE.MeshStandardMaterial({ color: 0x2e7f8f, roughness: 0.6 });
   const bolParts = [];
-  for (let x = -54; x <= 54; x += 6) {
+  // Bollards along the quay's north edge — inside the boundary streets
+  // (x +/-54 would stand on the x +/-53 streets), so the row runs
+  // -48..48.
+  for (let x = -48; x <= 48; x += 6) {
     bolParts.push(colored(xform(new THREE.CylinderGeometry(0.14, 0.18, 0.85, 8), x, 0.45, 12.9), 0xffffff));
     bolParts.push(colored(xform(new THREE.SphereGeometry(0.14, 8, 6), x, 0.9, 12.9), 0xffffff));
   }
@@ -797,7 +800,9 @@ export function buildRoadNetwork() {
   g.add(bolMesh);
   const binMat = new THREE.MeshStandardMaterial({ color: 0x3a4a52, roughness: 0.7 });
   const binParts = [];
-  for (const bx of [-44, -14, 14, 44]) binParts.push(colored(xform(new THREE.CylinderGeometry(0.35, 0.3, 0.8, 8), bx, 0.6, 13.5), 0xffffff));
+  // Bins on the quay paving — clear of the boundary streets (x +/-44
+  // would stand on the x +/-44 streets), so they sit at +/-41.
+  for (const bx of [-41, -14, 14, 41]) binParts.push(colored(xform(new THREE.CylinderGeometry(0.35, 0.3, 0.8, 8), bx, 0.6, 13.5), 0xffffff));
   const binMesh = mergedMesh(binParts, binMat);
   binMesh.name = 'bins';
   g.add(binMesh);

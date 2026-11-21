@@ -172,7 +172,7 @@ export function zoneRoadsInto(ns, ew, pools, opts = {}) {
   const gapEw = dedup(opts.gaps?.ew || [], (s) => s.z + ':' + s.w);
   const allNs = [...ns, ...gapNs];
   const allEw = [...ew, ...gapEw];
-  const sidewalkW = (s) => (s.kind === 'avenue' ? 0.7 : 0.4);
+  const sidewalkW = (s) => (s.kind === 'avenue' ? 0.7 : 0.5);
   // Road slabs: E-W full length, N-S segmented between them.
   for (const s of ew) {
     pools.roads.push(colored(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.3, s.w), (s.x0 + s.x1) / 2, 0.05, s.z), 0xffffff));

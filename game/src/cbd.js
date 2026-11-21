@@ -13,7 +13,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import {
   mergedMesh, colored, xform, vertexColorMat, seededRandom,
 } from './world.js';
-import { cbdGridBlocks } from './cbd-grid.js';
+import { cbdGridBlocks, CBD_NS } from './cbd-grid.js';
 import { buildSignAtlas, remapUV, SHOP_NAMES } from './commercial.js';
 
 // Height curve: floors by distance r from the CBD centre (0, -16.8).
@@ -388,9 +388,13 @@ export function buildCBD() {
   // — never a wide dark slab, never covering the roads below or sitting
   // in a driving lane. The car straddles the beam. Guideway + car are
   // each one merged mesh (the old deck was 17 draw calls; this is 2).
+  // Pillars skip the intersections (the median is gapped there — a
+  // pillar at x -12/0/12 would stand in the Lungomare x Corso crossing
+  // and the VIA DEL SOLE / DEL MARE crossings).
   const guideGeos = [];
   guideGeos.push(colored(xform(new THREE.BoxGeometry(68, 0.5, 0.8), 0, 7, 0), 0x9a938a));
   for (let x = -30; x <= 30; x += 6) {
+    if (CBD_NS.some((s) => Math.abs(x - s.x) < s.w / 2 + 0.35)) continue;
     guideGeos.push(colored(xform(new THREE.BoxGeometry(0.35, 7, 0.35), x, 3.5, 0), 0x9a938a));
   }
   guideGeos.push(colored(xform(new THREE.BoxGeometry(68, 0.12, 0.25), 0, 7.3, -0.25), 0x3a3a3a));

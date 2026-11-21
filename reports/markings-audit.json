@@ -1,0 +1,29 @@
+{
+  "total": 0,
+  "byPair": {},
+  "samples": {},
+  "counts": {
+    "ring-dash": 285,
+    "ring-edge": 232,
+    "ring-zebra": 64,
+    "ring-stop": 7,
+    "ring-box": 8,
+    "mark-dash": 167,
+    "mark-edge": 147,
+    "mark-yellow": 120,
+    "mark-bus": 30,
+    "mark-zebra": 410,
+    "mark-stop": 174,
+    "mark-box": 56,
+    "zone-dash": 503,
+    "zone-edge": 381,
+    "zone-yellow": 381,
+    "zone-zebra": 2275,
+    "zone-stop": 1245
+  },
+  "skipped": [
+    "ring-arrow: arrow shape, use registry audit",
+    "mark-arrow: arrow shape, use registry audit",
+    "zone-arrow: arrow shape, use registry audit"
+  ]
+}
