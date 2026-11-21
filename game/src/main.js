@@ -34,6 +34,8 @@ const seed = params.get('seed') || '1';
 
 const app = document.getElementById('app');
 const game = createGame(app);
+// Debug: expose the game to the shot tooling (camera placement, stats).
+window.__game = game;
 
 function stageWheels() {
   const carKind = params.get('car') || 'player';

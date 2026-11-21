@@ -43,7 +43,7 @@ export function createCombat(scene, camera, opts) {
   // Shared tracer geometry: a unit cylinder along +Y, scaled to the
   // shot length and aimed with a quaternion. One geometry, one material
   // per colour — the meshes themselves are cheap and pooled by life.
-  const tracerGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 6, 1, true);
+  const tracerGeo = new THREE.CylinderGeometry(0.09, 0.09, 1, 6, 1, true);
   const tracerMats = {
     player: new THREE.MeshBasicMaterial({
       color: 0xffe9a8, transparent: true, opacity: 0.95,

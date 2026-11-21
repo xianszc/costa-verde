@@ -1167,10 +1167,12 @@ export function createGame(container) {
         // quay, the player tracer running east toward the closing
         // Guard and the enemy tracers coming back — the chase camera
         // foreshortens the tracer to a dot, this angle shows it.
-        camera.position.set(-53.5, 2.6, 19.5);
-        camera.lookAt(-44, 1.2, 11.5);
+        // Camera south-east, higher up: the firing line runs diagonally
+        // across the frame and the water foreground stays out of it.
+        camera.position.set(-41, 4.5, 19);
+        camera.lookAt(-52, 1.0, 11.5);
         camPos.copy(camera.position);
-        camLook.set(-44, 1.2, 11.5);
+        camLook.set(-52, 1.0, 11.5);
       }
       renderer.render(scene, camera);
       renderer.render(scene, camera);

@@ -170,15 +170,15 @@ html, body {
    M1 fix: each row is a 3-column grid (name | distance | status) with
    real gaps and vertical padding, so the distance and the status can
    never run into each other. */
-.police { position: absolute; right: 16px; top: 196px; width: 262px; border-color: rgba(255, 42, 42, 0.5); }
+.police { position: absolute; right: 16px; top: 196px; width: 300px; border-color: rgba(255, 42, 42, 0.5); }
 .police h3 { margin: 2px 0 10px; font-size: 13px; font-weight: 800; letter-spacing: 1px; color: #ff8a7a; }
 .unit {
-  display: grid; grid-template-columns: 1fr auto auto; gap: 10px;
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
   align-items: baseline; font-size: 12px;
   padding: 9px 2px; border-top: 1px solid rgba(247, 235, 215, 0.15);
 }
 .unit:first-of-type { border-top: 0; }
-.unit b { letter-spacing: 0.5px; white-space: nowrap; }
+.unit b { letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .unit .dist { opacity: 0.75; white-space: nowrap; text-align: right; min-width: 52px; }
 .unit .st { font-weight: 800; font-size: 10px; letter-spacing: 1px; white-space: nowrap; text-align: right; }
 .unit .st.hot { color: #ff8a7a; }
