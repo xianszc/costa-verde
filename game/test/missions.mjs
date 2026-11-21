@@ -189,6 +189,55 @@ async function followTail(page, timeoutMs) {
   return false;
 }
 
+// --- Road routing (BFS on the minimap centerlines) ---
+// The greedy autopilot (driveToPoint) cannot navigate around
+// buildings over a long distance — a human follows the roads. The
+// escape stages need the car driven to a target that can be far
+// away (M1: marina -> boulevard_mid, M3/M5 -> boulevard, M4/M6 ->
+// marina, M10 -> quay), so the driver routes along the road network
+// (the same minimap graph as the route test). Built once per page.
+let roadGraph = null; // { nodes, bfs, nearestNode, segments }
+async function buildRoadGraph(page) {
+  const segments = await page.evaluate(() => window.__game.district.minimap.map((s) => ({ x1: s.x1, z1: s.z1, x2: s.x2, z2: s.z2 })));
+  const nodes = [];
+  const nodeOf = new Map();
+  function nodeFor(x, z) {
+    const key = x + ',' + z;
+    let ni = nodeOf.get(key);
+    if (ni === undefined) {
+      ni = nodes.findIndex((n) => Math.hypot(n.x - x, n.z - z) < 4);
+      if (ni < 0) { nodes.push({ x, z, adj: new Set() }); ni = nodes.length - 1; }
+      nodeOf.set(key, ni);
+    }
+    return ni;
+  }
+  for (const s of segments) {
+    const a = nodeFor(s.x1, s.z1);
+    const b = nodeFor(s.x2, s.z2);
+    if (a !== b) { nodes[a].adj.add(b); nodes[b].adj.add(a); }
+  }
+  function bfs(a, b) {
+    const prev = new Array(nodes.length).fill(-1);
+    const q = [a]; prev[a] = a;
+    while (q.length) {
+      const n = q.shift();
+      if (n === b) break;
+      for (const m of nodes[n].adj) if (prev[m] < 0) { prev[m] = n; q.push(m); }
+    }
+    if (prev[b] < 0) return null;
+    const path = []; let n = b;
+    while (n !== a) { path.unshift(n); n = prev[n]; }
+    path.unshift(a);
+    return path;
+  }
+  function nearestNode(x, z) {
+    let best = -1, bd = Infinity;
+    nodes.forEach((n, i) => { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = i; } });
+    return { node: best, dist: bd };
+  }
+  return { nodes, bfs, nearestNode, segments: segments.length };
+}
+
 async function playMission(page, id, label) {
   const started = Date.now();
   let attempts = 0;
@@ -268,12 +317,16 @@ async function playMission(page, id, label) {
         }
       } else if (s.stageType === 'escape') {
         // ESCAPE IN THE CAR (human-like, 21:31 game fix + 21:34
-        // rule): the player is already at the safehouse (the RUN
-        // stage brought the car here). Enter the car, sit in it
-        // while the heat decays — the game fix means Guard rams add
-        // no heat during an escape, so the heat falls at 2.5/s after
-        // 5 s quiet. If a ram shoves the car out of the safehouse,
-        // drive it back (a human would). No teleport, no on-foot.
+        // rule): the player is already at the safehouse for M9 (the
+        // RUN stage brought the car here), but other escapes need a
+        // drive (M1 marina -> boulevard_mid, M3/M5 -> boulevard,
+        // M4/M6 -> marina, M10 -> quay). A human follows the roads,
+        // so the driver routes along the road network (BFS on the
+        // minimap graph) and drives waypoint to waypoint. Then sit
+        // in the car while the heat decays — the game fix means
+        // Guard rams add no heat during an escape, so the heat falls
+        // at 2.5/s after 5 s quiet. If a ram shoves the car out of
+        // the safehouse, drive it back. No teleport, no on-foot.
         if (s.onFoot) {
           await page.keyboard.press('KeyE'); // enter the car
           await sleep(600);
@@ -287,7 +340,30 @@ async function playMission(page, id, label) {
         }
         const cd = Math.hypot(s.cx - o.x, s.cz - o.z);
         if (cd > (o.r || 5)) {
-          await driveToPoint(page, o.x, o.z, o.r || 5, 10, 60000);
+          let routed = false;
+          if (roadGraph) {
+            const from = roadGraph.nearestNode(s.cx, s.cz);
+            const to = roadGraph.nearestNode(o.x, o.z);
+            const pathIdx = roadGraph.bfs(from.node, to.node);
+            if (pathIdx) {
+              routed = true;
+              const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
+              wps.push({ x: o.x, z: o.z });
+              const thin = [wps[0]];
+              for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 6) thin.push(p);
+              if (Math.hypot(thin[thin.length - 1].x - o.x, thin[thin.length - 1].z - o.z) > 1) thin.push({ x: o.x, z: o.z });
+              for (const wp of thin) {
+                const ok = await driveToPoint(page, wp.x, wp.z, 4, 10, 30000);
+                if (!ok) break;
+                const s3 = await readState(page);
+                if (s3.stageType !== 'escape') break;
+              }
+            }
+          }
+          if (!routed) {
+            // No road path (or no graph) — drive straight at it.
+            await driveToPoint(page, o.x, o.z, o.r || 5, 10, 60000);
+          }
         }
         await sleep(1000);
       } else {
@@ -330,6 +406,14 @@ for (const run of RUNS) {
     await sleep(2000);
     await page.evaluate(() => window.__game.startPlay());
     await sleep(2000);
+    // Road graph for the escape stages (BFS routing along the roads).
+    try {
+      roadGraph = await buildRoadGraph(page);
+      console.log(`road graph: ${roadGraph.nodes.length} nodes, ${roadGraph.segments} segments`);
+    } catch (e) {
+      console.log(`road graph: FAILED ${String(e).slice(0, 120)} (escapes fall back to straight-line driving)`);
+      roadGraph = null;
+    }
 
     if (run.key === 'M1-M9') {
       // Save/load exact-match check first (wanted is 0 at start).
