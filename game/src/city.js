@@ -258,7 +258,7 @@ function buildHillsTerraces() {
     const stripZ0 = L.z0 + 1;
     const stripZ1 = nextZ0 - 1;
     const stripCz = (stripZ0 + stripZ1) / 2;
-    for (let x = -78; x <= 78; x += 5.5) {
+    for (let x = -78; x <= 78; x += 5.0) {
       if (x > -6 && x < 6) continue; // funicular slot
       const jx = x + (rnd() - 0.5) * 1.6;
       const jz = stripCz + (rnd() - 0.5) * 1.2;
