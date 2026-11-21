@@ -27,6 +27,7 @@ import { createCombat, WEAPONS } from './combat.js';
 import { createHub } from './hub.js';
 
 const STEP = 1 / 60;
+let fastsimFactor = 1; // test-only: ?fastsim=N steps the sim N× faster without rendering (off = 1, normal play identical).
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const RANKS = [
   { xp: 0, name: 'DRIFTER' }, { xp: 500, name: 'DECKHAND' },
@@ -1820,6 +1821,7 @@ export function createGame(container) {
   // --- main loop ---
   let last = performance.now();
   let acc = 0;
+  let frameCount = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     const dtMs = now - last;
@@ -1836,14 +1838,17 @@ export function createGame(container) {
     if (state.mode !== 'play') return;
     // Hub open pauses the simulation but the scene keeps rendering.
     if (!hub.open) {
-      acc += Math.min(dtMs / 1000, 0.25);
+      acc += Math.min(dtMs / 1000, 0.25) * fastsimFactor;
       while (acc >= STEP) {
         step(STEP);
         acc -= STEP;
       }
     }
-    renderer.render(scene, camera);
-    updateHUD(now);
+    // Fast-sim: skip rendering (the driver reads state, not pixels);
+    // render + HUD one frame in 30 so the canvas stays alive.
+    frameCount++;
+    if (fastsimFactor <= 1 || frameCount % 30 === 0) renderer.render(scene, camera);
+    if (fastsimFactor <= 1 || frameCount % 30 === 0) updateHUD(now);
   }
 
   addEventListener('resize', () => {
@@ -1869,6 +1874,12 @@ export function createGame(container) {
     stageShot, setStorm, startPlay, district,
     wanted, combat, missions, hub, radio, saveSystem,
     get duelTarget() { return duelTarget; },
+    // Test-only fast simulation (see ?fastsim in main.js): steps the
+    // game logic at a fixed 1/60 s dt without rendering. The sim is
+    // deterministic in game-time (same step() calls, same dt); only
+    // wall-clock-keyed cosmetics run slower relative to game time.
+    setFastSim(n) { fastsimFactor = Math.max(1, Math.min(8, n | 0)); },
+    get __fastsim() { return fastsimFactor; },
     run() { requestAnimationFrame(frame); },
   };
 }

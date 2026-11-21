@@ -41,6 +41,14 @@ const app = document.getElementById('app');
 const game = createGame(app);
 // Debug: expose the game to the shot tooling (camera placement, stats).
 window.__game = game;
+// Test-only fast simulation: ?fastsim=N steps the game logic at a
+// fixed 1/60 s dt without rendering, ~N× wall-clock in headless.
+// OFF in normal play (no param = factor 1, behaviour identical).
+// Factor 2 is the verified safe max for the mission driver (its
+// 300 ms polls still catch the 4u waypoints); 4-8× needs poll
+// retuning in game/test/missions.mjs.
+const fastsim = Math.max(1, Math.min(8, parseInt(params.get('fastsim') || '1', 10) || 1));
+if (fastsim > 1) game.setFastSim(fastsim);
 
 function stageWheels() {
   const carKind = params.get('car') || 'player';
