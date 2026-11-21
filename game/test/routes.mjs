@@ -2,14 +2,20 @@
 // Proves the map is connected by DRIVING the player car from the harbor
 // to every zone and back — no dead ends, no blocked roads, no cars stuck.
 //
-// Method: reads the 24 traffic lanes (window.__game.district.lanes,
-// polylines the traffic cars follow), builds a graph by clustering
-// lane points within 2.5 units, BFS the shortest path from the harbor
-// to each zone's nearest lane point, then drives the car along the path
+// Method: reads the road centerlines (window.__game.district.minimap,
+// 154 segments {x1,z1,x2,z2,w} — the actual road network), builds a
+// graph by clustering segment endpoints within 4 units (endpoints that
+// meet at an intersection), BFS the shortest path from the harbor to
+// each zone's nearest road point, then drives the car along the path
 // with a keyboard autopilot (W throttle, A/D steering, S reverse when
-// stuck). Zones off the lane network get a short off-road hop from the
-// nearest lane point to the anchor; if the car cannot reach the anchor,
-// the zone is reported as a GAP (fix: add a road/lane).
+// stuck). Zones off the road network get a short off-road hop from the
+// nearest road point to the anchor; if the car cannot reach the anchor,
+// the zone is reported as a GAP (fix: add a road).
+//
+// NOTE: the traffic lanes (district.lanes) are NOT the road network —
+// they are 24 disconnected closed loops per district (7 components,
+// harbor isolated on marina-road only). The minimap lines are the
+// road network; that is why this test uses them.
 //
 // Zones: marina (harbor, the start), old town, promenade, CBD,
 // commercial ring, residential ring, hills + villas (funicular base —
@@ -37,7 +43,7 @@ const normAngle = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Mat
 
 // Zone targets (anchors; the harbor is the start, at the marina).
 // hills/villas = the funicular base (the terraces are pedestrian);
-// lighthouse + quarry are off the lane network (short off-road hop).
+// lighthouse + quarry may be off the road network (short off-road hop).
 const ZONES = [
   { id: 'marina', name: 'Marina (harbor)', x: 3, z: 26 },
   { id: 'oldtown', name: 'Old Town', x: -47, z: -39 },
@@ -66,30 +72,43 @@ await sleep(1500);
 await page.evaluate(() => window.__game.startPlay());
 await sleep(1500);
 
-// --- build the lane graph (cluster points within 2.5) ---
-const lanes = await page.evaluate(() => window.__game.district.lanes.map((l) => ({ name: l.name, pts: l.pts })));
-console.log(`lanes: ${lanes.length}`);
-// nodes: cluster all lane points (radius 4: lane endpoints meet at
-// intersections a few units apart; parallel streets are 6+ apart, so
-// they do not merge). A 2.5 radius left every lane disconnected.
-const nodes = []; // {x, z, lanes:Set}
-const nodeOf = new Map(); // point index -> node index (per lane, per point)
-for (const lane of lanes) {
-  for (const p of lane.pts) {
-    let ni = nodes.findIndex((n) => Math.hypot(n.x - p.x, n.z - p.z) < 4);
-    if (ni < 0) { nodes.push({ x: p.x, z: p.z, adj: new Set() }); ni = nodes.length - 1; }
-    nodeOf.set(lane.name + ':' + p.x + ',' + p.z, ni);
+// --- build the road graph from the minimap centerlines ---
+// Each minimap segment is a road (x1,z1)-(x2,z2). Nodes cluster the
+// segment endpoints within 4 units (endpoints meeting at an
+// intersection); parallel streets are 9+ apart (a block wide), so
+// they do not merge. Each segment is one edge between its two nodes.
+const segments = await page.evaluate(() => window.__game.district.minimap.map((s) => ({ x1: s.x1, z1: s.z1, x2: s.x2, z2: s.z2 })));
+console.log(`minimap segments: ${segments.length}`);
+const nodes = []; // {x, z, adj:Set}
+const nodeOf = new Map(); // "x,z" -> node index
+function nodeFor(x, z) {
+  const key = x + ',' + z;
+  let ni = nodeOf.get(key);
+  if (ni === undefined) {
+    ni = nodes.findIndex((n) => Math.hypot(n.x - x, n.z - z) < 4);
+    if (ni < 0) { nodes.push({ x, z, adj: new Set() }); ni = nodes.length - 1; }
+    nodeOf.set(key, ni);
   }
+  return ni;
 }
-// edges: consecutive points in each lane
-for (const lane of lanes) {
-  for (let i = 0; i + 1 < lane.pts.length; i++) {
-    const a = nodeOf.get(lane.name + ':' + lane.pts[i].x + ',' + lane.pts[i].z);
-    const b = nodeOf.get(lane.name + ':' + lane.pts[i + 1].x + ',' + lane.pts[i + 1].z);
-    if (a !== undefined && b !== undefined && a !== b) { nodes[a].adj.add(b); nodes[b].adj.add(a); }
-  }
+for (const s of segments) {
+  const a = nodeFor(s.x1, s.z1);
+  const b = nodeFor(s.x2, s.z2);
+  if (a !== b) { nodes[a].adj.add(b); nodes[b].adj.add(a); }
 }
 console.log(`graph: ${nodes.length} nodes`);
+// Count the connected components (a disconnected road network is a
+// gap — the harbor must reach every zone).
+{
+  const seen = new Set(); let comps = 0;
+  for (let i = 0; i < nodes.length; i++) {
+    if (seen.has(i)) continue;
+    comps++;
+    const q = [i]; seen.add(i);
+    while (q.length) { const n = q.shift(); for (const m of nodes[n].adj) if (!seen.has(m)) { seen.add(m); q.push(m); } }
+  }
+  console.log(`graph components: ${comps}`);
+}
 // BFS shortest path (node indices) from a to b
 function bfs(a, b) {
   const prev = new Array(nodes.length).fill(-1);
@@ -200,11 +219,11 @@ let longest = { zone: null, ms: 0 };
 for (const zone of ZONES) {
   if (zone.id === 'marina') { results[zone.id] = { reachable: true, msOut: 0, msBack: 0, pathLen: 0, note: 'start (harbor)' }; console.log('marina: start (harbor)'); continue; }
   const target = nearestNode(zone.x, zone.z);
-  const offRoad = target.dist; // distance from the nearest lane point to the anchor
+  const offRoad = target.dist; // distance from the nearest road point to the anchor
   const pathIdx = bfs(harborNode.node, target.node);
   if (!pathIdx) {
-    results[zone.id] = { reachable: false, reason: 'no lane path from harbor', offRoad };
-    console.log(`${zone.id}: UNREACHABLE (no lane path; nearest lane ${offRoad.toFixed(1)} away)`);
+    results[zone.id] = { reachable: false, reason: 'no road path from harbor', offRoad };
+    console.log(`${zone.id}: UNREACHABLE (no road path; nearest road ${offRoad.toFixed(1)} away)`);
     continue;
   }
   // Waypoints: the BFS path points + the anchor itself (off-road hop).
@@ -230,7 +249,7 @@ await releaseKeys();
 const allOk = Object.values(results).every((r) => r.reachable);
 console.log(`longest route: ${longest.zone} ${Math.round(longest.ms / 1000)}s round trip`);
 console.log(`errors: ${errors.length}${errors.length ? ' — ' + errors.slice(0, 3).join(' | ') : ''}`);
-await writeFile('/tmp/routes.json', JSON.stringify({ generated: new Date().toISOString(), lanes: lanes.length, nodes: nodes.length, results, longest, errors }, null, 2));
+await writeFile('/tmp/routes.json', JSON.stringify({ generated: new Date().toISOString(), segments: segments.length, nodes: nodes.length, results, longest, errors }, null, 2));
 console.log(allOk ? 'ALL ZONES REACHABLE' : 'SOME ZONES UNREACHABLE — see /tmp/routes.json');
 await browser.close();
 process.exit(allOk ? 0 : 1);
