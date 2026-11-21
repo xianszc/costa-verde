@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T19:44:24.378Z",
+  "generated": "2026-11-21T19:45:11.347Z",
   "commit": "5585be3",
   "missions": {
     "M1": {
@@ -120,6 +120,19 @@
       ],
       "lastTrace": "[trace] M11 stage=3 ESCAPE player=(-11.2,-8.3) car=(-10.6,0.4) target=(0,33) distPlayer=42.8u distCar=34.3u wanted=0 onFoot=true",
       "errors": 0,
+      "commit": "5585be3"
+    },
+    "M12": {
+      "mission": "M12",
+      "result": "PASS",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 3,
+      "ms": 12337,
+      "money": 6250,
+      "xp": 2740,
+      "errors": 0,
+      "how": "human-like",
       "commit": "5585be3"
     }
   },
