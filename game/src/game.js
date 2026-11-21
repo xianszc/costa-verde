@@ -1643,16 +1643,15 @@ export function createGame(container) {
       // Two peds on the avenue's south sidewalk (z -37.5).
       peds[0].mesh.position.set(-4, 0, -37.5);
       peds[1].mesh.position.set(4, 0, -37.5);
-      // High 3/4 angle: the avenue is only 7 wide and the CBD towers
-      // stand right behind it, so a street-level camera is 6 units
-      // from the shop faces and one 15-floor wall fills the frame.
-      // From 14 up and south of the avenue, looking down-north, the
-      // whole shop row (signs, awnings), the avenue, Stella, the loop
-      // cars and the peds on the sidewalk all read in one frame.
-      camera.position.set(-8, 14, -36);
-      camera.lookAt(5, 2.0, -50);
+      // Along the avenue, due east: the camera sits IN the avenue at
+      // its west end, looking east — the shop row recedes on the left,
+      // the CBD towers on the right, Stella + the peds mid-frame. (A
+      // camera south of the avenue is inside the CBD towers; a camera
+      // north of the shops sees only their backs.)
+      camera.position.set(-30, 3.0, -42);
+      camera.lookAt(30, 3.5, -44);
       camPos.copy(camera.position);
-      camLook.set(5, 2.0, -50);
+      camLook.set(30, 3.5, -44);
       renderer.render(scene, camera);
       renderer.render(scene, camera);
     } else { // walk
