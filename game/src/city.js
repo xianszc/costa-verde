@@ -346,6 +346,106 @@ function buildHillsTerraces() {
   return { group: g, tickers: [fun], villaCount };
 }
 
+// ---------- Outer zones: quarry + lighthouse headland (2e, Xian 21 Nov 17:58) ----------
+// Quarry (northeast, x 96..128, z -105..-88): a walled excavation —
+// a dusty floor, terraced rock walls stepping up around it, industrial
+// sheds, a crusher tower, a conveyor to a rubble pile. Lighthouse
+// headland (southwest, x -128..-118, z 35..48): a rocky point jutting
+// into the bay, a striped lighthouse tower with a rotating beam
+// (ticker) + keeper's cottage. All merged into ONE vertex-colored
+// mesh (1 draw call) except the beam (rotates, so it stays separate).
+function buildOuterZones() {
+  const g = new THREE.Group();
+  g.name = 'outer-zones';
+  const parts = [];
+  const rnd = seededRandom(20261121);
+  // --- Quarry pit (x 100..124, z -103..-90): dusty floor + terraced walls.
+  parts.push(colored(xform(new THREE.BoxGeometry(24, 0.2, 13), 112, 0.1, -96.5), 0xcbb894));
+  // Terraced rock walls: 3 steps rising around the pit (south + east +
+  // west faces; the north face is the hillside).
+  const wallSteps = [
+    { y: 1.5, z0: -90, z1: -88, x0: 100, x1: 124 },
+    { y: 3, z0: -90, z1: -89, x0: 100, x1: 124 },
+    { y: 1.5, z0: -103, z1: -101, x0: 100, x1: 124 },
+    { y: 3, z0: -103, z1: -102, x0: 100, x1: 124 },
+    { y: 1.5, z0: -103, z1: -90, x0: 100, x1: 102 },
+    { y: 3, z0: -103, z1: -90, x0: 100, x1: 101 },
+    { y: 1.5, z0: -103, z1: -90, x0: 122, x1: 124 },
+    { y: 3, z0: -103, z1: -90, x0: 123, x1: 124 },
+  ];
+  for (const s of wallSteps) {
+    const w = s.x1 - s.x0;
+    const d = s.z1 - s.z0;
+    parts.push(colored(
+      xform(new THREE.BoxGeometry(w, s.y, d), (s.x0 + s.x1) / 2, s.y / 2, (s.z0 + s.z1) / 2),
+      0x9a8a72));
+  }
+  // Rubble piles (cones) inside the pit.
+  for (const [px, pz, pr] of [[106, -94, 2.2], [110, -99, 1.8], [118, -95, 2.6]]) {
+    parts.push(colored(xform(new THREE.ConeGeometry(pr, pr * 0.9, 8), px, pr * 0.45, pz), 0x8a7a62));
+  }
+  // Industrial sheds (grey/blue boxes + pitched roofs) + crusher + office.
+  const SHED_COLORS = [0x8a8d91, 0x7a7d82, 0x6a7a8a, 0x9a8d7a];
+  let shedCount = 0;
+  for (const [sx, sz, sw, sd, sh] of [
+    [102, -92, 4, 3, 2.5], [108, -92, 5, 3, 3], [116, -92, 4, 3, 2.5],
+    [121, -98, 4, 3, 2.5], [103, -100, 5, 3, 3], [119, -101, 4, 3, 2.5],
+  ]) {
+    const c = SHED_COLORS[shedCount % SHED_COLORS.length];
+    parts.push(colored(xform(new THREE.BoxGeometry(sw, sh, sd), sx, sh / 2, sz), c));
+    parts.push(colored(xform(new THREE.BoxGeometry(sw + 0.3, 0.3, sd + 0.3), sx, sh + 0.15, sz), 0x5a5d61));
+    shedCount++;
+  }
+  // Crusher tower (tall, with a hopper) + conveyor to the rubble pile.
+  parts.push(colored(xform(new THREE.BoxGeometry(3, 6, 3), 112, 3, -100), 0x7a7d82));
+  parts.push(colored(xform(new THREE.BoxGeometry(3.6, 0.8, 3.6), 112, 6.4, -100), 0x5a5d61));
+  const conv = new THREE.BoxGeometry(0.8, 0.4, 9);
+  conv.rotateX(0.5);
+  conv.translate(114, 2.5, -96);
+  parts.push(colored(conv, 0x3a3a3a));
+  // Office (small, white + blue roof) by the south gate.
+  parts.push(colored(xform(new THREE.BoxGeometry(3, 2.2, 2.5), 104, 1.1, -89.5), 0xf5efe2));
+  parts.push(colored(xform(new THREE.BoxGeometry(3.4, 0.3, 2.9), 104, 2.35, -89.5), 0x2a4a6a));
+  // --- Lighthouse headland (x -128..-118, z 35..48): rocks + tower + cottage.
+  // Rocky outcrop: large flattened boulders rising from the water.
+  for (const [rx, rz, rs] of [[-123, 38, 4], [-121, 42, 5], [-125, 44, 4.5], [-119, 40, 3.5], [-122, 46, 3]]) {
+    const rock = new THREE.DodecahedronGeometry(rs, 0);
+    rock.scale(1, 0.45, 1);
+    rock.translate(rx, rs * 0.2, rz);
+    parts.push(colored(rock, 0x8a8d91));
+  }
+  // Lighthouse tower (striped white/red bands), on the highest rock.
+  const lx = -121, lz = 42;
+  const bandH = 1.6;
+  for (let i = 0; i < 6; i++) {
+    const y0 = 2 + i * bandH;
+    parts.push(colored(
+      xform(new THREE.CylinderGeometry(1.1 - i * 0.06, 1.2 - i * 0.06, bandH, 10), lx, y0 + bandH / 2, lz),
+      i % 2 === 0 ? 0xf5efe2 : 0xc0392b));
+  }
+  // Light room (glass + cap) + keeper's cottage.
+  parts.push(colored(xform(new THREE.CylinderGeometry(1.0, 1.0, 1.2, 10), lx, 2 + 6 * bandH + 0.6, lz), 0x2a4a5a));
+  parts.push(colored(xform(new THREE.ConeGeometry(1.3, 1.0, 10), lx, 2 + 6 * bandH + 1.7, lz), 0x3a3a3a));
+  parts.push(colored(xform(new THREE.BoxGeometry(3.5, 2.2, 3), -125, 1.1, 38), 0xf5efe2));
+  parts.push(colored(xform(new THREE.BoxGeometry(3.9, 0.3, 3.4), -125, 2.35, 38), 0xb4552d));
+  g.add(mergedMesh(parts, vertexColorMat));
+  // Rotating beam (separate mesh — it spins). A long thin translucent
+  // box from the light room, sweeping the bay. The geometry is offset
+  // +9 in z so it extends outward from the pivot at the tower top.
+  const beam = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 18),
+    new THREE.MeshBasicMaterial({ color: 0xfff2c0, transparent: true, opacity: 0.35, depthWrite: false }),
+  );
+  beam.geometry.translate(0, 0, 9);
+  const beamPivot = new THREE.Group();
+  beamPivot.name = 'lighthouse-beam';
+  beamPivot.add(beam);
+  beamPivot.position.set(lx, 2 + 6 * bandH + 0.6, lz);
+  g.add(beamPivot);
+  beamPivot.userData.tick = (t) => { beamPivot.rotation.y = t * 0.5; };
+  return { group: g, tickers: [beamPivot], quarrySheds: shedCount + 2, lighthouse: 1 };
+}
+
 // ---------- Mediterranean ground + terrain dressing (A, Xian 21 Nov 16:48) ----------
 // The flat tan ground plane read as an empty orange dune in the oblique /
 // bay shots. A canvas texture mottles it into olive-green grass + ochre
@@ -669,6 +769,13 @@ export function buildDistrict4() {
   group.add(terraces.group);
   tickers.push(...terraces.tickers);
   report.hillsVillas = terraces.villaCount;
+
+  // --- outer zones: quarry + lighthouse headland (2e) ---
+  const outerZones = buildOuterZones();
+  group.add(outerZones.group);
+  tickers.push(...outerZones.tickers);
+  report.outerQuarry = outerZones.quarrySheds;
+  report.outerLighthouse = outerZones.lighthouse;
 
   // --- terrain dressing (A): terraces + trees + rocks outside the city ---
   const dressing = buildTerrainDressing();
