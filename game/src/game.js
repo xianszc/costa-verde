@@ -1648,10 +1648,10 @@ export function createGame(container) {
       // the CBD towers on the right, Stella + the peds mid-frame. (A
       // camera south of the avenue is inside the CBD towers; a camera
       // north of the shops sees only their backs.)
-      camera.position.set(-20, 3.2, -43);
-      camera.lookAt(30, 3.5, -44);
+      camera.position.set(-20, 3.2, -44);
+      camera.lookAt(25, 3.5, -46);
       camPos.copy(camera.position);
-      camLook.set(30, 3.5, -44);
+      camLook.set(25, 3.5, -46);
       renderer.render(scene, camera);
       renderer.render(scene, camera);
     } else { // walk
