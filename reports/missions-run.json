@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T23:31:02.650Z",
+  "generated": "2026-11-21T23:37:07.761Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -104,12 +104,15 @@
     },
     "M9": {
       "mission": "M9",
-      "result": "FAIL",
-      "attempts": 2,
-      "fails": 2,
-      "maxStage": 1,
-      "ms": 49395,
+      "result": "PASS",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 66480,
+      "money": 2750,
+      "xp": 2040,
       "errors": 0,
+      "how": "human-like",
       "commit": "unknown"
     },
     "M10": {
