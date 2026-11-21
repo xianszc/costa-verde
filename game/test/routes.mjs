@@ -174,13 +174,13 @@ async function drivePath(waypoints, label) {
 }
 
 // --- enter the car at the harbor ---
-await page.evaluate(() => {
+await page.evaluate(({ x, z }) => {
   const g = window.__game;
-  g.player.x = HARBOR.x; g.player.z = HARBOR.z;
-  g.car.x = HARBOR.x; g.car.z = HARBOR.z;
-  g.car.mesh.position.set(HARBOR.x, 0, HARBOR.z);
+  g.player.x = x; g.player.z = z;
+  g.car.x = x; g.car.z = z;
+  g.car.mesh.position.set(x, 0, z);
   g.car.angle = Math.PI / 2; // face north up the quay
-});
+}, { x: HARBOR.x, z: HARBOR.z });
 await sleep(500);
 await page.keyboard.press('KeyE');
 await sleep(800);
