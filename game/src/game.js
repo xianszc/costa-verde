@@ -1587,6 +1587,12 @@ export function createGame(container) {
         placeCbdCar(cbdTraffic[0], 'NS', 3, -1, 0, 0, 0.6); // northbound inner, z ~-30
         placeCbdCar(cbdTraffic[2], 'NS', 3, -1, 2, 0, 0.45); // northbound outer, z ~-27
         placeCbdCar(cbdTraffic[1], 'NS', 3, 1, 0, 0, 0.85); // southbound inner, z ~-18, approaching
+        // Pin the two police patrols to the z 11.2 cross-street BEHIND
+        // the camera: they turn at intersections and otherwise wander
+        // onto the avenue right next to the camera, cropped at the
+        // frame's edge.
+        placeCbdCar(cbdTraffic[5], 'EW', 3, 1, 0, 0, 0.5); // eastbound, z 11.2
+        placeCbdCar(cbdTraffic[6], 'EW', 3, -1, 0, 0, 0.5); // westbound, z 11.2
         // Two peds mid-crosswalk on the zebra at z -11.2.
         peds[0].mesh.position.set(0.4, 0, -11.2);
         peds[1].mesh.position.set(-0.6, 0, -11.2);
