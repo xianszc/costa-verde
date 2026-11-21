@@ -162,16 +162,17 @@ export const ANCHORS = {
   // Street: in the gap between the south-row towers, looking
   // north-east across the grid — Elio centre-frame, the tower rows
   // receding, the monorail deck overhead (not a ceiling).
-  // Street-level CBD shot (Xian 21 Nov 15:02 — from the middle of a
-  // street, towers on both sides): the camera stands ON the north-
-  // south street at x -15 and looks NORTH along it, so the road, its
-  // markings and the tower rows on both sides read in one frame. The
-  // boulevard shot looks down the monorail line — its pillars fill the
-  // frame (centreline puts one dead centre, the south lane puts a row
-  // of them on the left) — so the street shot uses a side street, which
-  // has no pillars. Elio stands at (-15, 0), in the middle of the
-  // boulevard at the x -15 street crossing.
-  vantage_cbd_street: { x: -15, y: 3, z: 12, look: { x: -15, y: 10, z: -28 }, district: 'cbd' },
+  // Street-level CBD shot (Xian 21 Nov 15:02 — from the middle of the
+  // avenue, towers on both sides): the camera stands ON the boulevard
+  // centreline and looks EAST along it, so the road, its median, lane
+  // markings, crosswalks and the tower rows on both sides read in one
+  // frame. A monorail pillar stands dead centre (the pillars are on
+  // the centreline) — the south-lane and side-street alternatives were
+  // both worse (a row of pillars on the left, or a narrow canyon with
+  // the deck overhead), so the centreline shot is the keeper. Elio
+  // stands at (-15, 0), in the middle of the boulevard at the x -15
+  // street crossing.
+  vantage_cbd_street: { x: -30, y: 3, z: 0, look: { x: 30, y: 6, z: 0 }, district: 'cbd' },
   // Bay: from the east over the water, looking west-northwest at the
   // skyline in 3/4 — the cluster reads in profile, the water in front.
   vantage_cbd_bay: { x: 55, y: 14, z: 38, look: { x: -5, y: 45, z: -9 }, district: 'cbd' },
