@@ -24,7 +24,7 @@ export const ANCHORS = {
   // STEAL, M2 MEET / DOCK, M5 ESCAPE, M8 HARBOR, M12 EPILOGUE.
   // STAGE 1 part 5: the pavilion moves to the marina strip (the east
   // end of the marina, on the promenade walkway).
-  harbormaster_pavilion: { x: 3, z: 26, district: 'marina' },
+  harbormaster_pavilion: { x: 5, z: 20, district: 'marina' },
   // The middle of the boulevard. M1 ESCAPE, M4 ESCAPE, M10 race finish
   // and PODIUM.
   boulevard_mid: { x: 0, z: 0, district: 'boulevard' },
