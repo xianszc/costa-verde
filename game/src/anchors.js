@@ -124,7 +124,7 @@ export const ANCHORS = {
   // the pocket is LOW (2–4 floors) and the ring around it is TALL, so
   // any outside/elevated camera sees the ring, not the old town. The
   // street-level shot from inside is the one that reads.
-  vantage_oldtown_cam: { x: -58, y: 2.5, z: -39, look: { x: -36, y: 2, z: -39 }, district: 'old town' },
+  vantage_oldtown_cam: { x: -59, y: 3.5, z: -39, look: { x: -36, y: 2, z: -39 }, district: 'old town' },
   // Promenade: high above the boulevard's west end, looking east-down
   // at the boulevard, the deco row, the Casino Azzura and the hotel.
   vantage_promenade_cam: { x: 60, y: 18, z: 8, look: { x: 100, y: 0, z: -12 }, district: 'promenade' },
