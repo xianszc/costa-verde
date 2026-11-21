@@ -304,23 +304,40 @@ export function createCar(mesh, opts = {}) {
   };
 }
 
-// Circle vs AABB push-out. Returns true when a collision happened.
+// Circle vs AABB push-out. Returns { x, z, hit, depth } where depth is
+// the deepest pre-push overlap (0 when only grazing). A circle whose
+// centre is INSIDE an AABB used to get zero push-out (the nearest
+// point IS the centre, dx=dz=0) and was permanently trapped, speed
+// halved every step — e.g. a car teleported onto the marina pavilion
+// anchor, which sits inside the pavilion's own collider. Push out
+// along the minimum-penetration axis instead.
 export function collideCircleAABBs(x, z, r, colliders) {
   let hit = false;
+  let depth = 0;
   for (const c of colliders) {
     const nx = Math.max(c.x0, Math.min(x, c.x1));
     const nz = Math.max(c.z0, Math.min(z, c.z1));
     const dx = x - nx, dz = z - nz;
     const d2 = dx * dx + dz * dz;
-    if (d2 < r * r) {
-      hit = true;
-      const d = Math.sqrt(d2) || 0.001;
+    if (d2 >= r * r) continue;
+    hit = true;
+    if (d2 > 1e-9) {
+      const d = Math.sqrt(d2);
+      depth = Math.max(depth, r - d);
       const push = (r - d) / d;
       x += dx * push;
       z += dz * push;
+    } else {
+      const pl = x - c.x0, pr = c.x1 - x, pt = z - c.z0, pb = c.z1 - z;
+      const m = Math.min(pl, pr, pt, pb);
+      depth = Math.max(depth, m + r);
+      if (m === pl) x = c.x0 - r;
+      else if (m === pr) x = c.x1 + r;
+      else if (m === pt) z = c.z0 - r;
+      else z = c.z1 + r;
     }
   }
-  return { x, z, hit };
+  return { x, z, hit, depth };
 }
 
 // input: { up, down, left, right, handbrake } — dt in seconds.
@@ -342,7 +359,11 @@ export function stepCar(car, input, dt, colliders, nowSec) {
   if (res.hit && Math.abs(car.speed) > 4) {
     car.damage = Math.min(100, car.damage + Math.abs(car.speed) * 0.6);
     car.speed *= 0.4;
-  } else if (res.hit) {
+  } else if (res.hit && res.depth > 0.05) {
+    // A real scrape (overlap > 5 cm) scrubs speed. A micro-graze
+    // (numerical noise while sliding along a wall/median face) must
+    // not — the old rule halved the speed on EVERY graze, so a car
+    // riding a lane edge crept at 0.25 u/s forever.
     car.speed *= 0.5;
   }
   car.x = res.x;
