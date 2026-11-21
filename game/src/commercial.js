@@ -53,7 +53,10 @@ const PALETTE = [
   0xefe3c8, 0xe8c98a, 0xd8a05a, 0xc96a4a, 0x7a9a8a, 0x8fa8b8,
   0xb88a6a, 0xd8b8a8, 0xe8d8b8, 0xa8b89a, 0xc9a86a, 0x9a8a7a,
 ];
-const SHOP_NAMES = [
+// Exported for cbd.js (C): the CBD towers' ground-floor shop signs
+// use the same atlas + plates, so all signs in the city share one
+// texture and one merged mesh per module.
+export const SHOP_NAMES = [
   'CAFÉ LUME', 'FORNO AZZURRO', 'PESCHERIA', 'GELATO SOL',
   'BAR VERDE', 'TABACCHI', 'FARMACIA', 'PANETTERIA',
   'MACELLERIA', 'FIORI', 'LIBRERIA', 'OROLOGERIA',
@@ -78,7 +81,7 @@ const ATLAS_PLATES = [
   { text: 'VELA', bg: '#1f7a8c', fg: '#f7ebd7' },
   { text: 'PORTO', bg: '#7a2e2e', fg: '#f7ebd7' },
 ];
-function buildSignAtlas() {
+export function buildSignAtlas() {
   const c = document.createElement('canvas');
   c.width = 1024; c.height = 256;
   const ctx = c.getContext('2d');
@@ -103,7 +106,7 @@ function buildSignAtlas() {
   return { texture: tex, plates };
 }
 // Remap a plane's UVs into one atlas cell.
-function remapUV(geo, plate) {
+export function remapUV(geo, plate) {
   const uv = geo.attributes.uv;
   for (let i = 0; i < uv.count; i++) {
     uv.setXY(i,

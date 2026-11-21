@@ -14,6 +14,7 @@ import {
   mergedMesh, colored, xform, vertexColorMat, seededRandom,
 } from './world.js';
 import { cbdGridBlocks } from './cbd-grid.js';
+import { buildSignAtlas, remapUV, SHOP_NAMES } from './commercial.js';
 
 // Height curve: floors by distance r from the CBD centre (0, -16.8).
 // Azzura is forced to 60; the rest fall from ~50 near the centre to
@@ -45,6 +46,13 @@ export function buildCBD() {
   const greenGeos = []; // park lawn, trees, shrubs
   const paveGeos = []; // darker paving: border frames + accent squares
   const parkedGeos = []; // parked cars (vertex colours, one mesh)
+  const signGeos = []; // atlas quads (ground-floor shop signs) — 1 mesh
+  // The atlas needs a canvas (DOM): in Node (the overlap test) there
+  // is none, so the signs are skipped there — the test only checks
+  // the colliders, and the shopfront glass / awnings / doors still
+  // build. In the browser the atlas is built and the signs merge.
+  const atlas = typeof document === 'undefined' ? null : buildSignAtlas(); // shared with the ring (C)
+  const AWN_COLORS = [0xc93a6b, 0x1f7a8c, 0xe8a33d, 0x2e5a3a, 0xf7ebd7];
   let towerCount = 0;
   let podiumCount = 0;
 
@@ -85,37 +93,91 @@ export function buildCBD() {
     }
   }
 
+  // Dense curtain-wall grid (C): one window per floor, cols every
+  // 1.6 — never the sparse dashes. PlaneGeometry (2 tris each),
+  // merged into winGeos (1 draw call for all towers). Lit columns
+  // (30-40% warm) run vertically, never a checkerboard. A spandrel
+  // band every 4 floors + thin vertical fins at the face edges give
+  // the facade its mullion / band rhythm.
   function addWindows(cx, cz, w, d, h, floors) {
-    const rows = Math.min(6, Math.max(2, Math.floor(floors / 8)));
-    const cols = Math.max(2, Math.floor(w / 1.6));
-    // One lit-column set per face (a vertical run of warm windows).
+    const rows = Math.max(2, Math.floor((h - 4) / 2));
     const faces = [
-      { n: 's', off: [0, d / 2 + 0.05], rot: 0 },
-      { n: 'n', off: [0, -d / 2 - 0.05], rot: 0 },
-      { n: 'e', off: [w / 2 + 0.05, 0], rot: 1 },
-      { n: 'w', off: [-w / 2 - 0.05, 0], rot: 1 },
+      { rot: 0, off: [0, d / 2 + 0.06], fw: w, flip: false }, // south
+      { rot: 0, off: [0, -d / 2 - 0.06], fw: w, flip: true }, // north
+      { rot: 1, off: [w / 2 + 0.06, 0], fw: d, flip: false }, // east
+      { rot: 1, off: [-w / 2 - 0.06, 0], fw: d, flip: true }, // west
     ];
     for (const f of faces) {
-      const fw = f.rot ? d : w; // face width along its horizontal axis
-      const fcols = Math.max(2, Math.floor(fw / 1.6));
+      const cols = Math.max(2, Math.floor(f.fw / 1.6));
       const litCols = new Set();
-      for (let c = 0; c < fcols; c++) if (rnd() < 0.4) litCols.add(c);
+      for (let c = 0; c < cols; c++) if (rnd() < 0.4) litCols.add(c);
+      const place = (geo, along, wy) => {
+        if (f.rot) {
+          geo.rotateY(f.flip ? -Math.PI / 2 : Math.PI / 2);
+          geo.translate(cx + f.off[0], wy, cz + along);
+        } else {
+          if (f.flip) geo.rotateY(Math.PI);
+          geo.translate(cx + along, wy, cz + f.off[1]);
+        }
+        return geo;
+      };
       for (let ri = 0; ri < rows; ri++) {
-        for (let ci = 0; ci < fcols; ci++) {
+        for (let ci = 0; ci < cols; ci++) {
           const lit = litCols.has(ci) && ri < rows - 1;
-          const wy = 2 + (ri + 0.5) * ((h - 4) / rows);
-          const along = (ci - (fcols - 1) / 2) * (fw / fcols);
-          const wx = f.rot ? cx + f.off[0] : cx + along;
-          const wz = f.rot ? cz + along : cz + f.off[1];
-          const bw = f.rot ? 0.1 : 0.7;
-          const bd = f.rot ? 0.7 : 0.1;
-          winGeos.push(colored(
-            xform(new THREE.BoxGeometry(bw, 1.1, bd), wx, wy, wz),
-            lit ? 0xffd9a0 : 0x1e2a32,
-          ));
+          const wy = 3.5 + ri * 2;
+          const along = (ci - (cols - 1) / 2) * (f.fw / cols);
+          winGeos.push(colored(place(new THREE.PlaneGeometry(0.9, 1.2), along, wy), lit ? 0xffc46b : 0x1e2a32));
         }
       }
+      // Spandrel band every 4 floors (horizontal accent strip).
+      for (let ri = 3; ri < rows; ri += 4) {
+        const wy = 3.5 + ri * 2 - 1.0;
+        winGeos.push(colored(place(new THREE.PlaneGeometry(f.fw * 0.96, 0.35), 0, wy), 0x2e4a5e));
+      }
+      // Vertical fins at the face's two edges (thin ribs, full height).
+      for (const edge of [-1, 1]) {
+        const along = edge * (f.fw / 2 - 0.1);
+        winGeos.push(colored(place(new THREE.PlaneGeometry(0.18, h - 3), along, 1.5 + h / 2), 0x2e4a5e));
+      }
     }
+  }
+
+  // Ground floor (C): continuous shop fronts on a tower's podium
+  // skirt (or a twin podium's base) — large glass panels, a coloured
+  // striped awning above each, a fictional-brand atlas sign above the
+  // awning on every face, a dark entrance door on the south face, and
+  // a café table + umbrella + two chairs on the south rim. All merged
+  // into the existing meshes (winGeos / crownGeos / signGeos /
+  // concGeos) — the shopfronts cost 1 extra draw call (the sign mesh).
+  function addShopfront(cx, cz, w, d, brand, awnCol) {
+    const sw = w + 0.8, sd = d + 0.8; // skirt footprint
+    const facePlane = (geo, face, along, wy, out) => {
+      if (face === 's') geo.translate(cx + along, wy, cz + out);
+      else if (face === 'n') { geo.rotateY(Math.PI); geo.translate(cx + along, wy, cz - out); }
+      else if (face === 'e') { geo.rotateY(Math.PI / 2); geo.translate(cx + out, wy, cz + along); }
+      else { geo.rotateY(-Math.PI / 2); geo.translate(cx - out, wy, cz + along); }
+      return geo;
+    };
+    for (const face of ['s', 'n', 'e', 'w']) {
+      const fw = (face === 's' || face === 'n') ? sw : sd;
+      // Large glass storefront on the skirt face.
+      winGeos.push(colored(facePlane(new THREE.PlaneGeometry(fw * 0.82, 0.7), face, 0, 0.55, (face === 's' || face === 'n' ? sd : sw) / 2 + 0.06), 0x9fd4d8));
+      // Coloured awning above the glass (tilted, projecting 0.6).
+      const aOff = (face === 's' || face === 'n' ? sd : sw) / 2 + 0.3;
+      if (face === 's') crownGeos.push(colored(xform(new THREE.BoxGeometry(fw * 0.9, 0.08, 0.6), cx, 1.05, cz + aOff, 0, 1, 0.35, 0), awnCol));
+      else if (face === 'n') crownGeos.push(colored(xform(new THREE.BoxGeometry(fw * 0.9, 0.08, 0.6), cx, 1.05, cz - aOff, 0, 1, -0.35, 0), awnCol));
+      else if (face === 'e') crownGeos.push(colored(xform(new THREE.BoxGeometry(0.6, 0.08, fw * 0.9), cx + aOff, 1.05, cz, 0, 1, 0, -0.35), awnCol));
+      else crownGeos.push(colored(xform(new THREE.BoxGeometry(0.6, 0.08, fw * 0.9), cx - aOff, 1.05, cz, 0, 1, 0, 0.35), awnCol));
+      // Brand sign above the awning, on the tower body (set back 0.4
+      // from the skirt face). Skipped in Node (no atlas — see above).
+      if (atlas) {
+        const plate = atlas.plates.get(brand);
+        const tOut = (face === 's' || face === 'n' ? d : w) / 2 + 0.06;
+        signGeos.push(remapUV(facePlane(new THREE.PlaneGeometry(2.2, 0.55), face, 0, 1.75, tOut), plate));
+      }
+    }
+    // Entrance door on the south face, proud of the glass.
+    winGeos.push(colored(facePlane(new THREE.PlaneGeometry(0.9, 1.6), 's', 0, 0.8, sd / 2 + 0.08), 0x2b2b2b));
   }
 
   function addTower(cx, cz, w, d, floors, variant) {
@@ -216,9 +278,13 @@ export function buildCBD() {
       const pw = 7.0, pd = 7.0, ph = 5;
       concGeos.push(colored(xform(new THREE.BoxGeometry(pw, ph, pd), b.cx, ph / 2, b.cz), 0xffffff));
       concGeos.push(colored(xform(new THREE.BoxGeometry(pw * 1.04, 0.4, pd * 1.04), b.cx, ph + 0.2, b.cz), 0xffffff));
-      winGeos.push(colored(xform(new THREE.BoxGeometry(pw * 0.8, 1.4, 0.1), b.cx, 1.2, b.cz + pd / 2 + 0.05), 0x9fd4d8));
       colliders.push({ x0: b.cx - pw / 2, z0: b.cz - pd / 2, x1: b.cx + pw / 2, z1: b.cz + pd / 2, id: 'cbd-podium' });
       podiumCount++;
+      // Ground-floor shop fronts on the podium base (C): the podium
+      // is 7.0 wide, so the shopfront is called with w/d 6.2 (the
+      // skirt becomes 7.0). The old single glass panel is gone —
+      // addShopfront provides the glass + awnings + signs + door.
+      addShopfront(b.cx, b.cz, 6.2, 6.2, SHOP_NAMES[(towerCount + 3) % SHOP_NAMES.length], AWN_COLORS[(towerCount + 1) % AWN_COLORS.length]);
       // Paved border around the podium (the rim is too narrow for
       // trees or cars — the paving pattern is the fill here).
       const tfw = bw - 0.4, tfd = bd - 0.4;
@@ -252,6 +318,19 @@ export function buildCBD() {
     // counted in podiumCount: that number is the twin shared podiums.)
     concGeos.push(colored(xform(new THREE.BoxGeometry(w + 0.8, 1.0, d + 0.8), b.cx, 0.5, b.cz), 0xffffff));
     colliders.push({ x0: b.cx - (w + 0.8) / 2, z0: b.cz - (d + 0.8) / 2, x1: b.cx + (w + 0.8) / 2, z1: b.cz + (d + 0.8) / 2, id: 'cbd-podium' });
+    // Ground-floor shop fronts on the plinth (C) + a café table with
+    // an umbrella and two chairs on the south rim (outdoor seating).
+    const brand = SHOP_NAMES[towerCount % SHOP_NAMES.length];
+    const awnCol = AWN_COLORS[towerCount % AWN_COLORS.length];
+    addShopfront(b.cx, b.cz, w, d, brand, awnCol);
+    const tx = b.cx - 2.0, tz = b.z1 - 0.6; // west of the south bench; the east corner holds a fill tree
+    concGeos.push(colored(xform(new THREE.CylinderGeometry(0.5, 0.5, 0.08, 12), tx, 0.72, tz), 0xffffff));
+    concGeos.push(colored(xform(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 6), tx, 0.35, tz), 0xffffff));
+    concGeos.push(colored(xform(new THREE.BoxGeometry(0.4, 0.08, 0.4), tx - 0.6, 0.45, tz), 0xffffff));
+    concGeos.push(colored(xform(new THREE.BoxGeometry(0.4, 0.45, 0.08), tx - 0.6, 0.68, tz - 0.2), 0xffffff));
+    concGeos.push(colored(xform(new THREE.BoxGeometry(0.4, 0.08, 0.4), tx + 0.6, 0.45, tz), 0xffffff));
+    concGeos.push(colored(xform(new THREE.BoxGeometry(0.4, 0.45, 0.08), tx + 0.6, 0.68, tz - 0.2), 0xffffff));
+    crownGeos.push(colored(xform(new THREE.ConeGeometry(0.9, 0.5, 8), tx, 1.65, tz), awnCol));
     // ---- block fill (Xian 21 Nov 16:04): no empty tan ground ----
     // The rim between the tower and the block edge is only ~1.2 wide,
     // so the fill is flat paving + small trees / planters / a bench —
@@ -294,6 +373,11 @@ export function buildCBD() {
   if (concGeos.length) group.add(mergedMesh(concGeos, concMat));
   if (crownGeos.length) group.add(mergedMesh(crownGeos, vertexColorMat));
   if (winGeos.length) group.add(mergedMesh(winGeos, vertexColorMat));
+  if (signGeos.length) {
+    const signMesh = mergedMesh(signGeos, new THREE.MeshBasicMaterial({ map: atlas.texture }));
+    signMesh.name = 'cbd-signs';
+    group.add(signMesh);
+  }
   if (plazaGeos.length) group.add(mergedMesh(plazaGeos, plazaMat));
   if (greenGeos.length) group.add(mergedMesh(greenGeos, greenMat));
   if (paveGeos.length) group.add(mergedMesh(paveGeos, paveMat));
