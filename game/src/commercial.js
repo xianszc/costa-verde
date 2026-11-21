@@ -192,19 +192,22 @@ export function buildCommercialRing() {
     const bw = b.x1 - b.x0;
     const bd = b.z1 - b.z0;
     // Buildings along the north + south edges (spacing ~5, 4–5 wide).
+    // They face OUTWARD, toward the street — shop fronts, awnings and
+    // signs on the street side, not the courtyard. (The original fill
+    // faced them inward, so the avenue saw only blank backs.)
     const spots = [];
     const nX = Math.max(2, Math.floor(bw / 5));
     for (let i = 0; i < nX; i++) {
       const x = b.x0 + (i + 0.5) * (bw / nX);
-      spots.push({ x, z: b.z0 + 2.2, ry: 0, edge: 'north' });
-      spots.push({ x, z: b.z1 - 2.2, ry: Math.PI, edge: 'south' });
+      spots.push({ x, z: b.z0 + 2.2, ry: Math.PI, edge: 'north' });
+      spots.push({ x, z: b.z1 - 2.2, ry: 0, edge: 'south' });
     }
     // Buildings along the east + west edges (skip the corners).
     const nZ = Math.max(1, Math.floor(bd / 5) - 1);
     for (let i = 0; i < nZ; i++) {
       const z = b.z0 + (i + 1) * (bd / (nZ + 1));
-      spots.push({ x: b.x0 + 2.2, z, ry: Math.PI / 2, edge: 'west' });
-      spots.push({ x: b.x1 - 2.2, z, ry: -Math.PI / 2, edge: 'east' });
+      spots.push({ x: b.x0 + 2.2, z, ry: -Math.PI / 2, edge: 'west' });
+      spots.push({ x: b.x1 - 2.2, z, ry: Math.PI / 2, edge: 'east' });
     }
     // The market hall + the garage replace the perimeter fill.
     if (b.kind === 'market') {
@@ -304,7 +307,12 @@ export function buildCommercialRing() {
         signGeos.push(sq);
       }
       colliders.push({
-        x0: s.x - w / 2, z0: s.z - d / 2, x1: s.x + w / 2, z1: s.z + d / 2,
+        // Side-edge buildings are rotated 90 deg, so their width runs
+        // along z and their depth along x — swap w/d in the collider.
+        x0: s.x - (Math.abs(s.ry) === Math.PI / 2 ? d : w) / 2,
+        z0: s.z - (Math.abs(s.ry) === Math.PI / 2 ? w : d) / 2,
+        x1: s.x + (Math.abs(s.ry) === Math.PI / 2 ? d : w) / 2,
+        z1: s.z + (Math.abs(s.ry) === Math.PI / 2 ? w : d) / 2,
         id: `commercial-${buildingCount}`,
       });
       buildingCount += 1;
