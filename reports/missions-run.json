@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T23:42:46.202Z",
+  "generated": "2026-11-21T23:47:06.573Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -50,22 +50,15 @@
     },
     "M6": {
       "mission": "M6",
-      "result": "TIMEOUT",
+      "result": "PASS",
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "ms": 249238,
-      "abortReason": "hard cap 240s reached",
-      "trace": [
-        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-43.3,-1.1) target=(-50,0) distPlayer=44.2u distCar=6.8u wanted=0 onFoot=false",
-        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-44.7,-1.4) target=(-50,0) distPlayer=44.2u distCar=5.4u wanted=0 onFoot=false",
-        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-41.2,-2.7) target=(-50,0) distPlayer=44.2u distCar=9.2u wanted=0 onFoot=false",
-        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-44.7,-1.7) target=(-50,0) distPlayer=44.2u distCar=5.5u wanted=0 onFoot=false",
-        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-42.1,-1.1) target=(-50,0) distPlayer=44.2u distCar=7.9u wanted=0 onFoot=false",
-        "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-42.4,-2.3) target=(-50,0) distPlayer=44.2u distCar=7.9u wanted=0 onFoot=false"
-      ],
-      "lastTrace": "[trace] M6 stage=2 VANISH player=(-5.8,1.5) car=(-42.4,-2.3) target=(-50,0) distPlayer=44.2u distCar=7.9u wanted=0 onFoot=false",
+      "ms": 223048,
+      "money": 2250,
+      "xp": 1917.5639161910967,
       "errors": 0,
+      "how": "human-like",
       "commit": "unknown"
     },
     "M7": {
