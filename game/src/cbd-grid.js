@@ -670,6 +670,91 @@ export function buildCBDGrid(opts = {}) {
   hydMesh.name = 'cbd-hydrants';
   g.add(hydMesh);
 
+  // ---------- sidewalk ramps (dropped curbs where zebras meet the sidewalk) ----------
+  // One sloped wedge at each corner of every intersection, merged into
+  // a single mesh: the zebra crossings are usable, not a 0.24 curb step.
+  const rampMat = new THREE.MeshStandardMaterial({ color: 0xb8b2a4, roughness: 0.95, flatShading: true });
+  const rampParts = [];
+  CBD_NS.forEach((ns) => {
+    CBD_EW.forEach((ew) => {
+      const cx = ns.x, cz = ew.z;
+      const hn = ns.w / 2 + sidewalkW(ns);
+      const he = ew.w / 2 + sidewalkW(ew);
+      // North ramp slopes down toward the road (+z edge low), south
+      // ramp the reverse; east/west ramps tilt about Z instead.
+      const mk = (rx, rz, px, pz) => {
+        const wgeo = new THREE.BoxGeometry(1.2, 0.05, 0.7);
+        rampParts.push(colored(xform(wgeo, px, 0.22, pz, 0, 1, rx, rz), 0xffffff));
+      };
+      mk(0.08, 0, cx, cz - he);
+      mk(-0.08, 0, cx, cz + he);
+      mk(0, 0.08, cx - hn, cz);
+      mk(0, -0.08, cx + hn, cz);
+    });
+  });
+  const rampMesh = mergedMesh(rampParts, rampMat);
+  rampMesh.name = 'cbd-ramps';
+  g.add(rampMesh);
+
+  // ---------- lane-direction signs (pole boards over the approach lanes) ----------
+  // A white arrow on blue, drawn with canvas paths (no font glyphs, so
+  // it renders everywhere). One board per arrow direction, merged; the
+  // poles merge into a single dark mesh. Boards face the oncoming
+  // driver: straight over the middle lane, right over the outer lane,
+  // on both approaches of both avenues at the main crossing.
+  function arrowSignTexture(dir) {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#1e5a8a'; ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#f7ebd7';
+    ctx.save(); ctx.translate(64, 64);
+    if (dir === 'left') ctx.rotate(-Math.PI / 2);
+    else if (dir === 'right') ctx.rotate(Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(0, -56); ctx.lineTo(30, -12); ctx.lineTo(12, -12);
+    ctx.lineTo(12, 48); ctx.lineTo(-12, 48); ctx.lineTo(-12, -12);
+    ctx.lineTo(-30, -12); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  // {x, z, ry (board facing), dir, y}: eastbound approach faces west
+  // (ry -PI/2), westbound faces east, northbound faces south (ry 0),
+  // southbound faces north (ry PI). Poles stand on the SIDEWALK at the
+  // approach corner — never in a driving lane — with the straight
+  // board below the right-turn board.
+  const dirBoards = [
+    { x: -8, z: 2.05, ry: -Math.PI / 2, dir: 'straight', y: 2.6 },
+    { x: -8, z: 2.05, ry: -Math.PI / 2, dir: 'right', y: 3.7 },
+    { x: 8, z: -2.05, ry: Math.PI / 2, dir: 'straight', y: 2.6 },
+    { x: 8, z: -2.05, ry: Math.PI / 2, dir: 'right', y: 3.7 },
+    { x: 2.05, z: 8, ry: 0, dir: 'straight', y: 2.6 },
+    { x: 2.05, z: 8, ry: 0, dir: 'right', y: 3.7 },
+    { x: -2.05, z: -8, ry: Math.PI, dir: 'straight', y: 2.6 },
+    { x: -2.05, z: -8, ry: Math.PI, dir: 'right', y: 3.7 },
+  ];
+  const boardGeos = { straight: [], right: [] };
+  const boardPoles = [];
+  const boardPoleSpots = new Set();
+  for (const b of dirBoards) {
+    boardGeos[b.dir].push(xform(new THREE.PlaneGeometry(0.9, 0.9), b.x, b.y, b.z, b.ry));
+    const key = `${b.x},${b.z}`;
+    if (!boardPoleSpots.has(key)) {
+      boardPoleSpots.add(key);
+      boardPoles.push(colored(xform(new THREE.CylinderGeometry(0.04, 0.04, 4.2, 6), b.x, 2.1, b.z), 0xffffff));
+    }
+  }
+  for (const [dir, geos] of Object.entries(boardGeos)) {
+    const m = mergedMesh(geos, new THREE.MeshBasicMaterial({ map: arrowSignTexture(dir) }));
+    m.name = `cbd-dirsign-${dir}`;
+    g.add(m);
+  }
+  const boardPoleMesh = mergedMesh(boardPoles, M(0x3a3a3a));
+  boardPoleMesh.name = 'cbd-dirsign-poles';
+  g.add(boardPoleMesh);
+
   // The grid's lamps are emissive globes (always on) — there are no
   // light cones to toggle, so setNight is a no-op kept so city.js can
   // call grid.setNight(on) next to roads.setNight(on).

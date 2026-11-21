@@ -341,6 +341,24 @@ export const RING_STREETS = [
   { x: -44, z0: -30, z1: 22 },
 ];
 export const RING_STREET_HALF = 1;
+// Ring boundary streets (Xian 21 Nov 15:22 — every ring block must be
+// bounded by streets on all four sides, 6–8 buildings per block).
+// E-W boundary streets { z, x0, x1 } (2 wide): the north boundary
+// (the north row's north side), the east stub (between the south-row
+// block and the east block), the east-block split (the 12-building
+// block becomes two ~8-building blocks).
+export const RING_STREETS_EW = [
+  { z: -54.2, x0: -60, x1: 60 },
+  { z: -30.9, x0: 34.7, x1: 60 },
+  { z: -18, x0: 43.5, x1: 59 },
+];
+// N-S boundary streets { x, z0, z1 } (2 wide): the west boundary
+// (the west strip's west side) and the east boundary (the east
+// strip's east side).
+export const RING_BOUNDARY_NS = [
+  { x: -60.5, z0: -30, z1: 22 },
+  { x: 60.5, z0: -54, z1: 14 },
+];
 // The quay (the waterfront walkway, z 12.7..14.5): south of the CBD's
 // south street (z 11.2, sidewalks to 12.7), north of the promenade
 // (z 14..35). The old strip (z 8.5..13) sat under the new south street.
@@ -358,6 +376,8 @@ export function roadRects() {
   );
   for (const cx of CROSS_X) r.push(rect(cx - CROSS.half, CROSS.z0, cx + CROSS.half, CROSS.z1));
   for (const s of RING_STREETS) r.push(rect(s.x - RING_STREET_HALF, s.z0, s.x + RING_STREET_HALF, s.z1));
+  for (const s of RING_STREETS_EW) r.push(rect(s.x0, s.z - RING_STREET_HALF, s.x1, s.z + RING_STREET_HALF));
+  for (const s of RING_BOUNDARY_NS) r.push(rect(s.x - RING_STREET_HALF, s.z0, s.x + RING_STREET_HALF, s.z1));
   r.push(rect(QUAY.x0, QUAY.z0, QUAY.x1, QUAY.z1));
   return r;
 }
@@ -375,6 +395,14 @@ function sidewalkRects() {
     r.push(rect(cx + CROSS.half, CROSS.z0, cx + CROSS.half + 2, CROSS.z1));
   }
   for (const s of RING_STREETS) {
+    r.push(rect(s.x - RING_STREET_HALF - 0.7, s.z0, s.x - RING_STREET_HALF, s.z1));
+    r.push(rect(s.x + RING_STREET_HALF, s.z0, s.x + RING_STREET_HALF + 0.7, s.z1));
+  }
+  for (const s of RING_STREETS_EW) {
+    r.push(rect(s.x0, s.z - RING_STREET_HALF - 0.7, s.x1, s.z - RING_STREET_HALF));
+    r.push(rect(s.x0, s.z + RING_STREET_HALF, s.x1, s.z + RING_STREET_HALF + 0.7));
+  }
+  for (const s of RING_BOUNDARY_NS) {
     r.push(rect(s.x - RING_STREET_HALF - 0.7, s.z0, s.x - RING_STREET_HALF, s.z1));
     r.push(rect(s.x + RING_STREET_HALF, s.z0, s.x + RING_STREET_HALF + 0.7, s.z1));
   }
@@ -444,6 +472,8 @@ export function minimapLines() {
   lines.push({ x1: RING_AVENUE_W.x0, z1: -42, x2: RING_AVENUE_W.x1, z2: -42, w: 7 });
   lines.push({ x1: RING_AVENUE_E.x0, z1: -42, x2: RING_AVENUE_E.x1, z2: -42, w: 7 });
   for (const s of RING_STREETS) lines.push({ x1: s.x, z1: s.z0, x2: s.x, z2: s.z1, w: 2 });
+  for (const s of RING_STREETS_EW) lines.push({ x1: s.x0, z1: s.z, x2: s.x1, z2: s.z, w: 2 });
+  for (const s of RING_BOUNDARY_NS) lines.push({ x1: s.x, z1: s.z0, x2: s.x, z2: s.z1, w: 2 });
   lines.push({ x1: QUAY.x0, z1: 13.6, x2: QUAY.x1, z2: 13.6, w: 1.8 });
   return lines;
 }
@@ -472,6 +502,15 @@ export function buildRoadNetwork() {
     const len = s.z1 - s.z0;
     parts.push(colored(xform(new THREE.BoxGeometry(2, 0.3, len), s.x, 0.05, (s.z0 + s.z1) / 2), 0xffffff));
   }
+  // Ring boundary streets (Xian 21 Nov 15:22): E-W slabs + N-S slabs.
+  for (const s of RING_STREETS_EW) {
+    const len = s.x1 - s.x0;
+    parts.push(colored(xform(new THREE.BoxGeometry(len, 0.3, 2), (s.x0 + s.x1) / 2, 0.05, s.z), 0xffffff));
+  }
+  for (const s of RING_BOUNDARY_NS) {
+    const len = s.z1 - s.z0;
+    parts.push(colored(xform(new THREE.BoxGeometry(2, 0.3, len), s.x, 0.05, (s.z0 + s.z1) / 2), 0xffffff));
+  }
   // Sidewalks (light warm grey, one step lighter than the road) with a
   // physical height step (y 0.12) and visible curbs.
   const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true });
@@ -486,6 +525,19 @@ export function buildRoadNetwork() {
   swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.24, 2), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.12, -46.5), 0xffffff));
   swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.24, 2), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.12, -37.5), 0xffffff));
   for (const s of RING_STREETS) {
+    const len = s.z1 - s.z0;
+    const zc = (s.z0 + s.z1) / 2;
+    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x - RING_STREET_HALF - 0.35, 0.12, zc), 0xffffff));
+    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x + RING_STREET_HALF + 0.35, 0.12, zc), 0xffffff));
+  }
+  // Ring boundary street sidewalks.
+  for (const s of RING_STREETS_EW) {
+    const len = s.x1 - s.x0;
+    const xc = (s.x0 + s.x1) / 2;
+    swParts.push(colored(xform(new THREE.BoxGeometry(len, 0.24, 0.7), xc, 0.12, s.z - RING_STREET_HALF - 0.35), 0xffffff));
+    swParts.push(colored(xform(new THREE.BoxGeometry(len, 0.24, 0.7), xc, 0.12, s.z + RING_STREET_HALF + 0.35), 0xffffff));
+  }
+  for (const s of RING_BOUNDARY_NS) {
     const len = s.z1 - s.z0;
     const zc = (s.z0 + s.z1) / 2;
     swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x - RING_STREET_HALF - 0.35, 0.12, zc), 0xffffff));
@@ -525,6 +577,13 @@ export function buildRoadNetwork() {
   for (const s of RING_STREETS) {
     for (let z = s.z0 + 2; z <= s.z1 - 2; z += 4) dashes.push(colored(xform(new THREE.BoxGeometry(0.15, 0.01, 2), s.x, 0.22, z), 0xffffff));
   }
+  // Ring boundary street dashes (E-W streets dash along x).
+  for (const s of RING_STREETS_EW) {
+    for (let x = s.x0 + 2; x <= s.x1 - 2; x += 4) dashes.push(colored(xform(new THREE.BoxGeometry(2, 0.01, 0.15), x, 0.22, s.z), 0xffffff));
+  }
+  for (const s of RING_BOUNDARY_NS) {
+    for (let z = s.z0 + 2; z <= s.z1 - 2; z += 4) dashes.push(colored(xform(new THREE.BoxGeometry(0.15, 0.01, 2), s.x, 0.22, z), 0xffffff));
+  }
   const dashMesh = mergedMesh(dashes, dashMat);
   dashMesh.name = 'dashes';
   g.add(dashMesh);
@@ -543,6 +602,17 @@ export function buildRoadNetwork() {
   for (const s of RING_STREETS) {
     const len = s.z1 - s.z0;
     const zc = (s.z0 + s.z1) / 2;
+    edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, len), s.x - 0.85, 0.22, zc), 0xffffff));
+    edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, len), s.x + 0.85, 0.22, zc), 0xffffff));
+  }
+  // Ring boundary street edges.
+  for (const s of RING_STREETS_EW) {
+    const len = s.x1 - s.x0, xc = (s.x0 + s.x1) / 2;
+    edges.push(colored(xform(new THREE.BoxGeometry(len, 0.01, 0.12), xc, 0.22, s.z - 0.85), 0xffffff));
+    edges.push(colored(xform(new THREE.BoxGeometry(len, 0.01, 0.12), xc, 0.22, s.z + 0.85), 0xffffff));
+  }
+  for (const s of RING_BOUNDARY_NS) {
+    const len = s.z1 - s.z0, zc = (s.z0 + s.z1) / 2;
     edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, len), s.x - 0.85, 0.22, zc), 0xffffff));
     edges.push(colored(xform(new THREE.BoxGeometry(0.12, 0.01, len), s.x + 0.85, 0.22, zc), 0xffffff));
   }
@@ -634,29 +704,45 @@ export function buildRoadNetwork() {
   g.add(benchMesh);
   // Traffic lights at the two main intersections (red/amber/green) —
   // the boulevard x the x=+/-40 ring connectors. The pole stands on
-  // the boulevard's south sidewalk (z 2.0); the lenses face north over
-  // the avenue. (The old z 6.2 spot is inside a CBD block now.)
+  // the boulevard's south sidewalk (z 2.0); the lenses face the
+  // boulevard traffic (west for the x=-40 light, east for x=+40).
+  // WORKING CYCLES (Xian 21 Nov 15:22): the lenses cycle on the same
+  // 40 s rhythm as the grid signals — EW green [20,37), EW amber
+  // [37,40), red [0,20) — exactly one lens bright at a time.
   const tlMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5 });
   const tlParts = [];
   const tlLights = [];
   for (const cx of [-40, 40]) {
     tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), cx + 4.4, 1.7, 2.0), 0xffffff));
     tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), cx + 4.4, 3.6, 2.0), 0xffffff));
+    const faceX = cx < 0 ? -1 : 1; // lens side: west face / east face
+    const faceRy = cx < 0 ? -Math.PI / 2 : Math.PI / 2;
     for (let i = 0; i < 3; i++) {
       const col = [0xff3b30, 0xffcc00, 0x34c759][i];
-      tlLights.push({ mesh: new THREE.Mesh(
+      const mesh = new THREE.Mesh(
         new THREE.CircleGeometry(0.16, 10),
         new THREE.MeshBasicMaterial({ color: col }),
-      ), pos: [cx + 4.4, 3.9 - i * 0.28, 1.78] });
+      );
+      mesh.position.set(cx + 4.4 + faceX * 0.28, 3.9 - i * 0.28, 2.0);
+      mesh.rotation.y = faceRy;
+      tlLights.push({ mesh, bright: col, role: i }); // 0 red, 1 amber, 2 green
     }
   }
   const tlMesh = mergedMesh(tlParts, tlMat);
   tlMesh.name = 'trafficlights';
   g.add(tlMesh);
-  for (const l of tlLights) {
-    l.mesh.position.set(l.pos[0], l.pos[1], l.pos[2]);
-    g.add(l.mesh);
-  }
+  for (const l of tlLights) g.add(l.mesh);
+  // Cycle ticker (stepped by city.js): one lit lens per head.
+  const tlTicker = new THREE.Group();
+  tlTicker.name = 'connector-signal-ticker';
+  tlTicker.userData.tick = () => {
+    const phase = (performance.now() / 1000) % 40;
+    const lit = phase < 20 ? 0 : phase < 37 ? 2 : 1; // red / green / amber
+    for (const l of tlLights) {
+      l.mesh.material.color.setHex(l.role === lit ? l.bright : 0x1c1c1c);
+    }
+  };
+  g.add(tlTicker);
   // Lamp posts, CBD lamps and speed bumps now live in cbd-grid.js
   // (lamps along every grid street, bumps on the streets). The lamp
   // cones here are empty — the grid's cones are wired through city.js.
@@ -692,6 +778,7 @@ export function buildRoadNetwork() {
   });
   return {
     group: g, roadMat, wetness: { value: 0 }, puddles, lampCones,
+    tickers: [tlTicker],
     setWet(v) { roadMat.roughness = 0.92 - v * 0.62; puddles.visible = v > 0.4; },
     setNight(on) { lampCones.forEach((c) => { c.visible = on; }); },
   };

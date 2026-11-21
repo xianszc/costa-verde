@@ -33,11 +33,16 @@ const BLOCKS = [
   { x0: 13, z0: -53, x1: 24, z1: -47.5, kind: 'commercial' },
   { x0: 28, z0: -53, x1: 39, z1: -47.5, kind: 'commercial' },
   { x0: 43, z0: -53, x1: 59, z1: -47.5, kind: 'market' },
-  // North strip, south row (z -37.5..-31) — only the x 45..59 block
-  // survives; the four west blocks are CBD blocks now.
-  { x0: 45, z0: -37.5, x1: 59, z1: -31, kind: 'commercial' },
+  // North strip, south row (z -38.5..-32) — only the x 45..59 block
+  // survives; the four west blocks are CBD blocks now. The south edge
+  // (-32) leaves room for the z -30.9 east stub street below.
+  { x0: 45, z0: -38.5, x1: 59, z1: -32, kind: 'commercial' },
   // East strip (x 43.5..59, z -30..14) — east of the x 40 connector.
-  { x0: 43.5, z0: -29, x1: 59, z1: -7, kind: 'commercial' },
+  // The big block is SPLIT by the z -18 street (Xian 21 Nov 15:22):
+  // 12 buildings in one block becomes two ~8-building blocks, each
+  // bounded by streets on all four sides.
+  { x0: 43.5, z0: -29, x1: 59, z1: -19, kind: 'commercial' },
+  { x0: 43.5, z0: -17, x1: 59, z1: -7, kind: 'commercial' },
   { x0: 43.5, z0: 7, x1: 59, z1: 13, kind: 'commercial' },
   // West strip (x -59..-45, z -26..22).
   { x0: -59, z0: -26, x1: -45, z1: -7, kind: 'commercial' },

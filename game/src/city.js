@@ -234,6 +234,9 @@ export function buildDistrict4() {
   // --- roads (the network module) ---
   const roads = buildRoadNetwork();
   group.add(roads.group);
+  // The connector signal ticker (working cycles) is stepped with the
+  // district tickers, next to the grid's own signal ticker.
+  if (roads.tickers) tickers.push(...roads.tickers);
   // Boulevard median colliders (the divided avenue): cars and
   // pedestrians cross only at the intersections, where the median has
   // gaps. Without these the median is a visual the car drives through.

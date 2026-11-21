@@ -13,8 +13,9 @@ import { groundHeightAt } from './districts.js';
 import { makeFigure, CAST, CIVILIANS } from './people.js';
 import {
   buildStella, buildTrafficCar, createCar, stepCar,
-  createTraffic, stepTraffic, collideCircleAABBs,
+  createTraffic, stepTraffic, collideCircleAABBs, ROAD_Y,
 } from './vehicles.js';
+import { createCbdTraffic, stepCbdTraffic, placeCbdCar } from './cbd-traffic.js';
 import { buildRoadShowcase } from './roads.js';
 import { skyTexture, skyPhaseForHour } from './water.js';
 import { createRadio, STATIONS } from './radio.js';
@@ -168,19 +169,33 @@ export function createGame(container) {
     const i = district.lanes.findIndex((l) => l.name === name);
     return i < 0 ? 0 : i;
   };
+  // GRID REBUILD: the boulevard loop cars are GONE — the CBD graph
+  // drives the same avenue in real lanes now (see cbdTraffic below),
+  // so the centreline loop would read wrong next to them.
   const traffic = createTraffic(district.lanes, [
-    { lane: 0, color: 0xf2f0ea, kind: 'sedan' },
-    { lane: 0, color: 0x2e7f8f, kind: 'van' },
     { lane: 1, color: 0xe8a33d, kind: 'pickup' },
     { lane: 2, color: 0xc93a6b, kind: 'sedan' },
     { lane: laneIdx('oldtown-main'), color: 0x3e7cb1, kind: 'sedan' },
     { lane: laneIdx('oldtown-plaza'), color: 0xf2f0ea, kind: 'van' },
     { lane: laneIdx('promenade-boulevard'), color: 0xe8a33d, kind: 'sedan' },
     { lane: laneIdx('promenade-west'), color: 0x3e7cb1, kind: 'van' },
-    { lane: 0, police: true },
-    { lane: 1, police: true },
   ]);
   for (const t of traffic) scene.add(t.mesh);
+
+  // --- CBD directed-lane traffic (Xian 21 Nov 15:22) ---
+  // 6 cars on the grid's own lanes (4 civilian + 2 police patrol):
+  // CORSO AZZURRA both ways, LUNGOMARE both ways, a patrol on
+  // VIA DEL SOLE and one on the z 11.2 street. Total cars in the
+  // world: 6 loop + 6 graph = 12 (was 10 loop cars).
+  const cbdTraffic = createCbdTraffic([
+    { axis: 'NS', index: 3, dir: -1, lane: 0, kind: 'sedan', color: 0xd9553a },
+    { axis: 'NS', index: 3, dir: 1, lane: 1, kind: 'van', color: 0x3a6fd9 },
+    { axis: 'EW', index: 2, dir: 1, lane: 0, kind: 'sedan', color: 0xe8b93c },
+    { axis: 'EW', index: 2, dir: -1, lane: 1, kind: 'pickup', color: 0x6a8a4a },
+    { axis: 'NS', index: 1, dir: 1, lane: 0, police: true },
+    { axis: 'EW', index: 3, dir: -1, lane: 0, police: true },
+  ]);
+  for (const c of cbdTraffic) scene.add(c.mesh);
 
   // --- pedestrians: 8 civilians walking the sidewalks ---
   const peds = [];
@@ -199,6 +214,11 @@ export function createGame(container) {
     { a: { x: 23.8, z: -37 }, b: { x: 23.8, z: -9 } },
     { a: { x: 44.5, z: -37 }, b: { x: 44.5, z: -9 } },
     { a: { x: -56, z: 2.0 }, b: { x: -20, z: 2.0 } },
+    // Crosswalks on the CBD zebras (Xian 21 Nov 15:22): peds cross
+    // the boulevard on the zebra at VIA DEL SOLE, and CORSO AZZURRA
+    // on the zebra at z -11.2, instead of walking only the sidewalks.
+    { a: { x: -11.2, z: -2.2 }, b: { x: -11.2, z: 2.2 } },
+    { a: { x: -2.2, z: -11.2 }, b: { x: 2.2, z: -11.2 } },
   ];
   CIVILIANS.forEach((c, i) => {
     const fig = makeFigure(c.spec);
@@ -1139,7 +1159,10 @@ export function createGame(container) {
       const obstacles = state.onFoot
         ? [{ x: player.x, z: player.z }]
         : [{ x: car.x, z: car.z }];
-      stepTraffic(traffic, dt, obstacles);
+      stepTraffic(traffic, dt, [...obstacles, ...cbdTraffic]);
+      // CBD graph cars yield to the loop cars + the player, and the
+      // loop cars yield to them — neither system drives through the other.
+      stepCbdTraffic(cbdTraffic, dt, [...traffic, ...obstacles]);
       stepPeds(dt);
       // Missions: stage transitions from position / wanted / E-key.
       const ev = missions.update(
@@ -1198,6 +1221,7 @@ export function createGame(container) {
       playerMesh.visible = false;
       car.mesh.visible = false;
       for (const t of traffic) t.mesh.visible = false;
+      for (const c of cbdTraffic) c.mesh.visible = false;
       for (const p of peds) p.mesh.visible = false;
       const card = document.getElementById('title-card');
       if (card) card.style.display = 'none';
@@ -1236,6 +1260,7 @@ export function createGame(container) {
     playerMesh.visible = true;
     car.mesh.visible = true;
     for (const t of traffic) t.mesh.visible = true;
+    for (const c of cbdTraffic) c.mesh.visible = true;
     for (const p of peds) p.mesh.visible = true;
     if (showcase) { scene.remove(showcase.group); showcase = null; }
     const run = (steps, scripted) => {
@@ -1493,6 +1518,33 @@ export function createGame(container) {
         camPos.copy(topCam.position);
         camLook.set(0, 0, -16.8);
         shotCamera = topCam;
+      } else if (view === 'avenue') {
+        // Avenue street-level shot (Xian 21 Nov 15:22): from the middle
+        // of CORSO AZZURRA, just north of the boulevard, looking north
+        // — traffic in several lanes, peds on the zebra at the
+        // z -11.2 crossing, towers on both sides, full HUD. The camera
+        // stands NORTH of the boulevard so the monorail pillars (in
+        // the boulevard median, z 0) stay behind it, never dead-centre.
+        state.onFoot = false;
+        playerMesh.visible = false;
+        car.x = 0.725; car.z = -14; car.angle = Math.PI / 2; car.speed = 0;
+        car.mesh.position.set(car.x, ROAD_Y, car.z);
+        car.mesh.rotation.y = car.angle;
+        run(120, {});
+        state.time = 18.7;
+        updateLighting();
+        // Stage traffic into the frame AFTER the sim ran: three CBD
+        // cars in three different avenue lanes.
+        placeCbdCar(cbdTraffic[0], 'NS', 3, -1, 0, 0, 0.2); // northbound inner, z ~-19
+        placeCbdCar(cbdTraffic[2], 'NS', 3, -1, 2, 0, 0.45); // northbound outer, z ~-27
+        placeCbdCar(cbdTraffic[1], 'NS', 3, 1, 0, 0, 0.85); // southbound inner, z ~-18, approaching
+        // Two peds mid-crosswalk on the zebra at z -11.2.
+        peds[0].mesh.position.set(0.4, 0, -11.2);
+        peds[1].mesh.position.set(-0.6, 0, -11.2);
+        camera.position.set(0, 2.6, -4);
+        camera.lookAt(0, 1.5, -40);
+        camPos.copy(camera.position);
+        camLook.set(0, 1.5, -40);
       } else { // street
         state.onFoot = true;
         playerMesh.visible = true;
@@ -1588,14 +1640,14 @@ export function createGame(container) {
   updateLighting();
   updateCamera(1);
   window.__game = {
-    state, car, player, traffic, peds, stageShot, setStorm, startPlay,
+    state, car, player, traffic, cbdTraffic, peds, stageShot, setStorm, startPlay,
     wanted, combat, missions, hub, radio, saveSystem, doSave, doLoad,
     setPaused, respawnAfterEnd, showNextDialogue,
     get duelTarget() { return duelTarget; },
   };
 
   return {
-    state, car, player, traffic, peds, renderer, scene, camera,
+    state, car, player, traffic, cbdTraffic, peds, renderer, scene, camera,
     stageShot, setStorm, startPlay, district,
     wanted, combat, missions, hub, radio, saveSystem,
     get duelTarget() { return duelTarget; },
