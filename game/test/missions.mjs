@@ -20,6 +20,12 @@
 //   does — see the import below.)
 // Writes /tmp/missions-regression.json. Exit 0 = all missions PASS.
 //
+// POSITION TRACE (Xian 21 Nov 23:04, item 4): every 5 s and at every
+// timeout the driver logs `[trace]` / `[trace-timeout]` lines with
+// the stage, player + car + target positions, distances to the
+// objective and the wanted level. A timeout without a trace is not
+// an acceptable result.
+//
 // Causes of the 21 Nov failures — FIXED IN THE GAME (21 Nov 21:31
 // order), NOT in this driver. The driver now plays M2/M9 like a human
 // (drives the car, no teleport, no on-foot dodge), per the 21:34
@@ -271,6 +277,17 @@ async function buildRoadGraph(page) {
   return { nodes, bfs, nearestNode, segments: segments.length };
 }
 
+// One position-trace line: stage, player + car + target positions,
+// distances to the objective (units; 1 unit = 10 m), wanted level.
+// `tag` is 'trace' (every 5 s) or 'trace-timeout' (at timeout).
+function traceLine(label, s, tag) {
+  const o = s.objective;
+  if (!o) { console.log(`[${tag}] ${label} stage=${s.stage} ${s.stageName || s.stageType || ''} no objective`); return; }
+  const dp = Math.hypot(s.px - o.x, s.pz - o.z);
+  const dc = Math.hypot(s.cx - o.x, s.cz - o.z);
+  console.log(`[${tag}] ${label} stage=${s.stage} ${s.stageName || s.stageType} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)}) car=(${s.cx.toFixed(1)},${s.cz.toFixed(1)}) target=(${o.x},${o.z}) distPlayer=${dp.toFixed(1)}u distCar=${dc.toFixed(1)}u wanted=${s.wanted} onFoot=${s.onFoot}`);
+}
+
 async function playMission(page, id, label) {
   const started = Date.now();
   let attempts = 0;
@@ -286,6 +303,7 @@ async function playMission(page, id, label) {
     // convenience — they do not dodge a bug, and the M2/M9 stages
     // under test here are driven, not teleported.
     let lastStage = 0;
+    let lastTrace = 0; // position trace cadence (item 4 below)
     // Deadline is REAL time; the game runs at ~20% speed in headless
     // (swiftshader + dt clamp), so a 20 s game timer needs ~100 s
     // real and the M9 heat decay ~110-240 s real. The A-C run passed
@@ -311,6 +329,15 @@ async function playMission(page, id, label) {
       // A fail restarts the SAME mission (stage drops back to 0).
       if (s.missionId === id && s.stage === 0 && lastStage > 0) { fails += 1; result = 'FAIL-EVENT'; break; }
       lastStage = s.stage;
+      // POSITION TRACE (Xian 21 Nov 23:04, item 4): player + target
+      // positions and distance to the objective every 5 s, and at
+      // timeout (see below). A timeout without a trace is not an
+      // acceptable result. This is driver instrumentation only — it
+      // changes no gameplay and dodges no bug.
+      if (Date.now() - lastTrace >= 5000) {
+        lastTrace = Date.now();
+        traceLine(label, s, 'trace');
+      }
       const o = s.objective;
       if (!o) { await sleep(500); continue; }
       if (s.stageType === 'interact') {
@@ -431,6 +458,8 @@ async function playMission(page, id, label) {
       return { mission: label, result: 'PASS', attempts, fails, maxStage, ms: Date.now() - started, money: s.money, xp: s.xp };
     }
     if (result === 'FAIL-EVENT') continue; // retry once from scratch
+    // Timeout: final trace with a fresh state read.
+    traceLine(label, await readState(page), 'trace-timeout');
     return { mission: label, result: 'TIMEOUT', attempts, fails, maxStage, ms: Date.now() - started };
   }
   return { mission: label, result: 'FAIL', attempts, fails, maxStage, ms: Date.now() - started };
