@@ -304,8 +304,9 @@ export function createCar(mesh, opts = {}) {
   };
 }
 
-// Circle vs AABB push-out. Returns { x, z, hit, depth } where depth is
-// the deepest pre-push overlap (0 when only grazing). A circle whose
+// Circle vs AABB push-out. Returns { x, z, hit, depth, rescued } where
+// depth is the deepest pre-push overlap (0 when only grazing) and
+// rescued is true when a centre-inside push-out fired. A circle whose
 // centre is INSIDE an AABB used to get zero push-out (the nearest
 // point IS the centre, dx=dz=0) and was permanently trapped, speed
 // halved every step — e.g. a car teleported onto the marina pavilion
@@ -314,6 +315,7 @@ export function createCar(mesh, opts = {}) {
 export function collideCircleAABBs(x, z, r, colliders) {
   let hit = false;
   let depth = 0;
+  let rescued = false;
   for (const c of colliders) {
     const nx = Math.max(c.x0, Math.min(x, c.x1));
     const nz = Math.max(c.z0, Math.min(z, c.z1));
@@ -328,6 +330,7 @@ export function collideCircleAABBs(x, z, r, colliders) {
       x += dx * push;
       z += dz * push;
     } else {
+      rescued = true;
       const pl = x - c.x0, pr = c.x1 - x, pt = z - c.z0, pb = c.z1 - z;
       const m = Math.min(pl, pr, pt, pb);
       depth = Math.max(depth, m + r);
@@ -337,7 +340,7 @@ export function collideCircleAABBs(x, z, r, colliders) {
       else z = c.z1 + r;
     }
   }
-  return { x, z, hit, depth };
+  return { x, z, hit, depth, rescued };
 }
 
 // input: { up, down, left, right, handbrake } — dt in seconds.
@@ -356,15 +359,29 @@ export function stepCar(car, input, dt, colliders, nowSec) {
   const nx = car.x + Math.cos(car.angle) * car.speed * dt;
   const nz = car.z - Math.sin(car.angle) * car.speed * dt;
   const res = collideCircleAABBs(nx, nz, car.radius, colliders);
-  if (res.hit && Math.abs(car.speed) > 4) {
-    car.damage = Math.min(100, car.damage + Math.abs(car.speed) * 0.6);
-    car.speed *= 0.4;
-  } else if (res.hit && res.depth > 0.05) {
-    // A real scrape (overlap > 5 cm) scrubs speed. A micro-graze
-    // (numerical noise while sliding along a wall/median face) must
-    // not — the old rule halved the speed on EVERY graze, so a car
-    // riding a lane edge crept at 0.25 u/s forever.
-    car.speed *= 0.5;
+  // Impact vs slide (replaces the old graze rule, which halved speed
+  // on every overlap): the push-out correction points OUT of the wall,
+  // so the closing speed — velocity into the wall — separates a real
+  // crash from sliding along a face. A car riding a lane edge grazes
+  // the median every step at speed; the old rule dealt damage + halved
+  // speed on EVERY graze (53 damage in 15 s of boulevard driving) and
+  // the car wrecked itself. A slide has ~zero closing speed: no
+  // damage, no cut, the push-out just deflects it. A head-on impact
+  // (closing > 2) still damages and cuts speed. A centre-inside rescue
+  // (e.g. teleported into a building) is an ejection, not an impact.
+  if (res.hit && !res.rescued) {
+    const cx = res.x - nx, cz = res.z - nz;
+    const clen = Math.hypot(cx, cz);
+    let closing = 0;
+    if (clen > 1e-9) {
+      const vx = Math.cos(car.angle) * car.speed;
+      const vz = -Math.sin(car.angle) * car.speed;
+      closing = -(vx * cx + vz * cz) / clen;
+    }
+    if (closing > 2) {
+      car.damage = Math.min(100, car.damage + closing * 0.6);
+      car.speed *= 0.4;
+    }
   }
   car.x = res.x;
   car.z = res.z;
