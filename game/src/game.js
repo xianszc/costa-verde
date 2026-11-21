@@ -1163,13 +1163,12 @@ export function createGame(container) {
         // old-town traffic car, the stair-houses and the plaza beyond.
         camFrom = [-2, 8, -62]; camTo = [-48, 1, -56];
       } else if (d === 'promenade') {
-        // Elevated from the south-east, over the quay, looking
-        // north-west: the Casino Azzura + the hotel tower, the
-        // boulevard running away, the quay + sailboats below. (Two
-        // lower vantages sat inside the palm rows — the fronds
-        // blocked the casino.)
+        // High above the boulevard's west end, looking east-down:
+        // the boulevard, the deco row, the Casino Azzura + the hotel
+        // tower, the quay + sailboats below. (Lower vantages sat
+        // inside the palm rows — the fronds blocked the casino.)
         car.x = 84; car.z = -3.4; car.angle = Math.PI; car.speed = 0;
-        camFrom = [110, 14, 20]; camTo = [82, 0, -14];
+        camFrom = [60, 18, 8]; camTo = [100, 0, -12];
       } else {
         car.x = -30; car.z = -56; car.angle = 0; car.speed = 0;
         camFrom = [-6, 6, -38]; camTo = [-44, 1, -58];
