@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T19:45:11.347Z",
+  "generated": "2026-11-21T19:48:47.886Z",
   "commit": "5585be3",
   "missions": {
     "M1": {
@@ -131,6 +131,19 @@
       "ms": 12337,
       "money": 6250,
       "xp": 2740,
+      "errors": 0,
+      "how": "human-like",
+      "commit": "5585be3"
+    },
+    "M2": {
+      "mission": "M2",
+      "result": "PASS",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 181719,
+      "money": 1850,
+      "xp": 1704.010752844563,
       "errors": 0,
       "how": "human-like",
       "commit": "5585be3"
