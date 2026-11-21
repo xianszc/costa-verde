@@ -1621,6 +1621,31 @@ export function createGame(container) {
       renderer.render(scene, shotCamera);
       if (restoreTopFog) restoreTopFog();
       if (restoreTopShadow) restoreTopShadow();
+    } else if (name === 'ring') {
+      // Commercial-ring street shot (Xian 21 Nov 16:04, item 2): from
+      // the ring avenue (z -42), looking north at the north-row
+      // shopfronts — shop signs, awnings, balconies, people on the
+      // sidewalk, traffic on the avenue, full HUD. The camera stands
+      // in the avenue so the shopfronts fill the frame.
+      state.onFoot = false;
+      playerMesh.visible = false;
+      run(120, {});
+      state.time = 18.7;
+      updateLighting();
+      // Stella staged eastbound on the ring avenue, in frame.
+      // (Local forward is +x: angle 0 = east, PI/2 = north.)
+      car.x = -12; car.z = -42; car.angle = 0; car.speed = 0;
+      car.mesh.position.set(car.x, ROAD_Y, car.z);
+      car.mesh.rotation.y = car.angle;
+      // Two peds on the avenue's south sidewalk (z -37.5).
+      peds[0].mesh.position.set(-4, 0, -37.5);
+      peds[1].mesh.position.set(4, 0, -37.5);
+      camera.position.set(0, 3.0, -40);
+      camera.lookAt(0, 4.0, -50);
+      camPos.copy(camera.position);
+      camLook.set(0, 4.0, -50);
+      renderer.render(scene, camera);
+      renderer.render(scene, camera);
     } else { // walk
       state.mode = 'play';
       showHUD();

@@ -60,27 +60,65 @@ const SHOP_NAMES = [
 ];
 const SHOP_COLORS = ['#1e2a32', '#7a2e2e', '#1f7a8c', '#c98a3a', '#2e5a3a', '#5a3a6a'];
 
-// Canvas sign texture (fictional shop name, like the showcase signs).
-function shopTexture(text, bg, fg) {
+// --- sign atlas (Xian 21 Nov 16:04, item 2) ---
+// Every named sign used to be its own canvas texture + its own mesh —
+// ~37 shop signs + 4 billboards + 6 neons = ~47 draw calls, and the
+// top view was already at 590/600. Now all 16 name plates (12 shops +
+// 4 billboards) live on ONE 1024x256 canvas (4x4 cells of 256x64) with
+// ONE texture, and every sign quad is merged into ONE mesh (1 draw
+// call). Neons merge the same way (vertex colours, 1 draw call).
+// A plate is drawn exactly like the old per-sign canvas (bg + text),
+// so the signs look identical — only the draw-call cost changes.
+const ATLAS_COLS = 4;
+const ATLAS_ROWS = 4;
+const ATLAS_PLATES = [
+  ...SHOP_NAMES.map((text, i) => ({ text, bg: SHOP_COLORS[i % SHOP_COLORS.length], fg: '#f7ebd7' })),
+  { text: 'AZZURA', bg: '#1e2a32', fg: '#ffd9a0' },
+  { text: 'SOL', bg: '#c93a6b', fg: '#f7ebd7' },
+  { text: 'VELA', bg: '#1f7a8c', fg: '#f7ebd7' },
+  { text: 'PORTO', bg: '#7a2e2e', fg: '#f7ebd7' },
+];
+function buildSignAtlas() {
   const c = document.createElement('canvas');
-  c.width = 256; c.height = 64;
+  c.width = 1024; c.height = 256;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, 256, 64);
-  ctx.fillStyle = fg; ctx.font = 'bold 26px system-ui, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 34);
+  const plates = new Map();
+  ATLAS_PLATES.forEach((p, i) => {
+    const col = i % ATLAS_COLS;
+    const row = Math.floor(i / ATLAS_COLS);
+    const x = col * 256;
+    const y = row * 64;
+    ctx.fillStyle = p.bg; ctx.fillRect(x, y, 256, 64);
+    ctx.fillStyle = p.fg; ctx.font = 'bold 26px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(p.text, x + 128, y + 34);
+    // Canvas row 0 is the TOP; texture v runs bottom-up.
+    plates.set(p.text, {
+      u0: col / ATLAS_COLS, u1: (col + 1) / ATLAS_COLS,
+      v0: 1 - (row + 1) / ATLAS_ROWS, v1: 1 - row / ATLAS_ROWS,
+    });
+  });
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+  return { texture: tex, plates };
+}
+// Remap a plane's UVs into one atlas cell.
+function remapUV(geo, plate) {
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    uv.setXY(i,
+      plate.u0 + uv.getX(i) * (plate.u1 - plate.u0),
+      plate.v0 + uv.getY(i) * (plate.v1 - plate.v0));
+  }
+  return geo;
 }
 
 // A mid-rise building (6–15 floors = 12–30 units tall). The shopfront
 // (awning + glass) faces the street (outward normal `facing`, in
 // radians — the front face is at local +z after rotation). The named
-// sign is only on the buildings that face the main east-west streets
-// (boulevard / ring avenue) — one sign per building would be ~140
-// draw calls; the side-street shops keep the awning + glass.
-function commercialBuilding(rnd, floors, w, d, color, shopName, shopColor, isCorner) {
+// sign is NOT built here: the caller adds one atlas quad per named shop
+// (see buildCommercialRing) so all signs merge into a single mesh.
+function commercialBuilding(rnd, floors, w, d, color, isCorner) {
   const h = floors * 2;
   const g = new THREE.Group();
   // Main volume + cornice + parapet.
@@ -102,14 +140,6 @@ function commercialBuilding(rnd, floors, w, d, color, shopName, shopColor, isCor
   g.add(box(w * 0.9, 0.12, 1.0, awn, 0, 2.6, d / 2 + 0.5));
   g.add(box(w * 0.9, 1.8, 0.1, 0x1e2a32, 0, 1.2, d / 2 + 0.05));
   g.add(box(w * 0.9, 0.5, 0.12, 0x2e4a5e, 0, 2.3, d / 2 + 0.06));
-  if (shopName) {
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(Math.min(w * 0.85, 4.2), 0.9),
-      new THREE.MeshBasicMaterial({ map: shopTexture(shopName, shopColor, '#f7ebd7') }),
-    );
-    sign.position.set(0, 3.4, d / 2 + 0.08);
-    g.add(sign);
-  }
   return { group: g, height: h + (isCorner ? 2.6 : 0.7) };
 }
 
@@ -143,6 +173,7 @@ function windowsFor(face, w, h, d, rnd) {
 
 export function buildCommercialRing() {
   const rnd = seededRandom(20261121);
+  const atlas = buildSignAtlas();
   const group = new THREE.Group();
   group.name = 'commercialRing';
   const colliders = [];
@@ -151,6 +182,8 @@ export function buildCommercialRing() {
   const pedPaths = [];
   const concrete = [];
   const glass = [];
+  const signGeos = []; // atlas quads (shop signs + billboards) — 1 mesh
+  const neonGeos = []; // vertex-coloured neon quads — 1 mesh
   let buildingCount = 0;
   let shopIdx = 0;
 
@@ -227,21 +260,17 @@ export function buildCommercialRing() {
       // glass, no sign (draw-call budget).
       const onMainStreet = s.edge === 'north' || s.edge === 'south';
       const shopName = onMainStreet ? SHOP_NAMES[shopIdx % SHOP_NAMES.length] : null;
-      const shopColor = onMainStreet ? SHOP_COLORS[shopIdx % SHOP_COLORS.length] : null;
       if (onMainStreet) shopIdx += 1;
-      const { group: bg, height } = commercialBuilding(rnd, floors, w, d, color, shopName, shopColor, isCorner);
+      const { group: bg, height } = commercialBuilding(rnd, floors, w, d, color, isCorner);
       bg.position.set(s.x, 0, s.z);
       bg.rotation.y = s.ry;
       // The building's parts are already positioned in local space;
       // bake each mesh into world space and merge it into the shared
       // concrete mesh, keeping the mesh's own material colour as the
-      // vertex colour. Signs (material.map) are skipped — they are
-      // added as single meshes below.
+      // vertex colour.
       bg.updateMatrixWorld(true);
-      let signMesh = null;
       bg.traverse((o) => {
         if (o.isMesh && o.geometry) {
-          if (o.material && o.material.map) { signMesh = o; return; }
           const geo = o.geometry.clone();
           geo.applyMatrix4(o.matrixWorld);
           const hex = (o.material && o.material.color) ? o.material.color.getHex() : 0xffffff;
@@ -261,16 +290,18 @@ export function buildCommercialRing() {
           glass.push(g2);
         }
       }
-      // The shop sign (own texture) as a single mesh in world space.
-      if (signMesh) {
-        const pos = new THREE.Vector3();
-        const quat = new THREE.Quaternion();
-        signMesh.getWorldPosition(pos);
-        signMesh.getWorldQuaternion(quat);
-        const sm = new THREE.Mesh(signMesh.geometry, signMesh.material);
-        sm.position.copy(pos);
-        sm.quaternion.copy(quat);
-        group.add(sm);
+      // The shop sign: one atlas quad, merged with all the other
+      // signs (1 draw call for every sign in the ring). Same position
+      // the old single-mesh sign had: (0, 3.4, d/2 + 0.08) local,
+      // rotated by the building's facing, at the building's spot.
+      if (shopName) {
+        const plate = atlas.plates.get(shopName);
+        const sq = remapUV(new THREE.PlaneGeometry(Math.min(w * 0.85, 4.2), 0.9), plate);
+        sq.translate(0, 3.4, d / 2 + 0.08);
+        const m = new THREE.Matrix4().makeRotationY(s.ry);
+        m.setPosition(s.x, 0, s.z);
+        sq.applyMatrix4(m);
+        signGeos.push(sq);
       }
       colliders.push({
         x0: s.x - w / 2, z0: s.z - d / 2, x1: s.x + w / 2, z1: s.z + d / 2,
@@ -293,41 +324,51 @@ export function buildCommercialRing() {
   glassMesh.name = 'commercial-glass';
   group.add(glassMesh);
 
-  // --- billboards on 4 rooftops (fictional ads) ---
+  // --- billboards on 4 rooftops (fictional ads, atlas plates) ---
   const billboards = [
-    { x: 3.5, z: -50, text: 'AZZURA', bg: '#1e2a32', fg: '#ffd9a0' },
-    { x: 52, z: -50, text: 'SOL', bg: '#c93a6b', fg: '#f7ebd7' },
-    { x: 51, z: -18, text: 'VELA', bg: '#1f7a8c', fg: '#f7ebd7' },
-    { x: -51, z: -18, text: 'PORTO', bg: '#7a2e2e', fg: '#f7ebd7' },
+    { x: 3.5, z: -50, text: 'AZZURA' },
+    { x: 52, z: -50, text: 'SOL' },
+    { x: 51, z: -18, text: 'VELA' },
+    { x: -51, z: -18, text: 'PORTO' },
   ];
   for (const bb of billboards) {
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(6, 2.4),
-      new THREE.MeshBasicMaterial({ map: shopTexture(bb.text, bb.bg, bb.fg) }),
-    );
-    sign.position.set(bb.x, 26, bb.z);
-    sign.rotation.y = bb.x < 0 ? Math.PI / 2 : -Math.PI / 2;
-    group.add(sign);
-    const post = box(0.3, 4, 0.3, 0x2b2b2b, bb.x, 22, bb.z);
-    group.add(post);
+    const plate = atlas.plates.get(bb.text);
+    const sq = remapUV(new THREE.PlaneGeometry(6, 2.4), plate);
+    sq.rotateY(bb.x < 0 ? Math.PI / 2 : -Math.PI / 2);
+    sq.translate(bb.x, 26, bb.z);
+    signGeos.push(sq);
+    const post = colored(xform(new THREE.BoxGeometry(0.3, 4, 0.3), bb.x, 22, bb.z), 0x2b2b2b);
+    concrete.push(post);
   }
 
-  // --- neon signs on 6 shopfronts (emissive, static) ---
+  // --- neon signs on 6 shopfronts (merged, vertex colours) ---
+  // The text is dropped (a merged mesh cannot carry 6 different
+  // canvas textures) — the neon is a glowing colour bar, the shop's
+  // name already sits on its sign band above the awning.
   const neons = [
-    { x: -27, z: -46.5, text: 'BAR', color: 0xff5c8a },
-    { x: 3.5, z: -46.5, text: 'HOTEL', color: 0x3ed6d6 },
-    { x: 52, z: -36, text: 'CINEMA', color: 0xffc46b },
-    { x: 50, z: -7.5, text: 'DISCO', color: 0xff5c8a },
-    { x: -51, z: -7.5, text: 'PIZZA', color: 0x3ed6d6 },
-    { x: -51, z: 21.5, text: 'MERCATO', color: 0xffc46b },
+    { x: -27, z: -46.5, color: 0xff5c8a },
+    { x: 3.5, z: -46.5, color: 0x3ed6d6 },
+    { x: 52, z: -36, color: 0xffc46b },
+    { x: 50, z: -7.5, color: 0xff5c8a },
+    { x: -51, z: -7.5, color: 0x3ed6d6 },
+    { x: -51, z: 21.5, color: 0xffc46b },
   ];
   for (const n of neons) {
-    const neon = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.2, 0.8),
-      new THREE.MeshBasicMaterial({ color: n.color }),
-    );
-    neon.position.set(n.x, 4.2, n.z);
-    group.add(neon);
+    const q = colored(new THREE.PlaneGeometry(3.2, 0.8), n.color);
+    q.translate(n.x, 4.2, n.z);
+    neonGeos.push(q);
+  }
+  if (neonGeos.length) {
+    const neonMesh = mergedMesh(neonGeos, new THREE.MeshBasicMaterial({ vertexColors: true }));
+    neonMesh.name = 'commercial-neon';
+    neonMesh.castShadow = false;
+    group.add(neonMesh);
+  }
+  if (signGeos.length) {
+    const signMesh = mergedMesh(signGeos, new THREE.MeshBasicMaterial({ map: atlas.texture }));
+    signMesh.name = 'commercial-signs';
+    signMesh.castShadow = false;
+    group.add(signMesh);
   }
 
   // --- pedestrian paths along the ring avenue + the boulevard ---
