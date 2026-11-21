@@ -199,8 +199,8 @@ function buildHills() {
 // (mission-critical: M1/M2/M4/M8/M12 stage there) and the bell tower
 // are still built from this list.
 const PLOTS = [
-  { id: 'park', x0: 23, z0: -38, x1: 37, z1: -30 },
-  { id: 'pavilion-quay', x0: 44, z0: -28, x1: 56, z1: -10 },
+  { id: 'park', x0: 27.7, z0: -38, x1: 35.8, z1: -30 },
+  { id: 'pavilion-quay', x0: 45, z0: -28, x1: 56, z1: -10 },
   { id: 'bell-tower', x0: -48.4, z0: -37.4, x1: -45.6, z1: -34.6 },
 ];
 
@@ -261,14 +261,14 @@ export function buildDistrict4() {
   // STAGE 1 part 3: the park's north edge moved south to z -38 so the
   // green zone clears the ring avenue (z -45.5..-38.5).
   const park = new THREE.Group();
-  park.add(box(14, 0.24, 8, 0x7a8b5a, 30, 0.12, -34));
+  park.add(box(8.1, 0.24, 8, 0x7a8b5a, 31.75, 0.12, -34));
   const parkTrees = { round: [], cypress: [], pine: [] };
   const parkPalms = [];
   const prnd = seededRandom(4242);
   for (let i = 0; i < 14; i++) {
     const type = TREE_TYPES[i % 4];
     const spec = {
-      x: 24.5 + prnd() * 11, z: -38 + prnd() * 7,
+      x: 28 + prnd() * 7.5, z: -38 + prnd() * 7,
       s: 0.8 + prnd() * 0.5, rot: prnd() * Math.PI * 2, tint: 0xffffff,
     };
     if (type === 'palm') parkPalms.push(spec);
