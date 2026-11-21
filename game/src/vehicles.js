@@ -290,7 +290,15 @@ export function createCar(mesh, opts = {}) {
     maxSpeed: opts.maxSpeed || 26,
     accel: opts.accel || 15,
     brake: opts.brake || 24,
-    radius: opts.radius || 1.7,
+    // Collision radius 0.5 (was 1.7): the avenue lanes are 1.05u wide
+    // per direction (3 x 0.35 + 1.3 median = 3.4 carriageway) and the
+    // side streets 1.4u wide — a 1.7 radius (3.4u circle) could not
+    // fit ANY road, so the player car crept at 0.25 u/s (speed halved
+    // on every step by the median/pavilion colliders) and wedged in
+    // the marina, timing out M1/M2/M4/M5/M6/M8. The visual car is
+    // bigger (4.4 x 1.9) — the circle is a drive-fit compromise, the
+    // same scale the traffic lanes are drawn at.
+    radius: opts.radius || 0.5,
     damage: 0,
     fuel: 100,
   };
