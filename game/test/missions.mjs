@@ -134,6 +134,7 @@ async function readState(page) {
       xp: g.state.xp,
       onFoot: g.state.onFoot,
       px: g.player.x, pz: g.player.z,
+      angle: g.player.angle, // DRIVER fix: steer on the live player angle (see walkToPoint)
       cx: g.car.x, cz: g.car.z,
       duel: !!g.duelTarget,
       duelFallen: g.duelTarget ? g.duelTarget.fallen : null,
@@ -287,16 +288,21 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
 
 // Walk the ON-FOOT player toward (tx, tz) with W + A/D. The player
 // moves camera-relative (W = camera look direction, chase cam behind),
-// so steering uses the player's actual movement direction from
-// consecutive position reads. If blocked (no progress 6 s) it strafes
-// along the wall (alternating side, 3 s) to get around the end — the
-// final leg to an off-road target (pavilion, quay, fortress plaza)
-// needs this, because the direct line crosses the promenade wall.
-// Returns true when within r. Human-like: no teleport.
+// so steering uses the player's LIVE angle (player.angle, set from
+// the movement vector every frame) — NOT the old 900 ms-sampled
+// moveAngle. DRIVER fix (walk-probe 22 Nov 05:40): the sampled
+// moveAngle lagged the game's ~0.8 rad/s turn rate, so the steering
+// oscillated and the player walked in tight circles for 60 s without
+// reaching a target 14u away; steering on the fresh angle every
+// 300 ms poll converges in ~2 s per 90 deg turn. If blocked (no
+// progress 6 s) it strafes along the wall (alternating side, 3 s)
+// to get around the end — the final leg to an off-road target
+// (pavilion, quay, fortress plaza) needs this, because the direct
+// line crosses the promenade wall. Returns true when within r.
+// Human-like: no teleport.
 async function walkToPoint(page, tx, tz, r, timeoutMs) {
   const started = Date.now();
   let lastDist = Infinity, lastProgress = Date.now();
-  let lastPos = null, lastTime = 0, moveAngle = null;
   let followSide = 1, followUntil = 0;
   while (Date.now() - started < timeoutMs) {
     const s = await readState(page);
@@ -306,13 +312,6 @@ async function walkToPoint(page, tx, tz, r, timeoutMs) {
     if (d < r) { await releaseKeys(page); return true; }
     if (d < lastDist - 0.3) { lastDist = d; lastProgress = Date.now(); }
     if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
-    const now = Date.now();
-    if (!lastPos) { lastPos = { x: s.px, z: s.pz }; lastTime = now; }
-    else if (now - lastTime >= 900) {
-      const dx = s.px - lastPos.x, dz = s.pz - lastPos.z;
-      if (Math.hypot(dx, dz) > 0.15) moveAngle = Math.atan2(-dz, dx);
-      lastPos = { x: s.px, z: s.pz }; lastTime = now;
-    }
     if (Date.now() < followUntil) { await sleep(300); continue; }
     if (Date.now() - lastProgress > 6000) {
       // Blocked by a wall — strafe along it to find the end.
@@ -324,8 +323,7 @@ async function walkToPoint(page, tx, tz, r, timeoutMs) {
       continue;
     }
     const desired = Math.atan2(-(tz - s.pz), tx - s.px);
-    if (moveAngle == null) { await setKeys(page, { w: true }); await sleep(300); continue; }
-    const diff = normAngle(desired - moveAngle);
+    const diff = normAngle(desired - s.angle);
     await setKeys(page, { w: true, a: diff > 0.2, d: diff < -0.2, s: false });
     await sleep(300);
   }
