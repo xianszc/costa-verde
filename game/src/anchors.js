@@ -147,8 +147,11 @@ export const ANCHORS = {
   // Bay: from the east over the water, looking west-northwest at the
   // skyline in 3/4 — the cluster reads in profile, the water in front.
   vantage_cbd_bay: { x: 55, y: 14, z: 38, look: { x: -5, y: 45, z: -9 }, district: 'cbd' },
-  // Top: straight down over the CBD grid.
-  vantage_cbd_top: { x: 0, y: 150, z: -6, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
+  // Top: high oblique from the south (over the bay), looking down the
+  // CBD grid — the tower heights, the boulevard and the bay all read.
+  // (A true straight-down lookAt is degenerate in Three.js — the
+  // camera tilts; the oblique is the check that matters.)
+  vantage_cbd_top: { x: 0, y: 130, z: 55, look: { x: 0, y: 0, z: -6 }, district: 'cbd' },
 };
 
 // A mission stage target: { x, z, r } where r is the arrival radius.
