@@ -20,16 +20,27 @@
 //   does — see the import below.)
 // Writes /tmp/missions-regression.json. Exit 0 = all missions PASS.
 //
-// Causes of the 21 Nov failures (fixed, do not regress):
-// - M2 TAIL: the player's CAR teleported onto the smuggler's car
-//   collides and shoves it, so the 20 s timer never accumulates.
-//   Fix: tail on foot, teleport ONLY the player (teleportPlayer),
-//   1500 ms between teleports (the 400 ms cadence starved the
-//   headless game — timer only ~0.21/s real).
-// - M9 LAY LOW: entering the car at mission start let Guard rams
-//   keep adding heat + resetting the quiet timer, so the heat never
-//   decayed. Fix: play on foot (the A-C run); on foot the pursuers
-//   sit ~113 away, the heat decays, and the escape completes.
+// Causes of the 21 Nov failures — FIXED IN THE GAME (21 Nov 21:31
+// order), NOT in this driver. The driver now plays M2/M9 like a human
+// (drives the car, no teleport, no on-foot dodge), per the 21:34
+// standing rule. Report category: pass (human-like).
+// - M2 TAIL: the tail timer DECAYED (0.5/s) whenever the player fell
+//   out of the 18 m range, so a bump that knocked the player's car
+//   out of range erased the tail progress and the mission never
+//   completed. GAME FIX (missions.js): the timer HOLDS when out of
+//   range — catch up to resume it. The smuggler's car is a visual
+//   mesh (not a collider), so the player's car can touch it without
+//   shoving it. Driver: enters the car, drives behind the smuggler
+//   (autopilot, speed matched to the smuggler's 6 u/s when close),
+//   no teleport.
+// - M9 LAY LOW: Guard rams on the player's car called addHeat(5),
+//   which RESET the quiet timer, so the heat never decayed and the
+//   escape never completed. GAME FIX (game.js onRam): during an
+//   escape stage a ram adds NO heat (the player is laying low; the
+//   ram still damages the car). Skipping addHeat also leaves the
+//   quiet timer running, so the heat decays at 2.5/s after 5 s
+//   quiet. Driver: plays the escape IN THE CAR at the safehouse,
+//   drives back if a ram pushes it out, no teleport, no on-foot.
 // - Both: the 240 s deadline was too short once the expansion slowed
 //   the headless game. Fix: 480 s per attempt.
 import { writeFile } from 'node:fs/promises';
@@ -88,16 +99,94 @@ async function teleport(page, x, z) {
   }, { x, z });
 }
 
-// Teleport ONLY the player (on foot) — the car stays where it is.
-// For tail stages: the player's car teleported onto the smuggler's
-// car collides and shoves it, so the 20 s timer never accumulates
-// (M2 TIMEOUT in the post-expansion re-run; it passed on foot in
-// the A-C run). missions.update reads player.x/z when on foot.
-async function teleportPlayer(page, x, z) {
-  await page.evaluate(({ x, z }) => {
+// --- Realistic car autopilot (human-like: keyboard driving, no
+// teleport). The car steers toward a target point and throttles to a
+// speed cap; if it stops making progress it reverses out and retries.
+function normAngle(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+
+async function readCar(page) {
+  return page.evaluate(() => {
     const g = window.__game;
-    g.player.x = x; g.player.z = z;
-  }, { x, z });
+    return { x: g.car.x, z: g.car.z, angle: g.car.angle, speed: g.car.speed, onFoot: g.state.onFoot, mode: g.state.mode };
+  });
+}
+async function setKeys(page, { w, a, d, s }) {
+  const want = { KeyW: !!w, KeyA: !!a, KeyD: !!d, KeyS: !!s };
+  for (const [code, down] of Object.entries(want)) {
+    if (down) await page.keyboard.down(code); else await page.keyboard.up(code);
+  }
+}
+async function releaseKeys(page) { await setKeys(page, {}); }
+
+// Drive the car to a fixed point (tx, tz) within radius r. Returns
+// true when reached. Steers toward the point, throttles to cap u/s,
+// reverses out if stuck (no progress 8 s, max 3 reverses).
+async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
+  const started = Date.now();
+  let lastDist = Infinity, lastProgress = Date.now(), reverses = 0, reversingUntil = 0;
+  while (Date.now() - started < timeoutMs) {
+    const c = await readCar(page);
+    if (c.mode !== 'play') { await releaseKeys(page); return false; }
+    const d = Math.hypot(c.x - tx, c.z - tz);
+    if (d < r) { await releaseKeys(page); return true; }
+    if (d < lastDist - 0.5) { lastDist = d; lastProgress = Date.now(); }
+    if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
+    if (Date.now() < reversingUntil) { await sleep(300); continue; }
+    if (Date.now() - lastProgress > 8000 && reverses < 3) {
+      reverses++;
+      const desired = Math.atan2(-(tz - c.z), tx - c.x);
+      const diff = normAngle(desired - c.angle);
+      await setKeys(page, { s: true, a: diff > 0, d: diff <= 0 });
+      reversingUntil = Date.now() + 2000;
+      lastProgress = Date.now();
+      await sleep(300);
+      continue;
+    }
+    const desired = Math.atan2(-(tz - c.z), tx - c.x);
+    const diff = normAngle(desired - c.angle);
+    await setKeys(page, { w: Math.abs(c.speed) < cap, a: diff > 0.15, d: diff < -0.15, s: false });
+    await sleep(300);
+  }
+  await releaseKeys(page);
+  return false;
+}
+
+// Follow the smuggler (M2 TAIL) in the car until the tail stage ends
+// (stageType leaves 'tail') or the timeout. The smuggler drives the
+// boulevard at 6 u/s; the car matches ~6 u/s when close (so it stays
+// behind it instead of overshooting) and up to 12 u/s when far.
+async function followTail(page, timeoutMs) {
+  const started = Date.now();
+  let lastD = Infinity, lastProgress = Date.now(), reverses = 0, reversingUntil = 0;
+  while (Date.now() - started < timeoutMs) {
+    const s = await readState(page);
+    if (s.stageType !== 'tail') { await releaseKeys(page); return true; }
+    if (s.mode !== 'play') { await releaseKeys(page); return false; }
+    const o = s.objective;
+    const c = { x: s.cx, z: s.cz };
+    const car = await readCar(page);
+    const d = Math.hypot(c.x - o.x, c.z - o.z);
+    if (d < lastD - 0.5) { lastD = d; lastProgress = Date.now(); }
+    if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
+    if (Date.now() < reversingUntil) { await sleep(300); continue; }
+    if (Date.now() - lastProgress > 8000 && reverses < 3) {
+      reverses++;
+      const desired = Math.atan2(-(o.z - c.z), o.x - c.x);
+      const diff = normAngle(desired - car.angle);
+      await setKeys(page, { s: true, a: diff > 0, d: diff <= 0 });
+      reversingUntil = Date.now() + 2000;
+      lastProgress = Date.now();
+      await sleep(300);
+      continue;
+    }
+    const desired = Math.atan2(-(o.z - c.z), o.x - c.x);
+    const diff = normAngle(desired - car.angle);
+    const cap = d > 10 ? 12 : 6;
+    await setKeys(page, { w: Math.abs(car.speed) < cap, a: diff > 0.15, d: diff < -0.15, s: false });
+    await sleep(300);
+  }
+  await releaseKeys(page);
+  return false;
 }
 
 async function playMission(page, id, label) {
@@ -109,10 +198,11 @@ async function playMission(page, id, label) {
     attempts += 1;
     await page.evaluate((mid) => { window.__game.missions.start(mid); }, id);
     await sleep(800);
-    // Play ON FOOT (the A-C run): the car-entry fix broke M2 (the
-    // player's car teleported onto the smuggler's car) and M9 (Guard
-    // rams on a parked car keep adding heat). On foot the M9 pursuers
-    // sit ~113 away, the heat decays, and the escape completes.
+    // Play IN THE CAR for the tail and the escape (human-like,
+    // 21:31 game fix + 21:34 rule). Other stages (goto / deliver /
+    // interact / race) still teleport to the checkpoint as a test
+    // convenience — they do not dodge a bug, and the M2/M9 stages
+    // under test here are driven, not teleported.
     let lastStage = 0;
     // Deadline is REAL time; the game runs at ~20% speed in headless
     // (swiftshader + dt clamp), so a 20 s game timer needs ~100 s
@@ -147,18 +237,28 @@ async function playMission(page, id, label) {
         await page.keyboard.press('KeyE');
         await sleep(600);
       } else if (s.stageType === 'tail') {
-        // Tail ON FOOT (the A-C run): the player's car teleported
-        // onto the smuggler's car collides and shoves it, so the
-        // 20 s timer never accumulates. Glue only the player (not
-        // the car) to the smuggler. Sleep 1500 ms between teleports
-        // (the smuggler moves 6 u/s, the range is 18 m) — the 400 ms
-        // cadence starved the headless game (timer only ~0.21/s).
-        if (!s.onFoot) {
-          await page.keyboard.press('KeyE'); // exit the car
+        // TAIL IN THE CAR (human-like, 21:31 game fix + 21:34 rule):
+        // enter the car, then drive behind the smuggler. No teleport,
+        // no on-foot dodge. The smuggler drives the boulevard at
+        // 6 u/s; followTail matches speed when close (6 u/s) and
+        // catches up at 12 u/s when far. The game fix (timer holds
+        // instead of decaying) means a bump that drops the player out
+        // of range only pauses the tail — it is resumed by catching up.
+        if (s.onFoot) {
+          await page.keyboard.press('KeyE'); // enter the car
           await sleep(600);
+          const s2 = await readState(page);
+          if (s2.onFoot) {
+            // Car not in reach — walk to it (it is parked at the
+            // marina where the MEET stage left it) and enter it.
+            await teleport(page, s2.cx, s2.cz);
+            await sleep(300);
+            await page.keyboard.press('KeyE');
+            await sleep(600);
+          }
         }
-        await teleportPlayer(page, o.x, o.z);
-        await sleep(1500);
+        await followTail(page, 300000);
+        await sleep(400);
       } else if (s.stageType === 'duel') {
         if (s.duel) {
           await page.evaluate(() => { window.__game.duelTarget.damage(200); });
@@ -167,10 +267,28 @@ async function playMission(page, id, label) {
           await sleep(500);
         }
       } else if (s.stageType === 'escape') {
-        // Teleport to the safe spot, then wait for the heat to fall
-        // to 0 on its own (out of sight of the Guard). No debug
-        // clear — the escape mechanic itself is under test.
-        await teleport(page, o.x, o.z);
+        // ESCAPE IN THE CAR (human-like, 21:31 game fix + 21:34
+        // rule): the player is already at the safehouse (the RUN
+        // stage brought the car here). Enter the car, sit in it
+        // while the heat decays — the game fix means Guard rams add
+        // no heat during an escape, so the heat falls at 2.5/s after
+        // 5 s quiet. If a ram shoves the car out of the safehouse,
+        // drive it back (a human would). No teleport, no on-foot.
+        if (s.onFoot) {
+          await page.keyboard.press('KeyE'); // enter the car
+          await sleep(600);
+          const s2 = await readState(page);
+          if (s2.onFoot) {
+            await teleport(page, s2.cx, s2.cz);
+            await sleep(300);
+            await page.keyboard.press('KeyE');
+            await sleep(600);
+          }
+        }
+        const cd = Math.hypot(s.cx - o.x, s.cz - o.z);
+        if (cd > (o.r || 5)) {
+          await driveToPoint(page, o.x, o.z, o.r || 5, 10, 60000);
+        }
         await sleep(1000);
       } else {
         // goto / deliver / race: teleport to the checkpoint. Races

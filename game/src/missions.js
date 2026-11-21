@@ -264,9 +264,11 @@ export function createMissionEngine(LIST = MISSIONS) {
       if (d < s.target.r) {
         tailTimer += dt;
         if (tailTimer >= (s.timer || 20)) return advance();
-      } else {
-        tailTimer = Math.max(0, tailTimer - dt * 0.5);
       }
+      // Out of range the timer HOLDS (it does not decay): a bump that
+      // knocks the player's car out of range, or the smuggler pulling
+      // away after a touch, must not erase the tail progress. Catch
+      // up to resume it. (M2 game fix, 21 Nov 21:31 order.)
       return null;
     }
     if (s.type === 'deliver' || s.type === 'race') {

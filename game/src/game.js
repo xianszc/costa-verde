@@ -363,7 +363,12 @@ export function createGame(container) {
     isNight: () => skyPhaseForHour(state.time) === 'night',
     onBusted: () => doBusted(),
     onRam: () => {
-      wanted.addHeat(5);
+      // M9 game fix (21 Nov 21:31 order): during an escape stage the
+      // player is laying low — a Guard ram on a hiding player must not
+      // add heat, or the heat never decays and the escape can never
+      // complete. The ram still damages the car (hull toast).
+      const s = missions.stageDef();
+      if (!s || s.type !== 'escape') wanted.addHeat(5);
       toast('Guard rammed you — hull damaged');
     },
   });

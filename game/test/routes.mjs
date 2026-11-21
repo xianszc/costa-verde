@@ -69,12 +69,14 @@ await sleep(1500);
 // --- build the lane graph (cluster points within 2.5) ---
 const lanes = await page.evaluate(() => window.__game.district.lanes.map((l) => ({ name: l.name, pts: l.pts })));
 console.log(`lanes: ${lanes.length}`);
-// nodes: cluster all lane points
+// nodes: cluster all lane points (radius 4: lane endpoints meet at
+// intersections a few units apart; parallel streets are 6+ apart, so
+// they do not merge). A 2.5 radius left every lane disconnected.
 const nodes = []; // {x, z, lanes:Set}
 const nodeOf = new Map(); // point index -> node index (per lane, per point)
 for (const lane of lanes) {
   for (const p of lane.pts) {
-    let ni = nodes.findIndex((n) => Math.hypot(n.x - p.x, n.z - p.z) < 2.5);
+    let ni = nodes.findIndex((n) => Math.hypot(n.x - p.x, n.z - p.z) < 4);
     if (ni < 0) { nodes.push({ x: p.x, z: p.z, adj: new Set() }); ni = nodes.length - 1; }
     nodeOf.set(lane.name + ':' + p.x + ',' + p.z, ni);
   }
