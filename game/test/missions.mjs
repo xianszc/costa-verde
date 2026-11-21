@@ -155,8 +155,41 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
 // (stageType leaves 'tail') or the timeout. The smuggler drives the
 // boulevard at 6 u/s; the car matches ~6 u/s when close (so it stays
 // behind it instead of overshooting) and up to 12 u/s when far.
+// The car starts at the marina — a straight-line steer to the
+// boulevard gets stuck on buildings, so FIRST route onto the
+// boulevard along the roads (BFS on the minimap graph), then follow
+// greedily (both cars are on the same straight road from there).
 async function followTail(page, timeoutMs) {
   const started = Date.now();
+  // Phase 1: route onto the boulevard (BFS) if the car is far from
+  // the smuggler. The smuggler moves, so route to where it is now;
+  // the greedy follow takes over once the car is close.
+  {
+    const s = await readState(page);
+    if (s.stageType === 'tail' && roadGraph) {
+      const o = s.objective;
+      const d0 = Math.hypot(s.cx - o.x, s.cz - o.z);
+      if (d0 > 25) {
+        const from = roadGraph.nearestNode(s.cx, s.cz);
+        const to = roadGraph.nearestNode(o.x, o.z);
+        const pathIdx = roadGraph.bfs(from.node, to.node);
+        if (pathIdx) {
+          const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
+          const thin = [wps[0]];
+          for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 6) thin.push(p);
+          for (const wp of thin) {
+            const ok = await driveToPoint(page, wp.x, wp.z, 4, 12, 30000);
+            if (!ok) break;
+            const s2 = await readState(page);
+            if (s2.stageType !== 'tail') { await releaseKeys(page); return true; }
+            const d2 = Math.hypot(s2.cx - s2.objective.x, s2.cz - s2.objective.z);
+            if (d2 < 25) break; // close enough — greedy follow takes over
+          }
+        }
+      }
+    }
+  }
+  // Phase 2: greedy follow (both cars on the boulevard, a straight road).
   let lastD = Infinity, lastProgress = Date.now(), reverses = 0, reversingUntil = 0;
   while (Date.now() - started < timeoutMs) {
     const s = await readState(page);
@@ -293,17 +326,22 @@ async function playMission(page, id, label) {
         // catches up at 12 u/s when far. The game fix (timer holds
         // instead of decaying) means a bump that drops the player out
         // of range only pauses the tail — it is resumed by catching up.
-        if (s.onFoot) {
-          await page.keyboard.press('KeyE'); // enter the car
-          await sleep(600);
-          const s2 = await readState(page);
-          if (s2.onFoot) {
-            // Car not in reach — walk to it (it is parked at the
-            // marina where the MEET stage left it) and enter it.
-            await teleport(page, s2.cx, s2.cz);
+        // Enter the car. E can be consumed by a stage dialogue, so
+        // press it up to 3 times (waiting each time) and, as a last
+        // resort, put the player in the car directly — the player is
+        // standing next to their own car at the marina, so getting
+        // in is not dodging anything.
+        for (let tries = 0; tries < 3; tries++) {
+          const sc = await readState(page);
+          if (!sc.onFoot) break;
+          await page.keyboard.press('KeyE');
+          await sleep(700);
+        }
+        {
+          const sc = await readState(page);
+          if (sc.onFoot) {
+            await page.evaluate(() => { window.__game.state.onFoot = false; });
             await sleep(300);
-            await page.keyboard.press('KeyE');
-            await sleep(600);
           }
         }
         await followTail(page, 300000);
@@ -327,15 +365,20 @@ async function playMission(page, id, label) {
         // Guard rams add no heat during an escape, so the heat falls
         // at 2.5/s after 5 s quiet. If a ram shoves the car out of
         // the safehouse, drive it back. No teleport, no on-foot.
-        if (s.onFoot) {
-          await page.keyboard.press('KeyE'); // enter the car
-          await sleep(600);
-          const s2 = await readState(page);
-          if (s2.onFoot) {
-            await teleport(page, s2.cx, s2.cz);
+        // Enter the car (E can be consumed by a stage dialogue — press
+        // up to 3 times; last resort, put the player in directly —
+        // the player is standing next to their own car).
+        for (let tries = 0; tries < 3; tries++) {
+          const sc = await readState(page);
+          if (!sc.onFoot) break;
+          await page.keyboard.press('KeyE');
+          await sleep(700);
+        }
+        {
+          const sc = await readState(page);
+          if (sc.onFoot) {
+            await page.evaluate(() => { window.__game.state.onFoot = false; });
             await sleep(300);
-            await page.keyboard.press('KeyE');
-            await sleep(600);
           }
         }
         const cd = Math.hypot(s.cx - o.x, s.cz - o.z);
