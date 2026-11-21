@@ -12,8 +12,10 @@
 // per the final plan so the roads align to them.
 import * as THREE from '../vendor/three.module.min.js';
 import {
-  box, mergedMesh, colored, xform, vertexColorMat, seededRandom,
+  box, mergedMesh, colored, xform, vertexColorMat,
 } from './world.js';
+// seededRandom lives in roads.js (world.js has an unexported copy).
+import { seededRandom } from './roads.js';
 
 // Corrected height curve (zoning-plan.md v3): floors by distance r from
 // the CBD centre (0, -6). CBD clamp 20-60.
