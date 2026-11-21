@@ -183,13 +183,16 @@ export function createGame(container) {
   for (const t of traffic) scene.add(t.mesh);
 
   // --- CBD directed-lane traffic (Xian 21 Nov 15:22) ---
-  // 6 cars on the grid's own lanes (4 civilian + 2 police patrol):
-  // CORSO AZZURRA both ways, LUNGOMARE both ways, a patrol on
-  // VIA DEL SOLE and one on the z 11.2 street. Total cars in the
-  // world: 6 loop + 6 graph = 12 (was 10 loop cars).
+  // 7 cars on the grid's own lanes (5 civilian + 2 police patrol):
+  // CORSO AZZURRA both ways (3 cars — the avenue is the busiest
+  // street), LUNGOMARE both ways, a patrol on VIA DEL SOLE and one
+  // on the z 11.2 street. Total cars in the world: 6 loop + 7 graph
+  // = 13 (was 10 loop cars). The 7th car fits the top-down budget
+  // because the monorail slimming freed 15 draw calls.
   const cbdTraffic = createCbdTraffic([
     { axis: 'NS', index: 3, dir: -1, lane: 0, kind: 'sedan', color: 0xd9553a },
     { axis: 'NS', index: 3, dir: 1, lane: 1, kind: 'van', color: 0x3a6fd9 },
+    { axis: 'NS', index: 3, dir: 1, lane: 2, kind: 'sedan', color: 0x2e7f8f },
     { axis: 'EW', index: 2, dir: 1, lane: 0, kind: 'sedan', color: 0xe8b93c },
     { axis: 'EW', index: 2, dir: -1, lane: 1, kind: 'pickup', color: 0x6a8a4a },
     { axis: 'NS', index: 1, dir: 1, lane: 0, police: true },

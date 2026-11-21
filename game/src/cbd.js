@@ -11,7 +11,7 @@
 // skyscraper roofs. Merged geometry per material, like before.
 import * as THREE from '../vendor/three.module.min.js';
 import {
-  box, mergedMesh, colored, xform, vertexColorMat, seededRandom,
+  mergedMesh, colored, xform, vertexColorMat, seededRandom,
 } from './world.js';
 import { cbdGridBlocks } from './cbd-grid.js';
 
@@ -43,6 +43,8 @@ export function buildCBD() {
   const winGeos = []; // window quads on all four faces
   const plazaGeos = []; // paving slabs (plaza block + tower forecourts)
   const greenGeos = []; // park lawn, trees, shrubs
+  const paveGeos = []; // darker paving: border frames + accent squares
+  const parkedGeos = []; // parked cars (vertex colours, one mesh)
   let towerCount = 0;
   let podiumCount = 0;
 
@@ -121,6 +123,12 @@ export function buildCBD() {
     const glass = rnd() > 0.45;
     const body = xform(new THREE.BoxGeometry(w, h, d), cx, h / 2, cz);
     (glass ? glassGeos : concGeos).push(colored(body, 0xffffff));
+    // Height tint (Xian 21 Nov 16:04 — heights must read in the map
+    // shots): a thin roof cap whose colour runs pale stone (20 floors)
+    // to deep gold (60 floors), so the tower's height reads from above.
+    const tint = Math.max(0, Math.min(1, (floors - 20) / 40));
+    const capCol = new THREE.Color(0xd8d2c4).lerp(new THREE.Color(0xc9a227), tint).getHex();
+    crownGeos.push(colored(xform(new THREE.BoxGeometry(w * 0.92, 0.25, d * 0.92), cx, h + 0.12, cz), capCol));
     addCrown(cx, cz, w, d, h, variant);
     addWindows(cx, cz, w, d, h, floors);
     colliders.push({ x0: cx - w / 2, z0: cz - d / 2, x1: cx + w / 2, z1: cz + d / 2, id: 'cbd-tower' });
@@ -149,6 +157,11 @@ export function buildCBD() {
         const sz = b.z0 + 1 + rnd() * (bd - 2);
         greenGeos.push(colored(xform(new THREE.SphereGeometry(0.45, 8, 6), sx, 0.35, sz), 0x356b42));
       }
+      // Small central fountain (Xian 21 Nov 16:04): the park's paths
+      // cross at the centre, so the fountain sits on the crossing.
+      concGeos.push(colored(xform(new THREE.CylinderGeometry(1.0, 1.1, 0.5, 12), b.cx, 0.25, b.cz), 0xffffff));
+      winGeos.push(colored(xform(new THREE.CylinderGeometry(0.85, 0.85, 0.1, 12), b.cx, 0.45, b.cz), 0x9fd4d8));
+      colliders.push({ x0: b.cx - 1.1, z0: b.cz - 1.1, x1: b.cx + 1.1, z1: b.cz + 1.1, id: 'cbd-fountain' });
       continue;
     }
     if (b.kind === 'plaza') {
@@ -162,6 +175,36 @@ export function buildCBD() {
         concGeos.push(colored(xform(new THREE.BoxGeometry(1.4, 0.55, 0.6), b.cx + px, 0.28, b.cz + pz), 0xffffff));
         greenGeos.push(colored(xform(new THREE.SphereGeometry(0.4, 8, 6), b.cx + px, 0.75, b.cz + pz), 0x4d8a5c));
       }
+      // Kiosk on the north edge centre + 3 parked cars (south / east /
+      // west edges). The plaza is the only CBD block with room for
+      // them: the single-tower blocks' rims are too narrow for a car,
+      // and a car in a driving lane would block the traffic AI.
+      const kx = b.cx, kz = b.z0 + 0.9;
+      concGeos.push(colored(xform(new THREE.BoxGeometry(1.6, 2.2, 1.4), kx, 1.1, kz), 0xffffff));
+      crownGeos.push(colored(xform(new THREE.BoxGeometry(1.8, 0.12, 1.0), kx, 2.35, kz + 0.9), 0xc93a6b));
+      crownGeos.push(colored(xform(new THREE.BoxGeometry(1.6, 0.5, 0.1), kx, 1.9, kz + 0.75), 0x1e2a32));
+      colliders.push({ x0: kx - 0.8, z0: kz - 0.7, x1: kx + 0.8, z1: kz + 0.7, id: 'cbd-kiosk' });
+      const parkedCols = [0xd9553a, 0x2e7f8f, 0xe8b93c];
+      const parkedSpots = [
+        { x: b.cx, z: b.z1 - 1.0, ry: 0 },
+        { x: b.x1 - 1.0, z: b.cz, ry: Math.PI / 2 },
+        { x: b.x0 + 1.0, z: b.cz, ry: -Math.PI / 2 },
+      ];
+      parkedSpots.forEach((s, i) => {
+        const col = parkedCols[i % parkedCols.length];
+        parkedGeos.push(colored(xform(new THREE.BoxGeometry(4.2, 0.55, 1.85), s.x, 0.58, s.z, s.ry), col));
+        parkedGeos.push(colored(xform(new THREE.BoxGeometry(1.8, 0.55, 1.4), s.x, 1.05, s.z, s.ry), 0x2e4a5e));
+        for (const [wx, wz] of [[1.4, 0.85], [1.4, -0.85], [-1.4, 0.85], [-1.4, -0.85]]) {
+          // Wheel offsets rotate with the car (rotation about Y).
+          const wwx = s.x + wx * Math.cos(s.ry) + wz * Math.sin(s.ry);
+          const wwz = s.z - wx * Math.sin(s.ry) + wz * Math.cos(s.ry);
+          parkedGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.5, 0.3), wwx, 0.25, wwz, s.ry), 0x1a1a1a));
+        }
+        const alongZ = Math.abs(Math.sin(s.ry)) > 0.5;
+        colliders.push(alongZ
+          ? { x0: s.x - 0.95, z0: s.z - 2.1, x1: s.x + 0.95, z1: s.z + 2.1, id: 'cbd-parked' }
+          : { x0: s.x - 2.1, z0: s.z - 0.95, x1: s.x + 2.1, z1: s.z + 0.95, id: 'cbd-parked' });
+      });
       continue;
     }
     if (b.kind === 'twin') {
@@ -173,6 +216,13 @@ export function buildCBD() {
       winGeos.push(colored(xform(new THREE.BoxGeometry(pw * 0.8, 1.4, 0.1), b.cx, 1.2, b.cz + pd / 2 + 0.05), 0x9fd4d8));
       colliders.push({ x0: b.cx - pw / 2, z0: b.cz - pd / 2, x1: b.cx + pw / 2, z1: b.cz + pd / 2, id: 'cbd-podium' });
       podiumCount++;
+      // Paved border around the podium (the rim is too narrow for
+      // trees or cars — the paving pattern is the fill here).
+      const tfw = bw - 0.4, tfd = bd - 0.4;
+      paveGeos.push(colored(xform(new THREE.BoxGeometry(tfw, 0.2, 0.5), b.cx, 0.1, b.z0 + 0.45), 0xffffff));
+      paveGeos.push(colored(xform(new THREE.BoxGeometry(tfw, 0.2, 0.5), b.cx, 0.1, b.z1 - 0.45), 0xffffff));
+      paveGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.2, tfd), b.x0 + 0.45, 0.1, b.cz), 0xffffff));
+      paveGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.2, tfd), b.x1 - 0.45, 0.1, b.cz), 0xffffff));
       const tw = 2.8, td = 2.8;
       const floors1 = cbdTowerFloors(r, rnd);
       const floors2 = cbdTowerFloors(r, rnd);
@@ -193,41 +243,82 @@ export function buildCBD() {
       variant = 2; // the Azzura Tower keeps its spire
     }
     addTower(b.cx, b.cz, w, d, floors, variant);
+    // ---- block fill (Xian 21 Nov 16:04): no empty tan ground ----
+    // The rim between the tower and the block edge is only ~1.2 wide,
+    // so the fill is flat paving + small trees / planters / a bench —
+    // all merged (the fill costs 2 draw calls: the paving tone and
+    // the parked cars). Kiosks and parked cars live on the plaza
+    // block, the only CBD block with room for them.
+    const fw = bw - 0.4, fd = bd - 0.4;
+    paveGeos.push(colored(xform(new THREE.BoxGeometry(fw, 0.2, 0.5), b.cx, 0.1, b.z0 + 0.45), 0xffffff));
+    paveGeos.push(colored(xform(new THREE.BoxGeometry(fw, 0.2, 0.5), b.cx, 0.1, b.z1 - 0.45), 0xffffff));
+    paveGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.2, fd), b.x0 + 0.45, 0.1, b.cz), 0xffffff));
+    paveGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.2, fd), b.x1 - 0.45, 0.1, b.cz), 0xffffff));
+    for (const [ax, az] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      paveGeos.push(colored(xform(new THREE.BoxGeometry(1.0, 0.2, 1.0), b.cx + ax * (fw / 2 - 0.9), 0.1, b.cz + az * (fd / 2 - 0.9)), 0xffffff));
+    }
+    // Two small trees (north + south rims, small canopies so they
+    // never clip the tower) and two low planters (east/west rims).
+    const treeAt = (tx, tz) => {
+      greenGeos.push(colored(xform(new THREE.CylinderGeometry(0.1, 0.13, 1.0, 6), tx, 0.5, tz), 0x6b4a2a));
+      greenGeos.push(colored(xform(new THREE.SphereGeometry(0.5, 8, 6), tx, 1.35, tz), 0x4d8a5c));
+      greenGeos.push(colored(xform(new THREE.SphereGeometry(0.35, 8, 6), tx + 0.25, 1.7, tz), 0x5a9a68));
+    };
+    treeAt(b.cx - 2.0, b.z0 + 0.6);
+    treeAt(b.cx + 2.0, b.z1 - 0.6);
+    for (const px of [b.x0 + 0.6, b.x1 - 0.6]) {
+      concGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.4, 1.2), px, 0.2, b.cz), 0xffffff));
+      greenGeos.push(colored(xform(new THREE.SphereGeometry(0.3, 8, 6), px, 0.55, b.cz), 0x4d8a5c));
+    }
+    // One bench on the south rim, facing the street.
+    concGeos.push(colored(xform(new THREE.BoxGeometry(1.8, 0.12, 0.5), b.cx, 0.55, b.z1 - 0.7), 0xffffff));
+    concGeos.push(colored(xform(new THREE.BoxGeometry(0.12, 0.55, 0.5), b.cx - 0.7, 0.28, b.z1 - 0.7), 0xffffff));
+    concGeos.push(colored(xform(new THREE.BoxGeometry(0.12, 0.55, 0.5), b.cx + 0.7, 0.28, b.z1 - 0.7), 0xffffff));
   }
 
   const glassMat = new THREE.MeshStandardMaterial({ color: 0x7fa8b8, roughness: 0.35, metalness: 0.25, flatShading: true });
   const concMat = new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.9, flatShading: true });
   const plazaMat = new THREE.MeshStandardMaterial({ color: 0xd8cbb2, roughness: 0.95, flatShading: true });
   const greenMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true, vertexColors: true });
+  const paveMat = new THREE.MeshStandardMaterial({ color: 0xb8a888, roughness: 0.95, flatShading: true });
   if (glassGeos.length) group.add(mergedMesh(glassGeos, glassMat));
   if (concGeos.length) group.add(mergedMesh(concGeos, concMat));
   if (crownGeos.length) group.add(mergedMesh(crownGeos, vertexColorMat));
   if (winGeos.length) group.add(mergedMesh(winGeos, vertexColorMat));
   if (plazaGeos.length) group.add(mergedMesh(plazaGeos, plazaMat));
   if (greenGeos.length) group.add(mergedMesh(greenGeos, greenMat));
+  if (paveGeos.length) group.add(mergedMesh(paveGeos, paveMat));
+  if (parkedGeos.length) group.add(mergedMesh(parkedGeos, vertexColorMat));
 
-  // Elevated road + monorail above the boulevard (deck y 7). Pillars
-  // are 0.35 wide so they fit INSIDE the 0.4-wide median (z -0.2..0.2)
-  // — never in a driving lane, never in the camera path.
-  const deck = new THREE.Group();
-  deck.add(box(68, 0.6, 4, 0x8a8580, 0, 7, 0));
+  // Elevated monorail above the boulevard (SLIM guideway, Xian 21 Nov
+  // 16:04): a NARROW beam (0.8 wide) on pillars IN the 0.4-wide median
+  // — never a wide dark slab, never covering the roads below or sitting
+  // in a driving lane. The car straddles the beam. Guideway + car are
+  // each one merged mesh (the old deck was 17 draw calls; this is 2).
+  const guideGeos = [];
+  guideGeos.push(colored(xform(new THREE.BoxGeometry(68, 0.5, 0.8), 0, 7, 0), 0x9a938a));
   for (let x = -30; x <= 30; x += 6) {
-    deck.add(box(0.35, 7, 0.35, 0x9a938a, x, 3.5, 0));
+    guideGeos.push(colored(xform(new THREE.BoxGeometry(0.35, 7, 0.35), x, 3.5, 0), 0x9a938a));
   }
-  deck.add(box(68, 0.15, 0.3, 0x3a3a3a, 0, 7.4, -1.2));
-  deck.add(box(68, 0.15, 0.3, 0x3a3a3a, 0, 7.4, 1.2));
-  const car = new THREE.Group();
-  car.add(box(6, 2, 2.4, 0x2e7f8f, 0, 0, 0));
-  car.add(box(5.6, 0.9, 2.5, 0x1e2a32, 0, 0.3, 0));
-  car.add(box(6.2, 0.3, 2.6, 0xe8c33d, 0, -1.1, 0));
-  car.position.set(0, 8.6, 0);
-  deck.add(car);
-  group.add(deck);
+  guideGeos.push(colored(xform(new THREE.BoxGeometry(68, 0.12, 0.25), 0, 7.3, -0.25), 0x3a3a3a));
+  guideGeos.push(colored(xform(new THREE.BoxGeometry(68, 0.12, 0.25), 0, 7.3, 0.25), 0x3a3a3a));
+  const guideway = mergedMesh(guideGeos, vertexColorMat);
+  guideway.name = 'monorail-guideway';
+  group.add(guideway);
+  const carGeos = [];
+  carGeos.push(colored(xform(new THREE.BoxGeometry(6, 2, 2.4), 0, 0, 0), 0x2e7f8f));
+  carGeos.push(colored(xform(new THREE.BoxGeometry(5.6, 0.9, 2.5), 0, 0.3, 0), 0x1e2a32));
+  carGeos.push(colored(xform(new THREE.BoxGeometry(6.2, 0.3, 2.6), 0, -1.1, 0), 0xe8c33d));
+  const car = mergedMesh(carGeos, vertexColorMat);
+  car.position.set(0, 8.35, 0);
+  group.add(car);
   // The monorail car glides on a sine ticker. Tickers must be THREE
   // objects with userData.tick (step() calls tk.userData.tick) — a
   // plain { tick } object crashes the frame loop.
-  deck.userData.tick = (t) => { car.position.x = Math.sin(t * 0.12) * 26; };
-  tickers.push(deck);
+  const monoTicker = new THREE.Group();
+  monoTicker.name = 'monorail-ticker';
+  monoTicker.userData.tick = (t) => { car.position.x = Math.sin(t * 0.12) * 26; };
+  tickers.push(monoTicker);
 
   return {
     group, colliders, tickers,
