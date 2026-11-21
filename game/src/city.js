@@ -21,7 +21,7 @@ import { makeWater, makeSailboat } from './water.js';
 import { ANCHORS } from './anchors.js';
 import {
   buildRoadNetwork, validatePlots, trafficLanes, minimapLines,
-  BOULEVARD, CROSS_X, seededRandom,
+  BOULEVARD, CROSS_X, seededRandom, boulevardMedianSegments,
 } from './roads.js';
 import { buildNewDistricts } from './districts.js';
 import { buildCBD } from './cbd.js';
@@ -233,6 +233,12 @@ export function buildDistrict4() {
   // --- roads (the network module) ---
   const roads = buildRoadNetwork();
   group.add(roads.group);
+  // Boulevard median colliders (the divided avenue): cars and
+  // pedestrians cross only at the intersections, where the median has
+  // gaps. Without these the median is a visual the car drives through.
+  for (const seg of boulevardMedianSegments()) {
+    colliders.push({ x0: seg.x0, z0: seg.z0, x1: seg.x1, z1: seg.z1, id: 'boulevard-median' });
+  }
 
   // --- buildings (merged into a few draw calls) ---
   const buildings = new THREE.Group();

@@ -2,14 +2,19 @@
 // 50 towers on a tight 6-unit grid in the CENTRE of the map (x -28..28,
 // z -30..18), tallest in the middle, heights falling off toward the edges
 // (the corrected radial curve: plateau 60 for r<10, linear 60->15 for
-// r 10-45, exponential after; CBD edge 20-40 floors). 8 podium blocks,
-// an elevated road + monorail through the core, east-west above the
-// boulevard (z -6..6). Towers are merged geometry by material (glass /
-// concrete / crown / windows) so 50 towers cost a handful of draw calls,
-// not one per tower. The old cross streets (x -20/0/20) still cut through
-// the CBD footprint in this commit — the road-network rebuild (stage 1,
-// next window) replaces them with the v3 avenues; the towers are placed
-// per the final plan so the roads align to them.
+// r 10-45, exponential after; CBD edge 20-40 floors). 4 podium blocks on
+// the south edge, an elevated road + monorail through the core, east-west
+// above the boulevard (z -6..6). Towers are merged geometry by material
+// (glass / concrete / crown / windows) so 50 towers cost a handful of
+// draw calls, not one per tower.
+//
+// STREET GRID (Xian 21 Nov 15:02 — the towers stood packed with no
+// visible streets): the towers are NARROW (3.0-3.4 wide on a 6-unit
+// pitch) so the streets between them are REAL and CLEAR — 8 north-south
+// streets + 4 east-west streets (roads.js), each 2.4 units = 24 m wide,
+// no tower footprint overlapping any road (verified by
+// game/test/cbd-overlap.mjs, must be 0). The old 4-5-wide towers covered
+// the 2-wide streets; the old podiums sat ON the streets.
 import * as THREE from '../vendor/three.module.min.js';
 import {
   box, mergedMesh, colored, xform, vertexColorMat,
@@ -31,15 +36,19 @@ export function cbdTowerFloors(r, rnd) {
 const COLS = [-24, -18, -12, -6, 0, 6, 12, 18, 24];
 const ROWS = [-27, -21, -15, -9, 9, 15]; // boulevard rows (-3, 3) excluded
 const PLAZA_SLOTS = [[-24, 15], [24, 15], [-24, -27], [24, -27]]; // 4 corners
+// Podium blocks (low retail, 2-3 floors) on the SOUTH edge of the CBD
+// (z 20, facing the promenade / marina), clear of every street: 2.8
+// wide leaves 0.4 clearance to the north-south streets, 2.5 deep leaves
+// 2.0 to the tower row at z 15 and 0.25 to the marina boat sheds at
+// z 24. The old 8 podiums (6-7 wide) sat ON the streets — 4 of them
+// overlapped the north-south streets at x +/-15 and 4 more blocked the
+// east-west streets; there is no clean spot for them in the packed
+// grid, so the CBD has 4 podiums now (50 towers + 4 podiums = 54).
 const PODIUMS = [
-  { x: -27, z: 12, w: 6, d: 5, h: 7 },
-  { x: 27, z: 12, w: 6, d: 5, h: 6 },
-  { x: -27, z: -24, w: 6, d: 5, h: 8 },
-  { x: 27, z: -24, w: 6, d: 5, h: 7 },
-  { x: -15, z: 18, w: 7, d: 4, h: 6 },
-  { x: 15, z: 18, w: 7, d: 4, h: 8 },
-  { x: -15, z: -30, w: 7, d: 4, h: 7 },
-  { x: 15, z: -30, w: 7, d: 4, h: 6 },
+  { x: -27, z: 20, w: 2.8, d: 2.5, h: 7 },
+  { x: -24, z: 20, w: 2.8, d: 2.5, h: 6 },
+  { x: -12, z: 20, w: 2.8, d: 2.5, h: 8 },
+  { x: 0, z: 20, w: 2.8, d: 2.5, h: 6 },
 ];
 
 export function buildCBD() {
@@ -65,8 +74,14 @@ export function buildCBD() {
       let floors = cbdTowerFloors(r, rnd);
       const isAzzura = cx === 0 && cz === -9; // centre-most slot
       if (isAzzura) floors = 60;
-      const w = 4 + rnd() * 1;
-      const d = 4 + rnd() * 1;
+      // NARROW towers (3.0-3.4 on a 6-unit pitch): the gap between
+      // neighbours is 2.6-3.0, so the 2.4-wide streets clear them by
+      // 0.1-0.3 on each side. The old 4-5-wide towers covered the
+      // streets — the gap was 1.0 and the street overlapped the tower
+      // base. The Azzura Tower is 3.4 (its faces clear the streets at
+      // x +/-3 and z -12 by 0.1).
+      const w = 3.0 + rnd() * 0.4;
+      const d = 3.0 + rnd() * 0.4;
       const h = floors * FLOOR_H;
       const glass = rnd() > 0.45;
       const body = xform(new THREE.BoxGeometry(w, h, d), cx, h / 2, cz);
