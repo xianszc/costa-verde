@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T19:29:13.732Z",
+  "generated": "2026-11-21T19:36:11.315Z",
   "commit": "5585be3",
   "missions": {
     "M1": {
@@ -85,6 +85,23 @@
       "fails": 2,
       "maxStage": 1,
       "ms": 65059,
+      "errors": 0,
+      "commit": "5585be3"
+    },
+    "M10": {
+      "mission": "M10",
+      "result": "STALL",
+      "attempts": 2,
+      "fails": 1,
+      "maxStage": 1,
+      "ms": 381993,
+      "abortReason": "player moved <5m in 60s real (stall)",
+      "trace": [
+        "[trace] M10 stage=0 LINE UP player=(-8.0,-0.7) car=(-43.0,-28.7) target=(-30,-0.725) distPlayer=22.0u distCar=30.8u wanted=0 onFoot=false",
+        "[trace] M10 stage=1 RACE player=(-43.0,-28.7) car=(-45.9,-29.0) target=(35,30) distPlayer=97.6u distCar=100.2u wanted=0 onFoot=false",
+        "[trace] M10 stage=1 RACE player=(-43.0,-28.7) car=(-43.0,-27.3) target=(35,30) distPlayer=97.6u distCar=96.8u wanted=0 onFoot=false"
+      ],
+      "lastTrace": "[trace] M10 stage=1 RACE player=(-43.0,-28.7) car=(-43.0,-27.3) target=(35,30) distPlayer=97.6u distCar=96.8u wanted=0 onFoot=false",
       "errors": 0,
       "commit": "5585be3"
     }
