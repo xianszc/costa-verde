@@ -670,5 +670,8 @@ export function buildCBDGrid(opts = {}) {
   hydMesh.name = 'cbd-hydrants';
   g.add(hydMesh);
 
-  return { group: g, tickers };
+  // The grid's lamps are emissive globes (always on) — there are no
+  // light cones to toggle, so setNight is a no-op kept so city.js can
+  // call grid.setNight(on) next to roads.setNight(on).
+  return { group: g, tickers, lampCones: [], setNight() {} };
 }
