@@ -508,6 +508,80 @@ export function minimapLines() {
   return lines;
 }
 
+// --- junction-split minimap centerlines (GAME fix, Xian 21 Nov 23:04) ---
+// The road graph (minimap display, BFS routing, traffic AI, police)
+// is built from these centerlines by clustering segment ENDPOINTS.
+// A street that ends in the MIDDLE of another street (a T junction)
+// or crosses it (an X junction) never shares an endpoint, so the
+// graph shatters: 154 segments became 67 components at baseline and
+// no BFS route could leave the harbor. This splits every segment at
+// every point where another segment crosses or touches it, so
+// junctions become shared endpoints and the published minimap is a
+// proper planar graph. The raw street lists stay the single source of
+// truth for geometry; only the published list is split. Exact
+// duplicates (the boulevard line is also the Lungomare line) merge
+// into one segment, keeping the wider width.
+export function splitSegmentsAtJunctions(segments) {
+  const TOL = 1e-6;
+  const round4 = (v) => Math.round(v * 10000) / 10000;
+  // Split parameters t in [0,1] per segment, from pairwise intersections.
+  const splits = segments.map(() => [0, 1]);
+  // Distance from (px,pz) to segment s; returns t if on it, else -1.
+  const pointOn = (px, pz, s) => {
+    const dx = s.x2 - s.x1, dz = s.z2 - s.z1;
+    const len2 = dx * dx + dz * dz;
+    if (len2 === 0) return Math.hypot(px - s.x1, pz - s.z1) <= TOL ? 0 : -1;
+    const t = ((px - s.x1) * dx + (pz - s.z1) * dz) / len2;
+    if (t < -1e-9 || t > 1 + 1e-9) return -1;
+    const cx = s.x1 + t * dx, cz = s.z1 + t * dz;
+    return Math.hypot(px - cx, pz - cz) <= TOL ? Math.max(0, Math.min(1, t)) : -1;
+  };
+  for (let i = 0; i < segments.length; i++) {
+    for (let j = i + 1; j < segments.length; j++) {
+      const a = segments[i], b = segments[j];
+      const dax = a.x2 - a.x1, daz = a.z2 - a.z1;
+      const dbx = b.x2 - b.x1, dbz = b.z2 - b.z1;
+      const den = dax * dbz - daz * dbx;
+      if (Math.abs(den) > 1e-12) {
+        // Proper crossing (X): solve a + t*da = b + u*db.
+        const t = ((b.x1 - a.x1) * dbz - (b.z1 - a.z1) * dbx) / den;
+        const u = ((b.x1 - a.x1) * daz - (b.z1 - a.z1) * dax) / den;
+        if (t > 0 && t < 1 && u > 0 && u < 1) { splits[i].push(t); splits[j].push(u); }
+      }
+      // Endpoint-on-segment touches (T junctions, shared endpoints,
+      // collinear overlaps): an endpoint of one segment lying on the
+      // other splits the other at that point.
+      for (const [s, si, o] of [[a, i, b], [b, j, a]]) {
+        for (const [px, pz] of [[o.x1, o.z1], [o.x2, o.z2]]) {
+          const t = pointOn(px, pz, s);
+          if (t > 0 && t < 1) splits[si].push(t);
+        }
+      }
+    }
+  }
+  const out = [];
+  segments.forEach((s, i) => {
+    const ts = [...new Set(splits[i].map((t) => Math.round(t * 1e9) / 1e9))].sort((p, q) => p - q);
+    for (let k = 0; k + 1 < ts.length; k++) {
+      const t0 = ts[k], t1 = ts[k + 1];
+      if (t1 - t0 < 1e-9) continue;
+      const x1 = round4(s.x1 + (s.x2 - s.x1) * t0), z1 = round4(s.z1 + (s.z2 - s.z1) * t0);
+      const x2 = round4(s.x1 + (s.x2 - s.x1) * t1), z2 = round4(s.z1 + (s.z2 - s.z1) * t1);
+      if (Math.hypot(x2 - x1, z2 - z1) < 1e-6) continue;
+      out.push({ x1, z1, x2, z2, w: s.w });
+    }
+  });
+  // Merge exact duplicates (same endpoints either way), keeping the
+  // wider width.
+  const seen = new Map();
+  for (const s of out) {
+    const key = [[s.x1, s.z1], [s.x2, s.z2]].map((p) => p.join(',')).sort().join('|');
+    const prev = seen.get(key);
+    if (!prev || s.w > prev.w) seen.set(key, s);
+  }
+  return [...seen.values()];
+}
+
 // ---------- build the network mesh ----------
 // Returns { group, roadMat, wetness, puddles, lampCones, setWet, setNight }.
 export function buildRoadNetwork() {

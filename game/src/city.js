@@ -21,6 +21,7 @@ import { makeWater, makeSailboat } from './water.js';
 import { ANCHORS } from './anchors.js';
 import {
   buildRoadNetwork, validatePlots, trafficLanes, minimapLines,
+  splitSegmentsAtJunctions,
   BOULEVARD, CROSS_X, seededRandom, boulevardMedianSegments,
 } from './roads.js';
 import { buildNewDistricts } from './districts.js';
@@ -837,7 +838,11 @@ export function buildDistrict4() {
     report,
     lanes: [...trafficLanes(), ...nd.lanes, ...ring.lanes, ...ringExt.lanes, ...promExt.lanes, ...otExt.lanes, ...res.lanes, ...outer.lanes],
     pedPaths: [...nd.pedPaths, ...ring.pedPaths, ...ringExt.pedPaths, ...promExt.pedPaths, ...otExt.pedPaths, ...res.pedPaths, ...outer.pedPaths],
-    minimap: [...minimapLines(), ...ringExt.minimap, ...promExt.minimap, ...otExt.minimap, ...res.minimap, ...outer.minimap],
+    // The published minimap is junction-split (GAME fix 21 Nov 23:04):
+    // every T/X junction becomes a shared endpoint, so the road graph
+    // built from these centerlines is one connected component. The
+    // raw street lists stay the single source of truth for geometry.
+    minimap: splitSegmentsAtJunctions([...minimapLines(), ...ringExt.minimap, ...promExt.minimap, ...otExt.minimap, ...res.minimap, ...outer.minimap]),
     ringExt, promExt, otExt, res, outer,
     // Spawn points live in anchors.js (one source of truth for every
     // gameplay position) — the district just carries them through.
