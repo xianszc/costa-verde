@@ -746,11 +746,17 @@ export const RESIDENTIAL_DEF = {
     { x: 119, w: 2, kind: 'street', z0: -87, z1: 3 },
     { x: -119, w: 2, kind: 'street', z0: -87, z1: 30 },
     { x: -97, w: 2, kind: 'street', z0: -87, z1: 30 },
-    { x: -95, w: 2, kind: 'street', z0: -104, z1: -95 },
+    // HILLS LINK (GAME fix, Xian 21 Nov 23:04): the hills street grid
+    // (z -104..-95) was an island — every N-S stub ended at z=-95,
+    // 6u short of the z=-89 ring street. The x=+/-95 stubs run on the
+    // north strip's outer edges, so extending them to z=-89 joins the
+    // hills to the main network without touching a building (houses
+    // sit >=0.2 inside their blocks, clear of the road edge).
+    { x: -95, w: 2, kind: 'street', z0: -104, z1: -89 },
     { x: -71, w: 2, kind: 'street', z0: -104, z1: -95 },
     ...[-69, -50, -31, -12, 7, 26, 45, 64].map((x) => ({ x, w: 2, kind: 'street', z0: -104, z1: -95 })),
     { x: 66, w: 2, kind: 'street', z0: -104, z1: -95 },
-    { x: 95, w: 2, kind: 'street', z0: -104, z1: -95 },
+    { x: 95, w: 2, kind: 'street', z0: -104, z1: -89 },
   ],
   roadsEw: [
     ...[-87, -78, -69, -60, -51, -42, -33, -24, -15, -6, 3].map((z) => ({ z, w: 2, kind: 'street', x0: 96, x1: 120 })),
