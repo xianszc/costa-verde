@@ -35,6 +35,11 @@ export function createCombat(scene, camera, opts) {
   let flash = null;
   let flashMesh = null;
   let flashTimer = 0;
+  // GAME fix (M9 22 Nov 06:55): lay-low clock. Guard return fire
+  // pauses while the player is laying low (see update()); the clock
+  // tracks game time and the player's last shot.
+  let combatTime = 0;
+  let lastPlayerShotAt = -1e9;
   const tracers = [];
   const bursts = [];
   const decals = [];
@@ -174,6 +179,7 @@ export function createCombat(scene, camera, opts) {
     if (cooldown > 0 || reloading > 0) return false;
     if (ammo[selected].mag <= 0) { startReload(); return false; }
     cooldown = 1 / w.rate;
+    lastPlayerShotAt = combatTime; // the Guard answers fire (see update())
     if (w.mag !== Infinity) ammo[selected].mag--;
     const { origin, dir } = muzzleWorld();
     showFlash(origin, dir);
@@ -269,6 +275,7 @@ export function createCombat(scene, camera, opts) {
   // player (with a miss offset when the shot misses), so return fire is
   // visible instead of silent health loss.
   function update(dt, wantedLevel, units) {
+    combatTime += dt;
     cooldown = Math.max(0, cooldown - dt);
     if (reloading > 0) {
       reloading -= dt;
@@ -325,11 +332,24 @@ export function createCombat(scene, camera, opts) {
     if (wantedLevel <= 0) return;
     const p = getPlayer();
     const cover = inCover();
+    // GAME fix (M9 22 Nov 06:55): lay low. The Guard return fire
+    // killed a stationary player in ~15 s while the heat needs ~30 s
+    // to decay from level 3, so M9 LAY LOW (wait at the fortress
+    // plaza until wanted=0) was unwinnable by waiting — the player
+    // was WASTED, not busted (m9-diag: hp 100->0 in 14 s, wasted).
+    // While the player is on foot, still, and has not fired in 8 s,
+    // the units HOLD their 3 m cordon but do not open fire — they
+    // are containing a non-resisting player, not executing them.
+    // The risk stays: a unit closing inside 2.5 m of a still player
+    // busts them (wanted.js), and the moment the player shoots, runs
+    // (speed >= 1) or gets in a car, return fire resumes.
+    const layingLow = p.onFoot && (p.speed || 0) < 1 && (combatTime - lastPlayerShotAt) > 8;
     for (const u of units) {
       if (!u.car) continue;
       u.fireTimer -= dt;
       const dist = Math.hypot(u.car.x - p.x, u.car.z - p.z);
       if (u.fireTimer > 0 || dist > 45) continue;
+      if (layingLow) continue;
       u.fireTimer = 1.6 + Math.random() * 1.4 - wantedLevel * 0.12;
       const acc = Math.max(0.04, 0.3 - dist * 0.005 - (cover ? 0.16 : 0) - Math.abs(p.speed || 0) * 0.012);
       const hits = Math.random() < acc;
