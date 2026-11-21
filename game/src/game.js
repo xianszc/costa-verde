@@ -1623,10 +1623,13 @@ export function createGame(container) {
       if (restoreTopShadow) restoreTopShadow();
     } else if (name === 'ring') {
       // Commercial-ring street shot (Xian 21 Nov 16:04, item 2): from
-      // the ring avenue (z -42), looking north at the north-row
-      // shopfronts — shop signs, awnings, balconies, people on the
-      // sidewalk, traffic on the avenue, full HUD. The camera stands
-      // in the avenue so the shopfronts fill the frame.
+      // the ring avenue (z -42), looking north-east ALONG the avenue
+      // at the north-row shopfronts — shop signs, awnings, balconies,
+      // people on the sidewalk, traffic on the avenue, full HUD.
+      // Looking across the avenue (north) puts one shop wall in the
+      // whole frame; looking along it shows the row receding.
+      state.mode = 'play';
+      showHUD();
       state.onFoot = false;
       playerMesh.visible = false;
       run(120, {});
@@ -1640,10 +1643,10 @@ export function createGame(container) {
       // Two peds on the avenue's south sidewalk (z -37.5).
       peds[0].mesh.position.set(-4, 0, -37.5);
       peds[1].mesh.position.set(4, 0, -37.5);
-      camera.position.set(0, 3.0, -40);
-      camera.lookAt(0, 4.0, -50);
+      camera.position.set(-25, 3.2, -41);
+      camera.lookAt(15, 4.0, -48);
       camPos.copy(camera.position);
-      camLook.set(0, 4.0, -50);
+      camLook.set(15, 4.0, -48);
       renderer.render(scene, camera);
       renderer.render(scene, camera);
     } else { // walk
