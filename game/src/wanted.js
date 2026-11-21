@@ -296,12 +296,19 @@ export function createWanted(scene, opts) {
         coolTimer = 0;
       }
     }
-    // Busted: on foot, a cruiser inside the 3 m cordon next to a
-    // nearly-still player. (Units hold at 3 m, so the check is 3.5 m.)
+    // Busted: on foot, a unit right on top of a nearly-still player.
+    // GAME fix (M9 fail-event 22 Nov 06:40): the radius was 3.5 m
+    // but units HOLD at 3 m from a walking player, so the hold itself
+    // sat inside the bust radius — a player laying low (still, speed
+    // < 1) with a unit holding its cordon was busted in 3 s no matter
+    // what (M9 LAY LOW: wanted decaying 3->2->1, then BUSTED at the
+    // fortress plaza). The bust radius must be INSIDE the hold
+    // distance: 2.5 m busts only a unit that closes in past its hold
+    // (ramming / walking into the player), never one just holding.
     if (level > 0 && p.onFoot) {
       let close = false;
       for (const u of units) {
-        if (Math.hypot(u.car.x - px, u.car.z - pz) < 3.5) { close = true; break; }
+        if (Math.hypot(u.car.x - px, u.car.z - pz) < 2.5) { close = true; break; }
       }
       if (close && p.speed < 1) {
         bustedTimer += dt;
