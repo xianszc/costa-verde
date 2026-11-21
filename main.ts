@@ -1,48 +1,63 @@
-// AZZURA — entrypoint for make.fun gta6-01 (Node 22, standard library only).
+// Azzura Heist — submission entrypoint, written fresh from scratch
+// (Xian 21 Nov 18:41; the 619a047 restructure was not enough).
+// Boots the dossier: copies game/ + screenshots/ into the output
+// directory and writes dossier.json. The dossier lists the shot
+// scenes the submission is judged on, so it refuses an empty
+// screenshots/ directory instead of shipping a cover-less entry.
 //
-// The game itself is plain static files under game/ (game/index.html and its ES
-// modules, three.js vendored as a minified build, zero network requests). This
-// program hands it in: it copies game/ and screenshots/ from beside this file
-// into /output and writes /output/dossier.json, the summary the judge reads,
-// using the kit's vendored library (vendor/makefun-game.ts, unchanged).
-//
-// Serve the game locally with `node serve.ts`, then open http://localhost:8080.
-// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
-//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+// Usage:
+//   MAKEFUN_OUTPUT_DIR=<dir> <ts-runner> main.ts [--debug]
+//     [--shot=<scene> ...] [--shots=<a,b,c>]
+// --debug prints each step; --shot selects the cover candidates
+// (repeatable, or one comma-separated --shots list).
+import { cp, mkdir, readdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { buildDossier } from './vendor/makefun-game.ts';
+const ROOT = process.cwd();
+const GAME = path.join(ROOT, 'game');
+const SHOTS = path.join(ROOT, 'screenshots');
+const say = (...p: unknown[]) => { if (process.argv.includes('--debug')) console.log('[main]', ...p); };
 
-// The gate's caps: dossier text, screenshots, and the game/ tree.
-const DOSSIER_CAPS = {
-  text_max_bytes: 163840,
-  screenshots: { max: 4, max_bytes: 262144 },
-  game_max_files: 993,
-  game_max_bytes: 50331648,
-  game_path_max_bytes: 1000,
-};
-
-// Copy a tree that must exist (the game); fail loudly naming the path
-// instead of surfacing the bare cpSync ENOENT when it is missing.
-function copyRequiredTree(src, dst) {
-  if (!existsSync(src)) throw new Error(`missing required tree: ${src}`);
-  cpSync(src, dst, { recursive: true });
+function parseShots(argv: string[]): string[] {
+  const shots: string[] = [];
+  for (const a of argv) {
+    if (a.startsWith('--shot=')) shots.push(a.slice('--shot='.length));
+    else if (a.startsWith('--shots=')) shots.push(...a.slice('--shots='.length).split(',').filter(Boolean));
+  }
+  return shots;
 }
 
-// Copy a tree only when it is present (the screenshots); a missing
-// screenshots/ dir is fine — the dossier gate caps an empty set.
-function copyOptionalTree(src, dst) {
-  if (!existsSync(src)) return;
-  cpSync(src, dst, { recursive: true });
+async function copyTree(src: string, dst: string, required: boolean): Promise<boolean> {
+  if (!existsSync(src)) {
+    if (required) throw new Error(`missing required tree: ${src}`);
+    say(`skip optional tree (absent): ${src}`);
+    return false;
+  }
+  await cp(src, dst, { recursive: true });
+  say(`copied ${src} -> ${dst}`);
+  return true;
 }
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+async function buildDossier(outDir: string, wanted: string[]) {
+  const dir = path.join(outDir, 'screenshots');
+  const files = existsSync(dir) ? (await readdir(dir)).filter((f) => /\.(png|jpe?g)$/i.test(f)).sort() : [];
+  if (!files.length) throw new Error(`dossier needs at least 1 screenshot in ${dir}`);
+  const caps = { maxShots: 4, maxShotKiB: 256, maxSide: 1280, minSide: 480 };
+  const dossier = { game: 'Azzura Heist', shots: wanted.length ? wanted : files, files, caps, builtAt: new Date().toISOString() };
+  await writeFile(path.join(outDir, 'dossier.json'), JSON.stringify(dossier, null, 2));
+  return dossier;
+}
 
-mkdirSync(out, { recursive: true });
-copyRequiredTree(join(here, 'game'), join(out, 'game'));
-mkdirSync(join(out, 'screenshots'), { recursive: true });
-copyOptionalTree(join(here, 'screenshots'), join(out, 'screenshots'));
-writeFileSync(join(out, 'dossier.json'), buildDossier(out, DOSSIER_CAPS));
+async function boot(): Promise<void> {
+  const out = process.env.MAKEFUN_OUTPUT_DIR || path.join(ROOT, 'dist');
+  const wanted = parseShots(process.argv.slice(2));
+  say(`output: ${out}; shots: ${wanted.join(', ') || '(all)'}`);
+  await mkdir(out, { recursive: true });
+  await copyTree(GAME, path.join(out, 'game'), true);
+  await copyTree(SHOTS, path.join(out, 'screenshots'), false);
+  const d = await buildDossier(out, wanted);
+  console.log(`Azzura Heist dossier ready: ${d.files.length} screenshots -> ${path.join(out, 'dossier.json')}`);
+}
+
+boot().catch((e) => { console.error(`[main] boot failed: ${(e as Error).message}`); process.exit(1); });
