@@ -157,12 +157,22 @@ export function createGame(container) {
   });
   car.mesh.position.set(car.x, 0, car.z);
 
-  // --- traffic: 3 civilian cars + 2 Harbor Guard cruisers ---
+  // --- traffic: 3 civilian cars + 2 Harbor Guard cruisers on the D4
+  // lanes, plus 2 civilian cars on the old-town lanes (M3) so the new
+  // district reads as lived-in. Lanes are found by name — the new
+  // districts append their lanes after the D4 ones, so indices would
+  // shift as districts land.
+  const laneIdx = (name) => {
+    const i = district.lanes.findIndex((l) => l.name === name);
+    return i < 0 ? 0 : i;
+  };
   const traffic = createTraffic(district.lanes, [
     { lane: 0, color: 0xf2f0ea, kind: 'sedan' },
     { lane: 0, color: 0x2e7f8f, kind: 'van' },
     { lane: 1, color: 0xe8a33d, kind: 'pickup' },
     { lane: 2, color: 0xc93a6b, kind: 'sedan' },
+    { lane: laneIdx('oldtown-main'), color: 0x3e7cb1, kind: 'sedan' },
+    { lane: laneIdx('oldtown-plaza'), color: 0xf2f0ea, kind: 'van' },
     { lane: 0, police: true },
     { lane: 1, police: true },
   ]);
@@ -183,7 +193,12 @@ export function createGame(container) {
   CIVILIANS.forEach((c, i) => {
     const fig = makeFigure(c.spec);
     scene.add(fig);
-    const path = pedPaths[i % pedPaths.length];
+    // Pedestrian paths: the D4 sidewalks plus every new district's
+    // paths (old town first; promenade + skyline join as they land).
+    // Spread the 8 civilians across the whole pool so each district
+    // gets walkers instead of all 8 crowding the D4 sidewalks.
+    const allPedPaths = [...pedPaths, ...(district.pedPaths || [])];
+    const path = allPedPaths[Math.floor((i * allPedPaths.length) / CIVILIANS.length)];
     peds.push({
       mesh: fig, path, t: (i * 0.13) % 1, dir: 1,
       speed: 1.1 + (i % 3) * 0.35, phase: i * 1.7, spec: c,
