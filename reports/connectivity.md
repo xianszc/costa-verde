@@ -85,6 +85,18 @@ leaves **4 components**, i.e. 3 real gaps the split cannot fix:
 - Commits: `06b2f95` junction-split, hills link, east/west bridges
   (each "GAME fix:", see `git log`).
 
+## Re-verification (21 Nov 23:25 WIB, HEAD 8f96b1b, new builder)
+
+- `NODE_PATH=/tmp/node_modules node game/test/connectivity.mjs`,
+  exit 0: **COMPONENTS: 1** — 695 segments, 284 nodes, bbox
+  x -127..127, z -104..30. 0 near-miss pairs, 0 crossings across
+  components. All 16 zone anchors in the harbor component
+  (`ALL ZONES ONE COMPONENT: true`). Longest drive: lighthouse →
+  quarry 392.3u, 56.0 s game-time (~280 s headless real).
+  Identical to the 23:20 post-fix result — no regression on this
+  HEAD. No fix commit needed; the M1–M12 human-like re-run started
+  right after (log `/tmp/missions-run-20261121-2324.log`).
+
 ## Notes
 
 - The old-town pocket interior and the central promenade have no
