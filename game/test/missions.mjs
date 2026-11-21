@@ -96,12 +96,17 @@ async function readState(page) {
   });
 }
 
-async function teleport(page, x, z) {
+// Teleport the PLAYER ONLY (on foot) to a checkpoint. The CAR is never
+// teleported: a human parks it on the road, and the driver drives it
+// there (routeDrive below). Teleporting the car to an objective put it
+// inside the marina pavilion's collider (off-road, walled in by the
+// promenade buildings) and the car could not drive out — that was the
+// M1/M2/M4/M5/M6/M8 timeouts, not a game bug. The player teleport is a
+// test convenience for walking; it dodges no mission mechanic.
+async function teleportPlayer(page, x, z) {
   await page.evaluate(({ x, z }) => {
     const g = window.__game;
     g.player.x = x; g.player.z = z;
-    g.car.x = x; g.car.z = z;
-    g.car.mesh.position.set(x, 0, z);
   }, { x, z });
 }
 
@@ -157,14 +162,90 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   return false;
 }
 
+// Drive the CAR to the road nearest a target point (tx, tz) along the
+// road network (BFS on the minimap graph), waypoint to waypoint. The
+// car STOPS at the last road node — the raw target is NOT appended,
+// because an off-road target (marina pavilion, quay, fortress plaza)
+// sits inside/behind buildings and steering straight at it rams the
+// wall (that was the M1 westward wandering). Returns true when the car
+// ends within 6u of that road node. A BFS failure returns false —
+// there is deliberately NO straight-line fallback through buildings.
+async function routeDrive(page, tx, tz, cap, perWpMs) {
+  if (!roadGraph) { console.log('[routeDrive] no road graph'); return false; }
+  const c = await readCar(page);
+  const from = roadGraph.nearestNode(c.x, c.z);
+  const to = roadGraph.nearestNode(tx, tz);
+  const pathIdx = roadGraph.bfs(from.node, to.node);
+  if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz})`); return false; }
+  const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
+  const thin = [wps[0]];
+  for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 6) thin.push(p);
+  for (const wp of thin) {
+    const ok = await driveToPoint(page, wp.x, wp.z, 4, cap, perWpMs);
+    if (!ok) break;
+  }
+  const c2 = await readCar(page);
+  const last = thin[thin.length - 1];
+  const d = Math.hypot(c2.x - last.x, c2.z - last.z);
+  console.log(`[routeDrive] to (${tx},${tz}) car now (${c2.x.toFixed(1)},${c2.z.toFixed(1)}) ${d.toFixed(1)}u from road node (${last.x},${last.z})`);
+  return d < 6;
+}
+
+// Walk the ON-FOOT player toward (tx, tz) with W + A/D. The player
+// moves camera-relative (W = camera look direction, chase cam behind),
+// so steering uses the player's actual movement direction from
+// consecutive position reads. If blocked (no progress 6 s) it strafes
+// along the wall (alternating side, 3 s) to get around the end — the
+// final leg to an off-road target (pavilion, quay, fortress plaza)
+// needs this, because the direct line crosses the promenade wall.
+// Returns true when within r. Human-like: no teleport.
+async function walkToPoint(page, tx, tz, r, timeoutMs) {
+  const started = Date.now();
+  let lastDist = Infinity, lastProgress = Date.now();
+  let lastPos = null, lastTime = 0, moveAngle = null;
+  let followSide = 1, followUntil = 0;
+  while (Date.now() - started < timeoutMs) {
+    const s = await readState(page);
+    if (s.mode !== 'play') { await releaseKeys(page); return false; }
+    if (!s.onFoot) { await releaseKeys(page); return false; }
+    const d = Math.hypot(s.px - tx, s.pz - tz);
+    if (d < r) { await releaseKeys(page); return true; }
+    if (d < lastDist - 0.3) { lastDist = d; lastProgress = Date.now(); }
+    if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
+    const now = Date.now();
+    if (!lastPos) { lastPos = { x: s.px, z: s.pz }; lastTime = now; }
+    else if (now - lastTime >= 900) {
+      const dx = s.px - lastPos.x, dz = s.pz - lastPos.z;
+      if (Math.hypot(dx, dz) > 0.15) moveAngle = Math.atan2(-dz, dx);
+      lastPos = { x: s.px, z: s.pz }; lastTime = now;
+    }
+    if (Date.now() < followUntil) { await sleep(300); continue; }
+    if (Date.now() - lastProgress > 6000) {
+      // Blocked by a wall — strafe along it to find the end.
+      followSide = -followSide;
+      await setKeys(page, { w: true, a: followSide < 0, d: followSide > 0, s: false });
+      followUntil = Date.now() + 3000;
+      lastProgress = Date.now();
+      await sleep(300);
+      continue;
+    }
+    const desired = Math.atan2(-(tz - s.pz), tx - s.px);
+    if (moveAngle == null) { await setKeys(page, { w: true }); await sleep(300); continue; }
+    const diff = normAngle(desired - moveAngle);
+    await setKeys(page, { w: true, a: diff > 0.2, d: diff < -0.2, s: false });
+    await sleep(300);
+  }
+  await releaseKeys(page);
+  return false;
+}
+
 // Follow the smuggler (M2 TAIL) in the car until the tail stage ends
 // (stageType leaves 'tail') or the timeout. The smuggler drives the
 // boulevard at 6 u/s; the car matches ~6 u/s when close (so it stays
 // behind it instead of overshooting) and up to 12 u/s when far.
-// The car starts at the marina — a straight-line steer to the
-// boulevard gets stuck on buildings, so FIRST route onto the
-// boulevard along the roads (BFS on the minimap graph), then follow
-// greedily (both cars are on the same straight road from there).
+// The car starts parked on the road near the mission area — route
+// onto the boulevard along the roads (BFS on the minimap graph) first,
+// then follow greedily (both cars are on the same straight road).
 async function followTail(page, timeoutMs) {
   const started = Date.now();
   // Phase 1: route onto the boulevard (BFS) if the car is far from
@@ -297,11 +378,20 @@ async function playMission(page, id, label) {
     attempts += 1;
     await page.evaluate((mid) => { window.__game.missions.start(mid); }, id);
     await sleep(800);
-    // Play IN THE CAR for the tail and the escape (human-like,
-    // 21:31 game fix + 21:34 rule). Other stages (goto / deliver /
-    // interact / race) still teleport to the checkpoint as a test
-    // convenience — they do not dodge a bug, and the M2/M9 stages
-    // under test here are driven, not teleported.
+    // Park the CAR on the road nearest the mission's first objective
+    // (routeDrive, no teleport) — a human parks on the road and walks
+    // in. The car is then in place for the tail / escape / race.
+    // Other stages (goto / deliver / interact) teleport the PLAYER
+    // (on foot) only, as a test convenience — they do not dodge a bug,
+    // and the driving stages here are driven, not teleported.
+    {
+      const s0 = await readState(page);
+      if (s0.objective) {
+        console.log(`[${label}] parking car near (${s0.objective.x},${s0.objective.z})`);
+        await routeDrive(page, s0.objective.x, s0.objective.z, 10, 45000);
+        await sleep(400);
+      }
+    }
     let lastStage = 0;
     let lastTrace = 0; // position trace cadence (item 4 below)
     // Deadline is REAL time; the game runs at ~20% speed in headless
@@ -341,7 +431,7 @@ async function playMission(page, id, label) {
       const o = s.objective;
       if (!o) { await sleep(500); continue; }
       if (s.stageType === 'interact') {
-        await teleport(page, o.x, o.z);
+        await teleportPlayer(page, o.x, o.z);
         await sleep(300);
         await page.keyboard.press('KeyE');
         await sleep(600);
@@ -355,9 +445,9 @@ async function playMission(page, id, label) {
         // of range only pauses the tail — it is resumed by catching up.
         // Enter the car. E can be consumed by a stage dialogue, so
         // press it up to 3 times (waiting each time) and, as a last
-        // resort, put the player in the car directly — the player is
-        // standing next to their own car at the marina, so getting
-        // in is not dodging anything.
+        // resort, put the player in the car directly — the car is
+        // parked on the road near the mission area, so getting in is
+        // not dodging anything.
         for (let tries = 0; tries < 3; tries++) {
           const sc = await readState(page);
           if (!sc.onFoot) break;
@@ -381,66 +471,76 @@ async function playMission(page, id, label) {
           await sleep(500);
         }
       } else if (s.stageType === 'escape') {
-        // ESCAPE IN THE CAR (human-like, 21:31 game fix + 21:34
-        // rule): the player is already at the safehouse for M9 (the
-        // RUN stage brought the car here), but other escapes need a
-        // drive (M1 marina -> boulevard_mid, M3/M5 -> boulevard,
-        // M4/M6 -> marina, M10 -> quay). A human follows the roads,
-        // so the driver routes along the road network (BFS on the
-        // minimap graph) and drives waypoint to waypoint. Then sit
-        // in the car while the heat decays — the game fix means
-        // Guard rams add no heat during an escape, so the heat falls
-        // at 2.5/s after 5 s quiet. If a ram shoves the car out of
-        // the safehouse, drive it back. No teleport, no on-foot.
-        // Enter the car (E can be consumed by a stage dialogue — press
-        // up to 3 times; last resort, put the player in directly —
-        // the player is standing next to their own car).
-        for (let tries = 0; tries < 3; tries++) {
-          const sc = await readState(page);
-          if (!sc.onFoot) break;
-          await page.keyboard.press('KeyE');
-          await sleep(700);
-        }
+        // ESCAPE (human-like, 21:31 game fix + 21:34 rule): drive the
+        // car on the roads to the road nearest the escape target
+        // (routeDrive — no straight-line fallback through buildings).
+        // The escape completes when wanted == 0 AND within the target
+        // radius, measured from the CAR while driving, from the PLAYER
+        // while on foot. Road targets (boulevard_mid, boulevard_west)
+        // complete in the car. Off-road targets (pavilion, quay,
+        // fortress_plaza) need the final leg on foot: the player
+        // waits in the car until the heat is gone, gets out, and
+        // walks to the target (walkToPoint, wall-follow around the
+        // promenade). Guard rams add no heat during an escape, so the
+        // heat falls at 2.5/s after 5 s quiet.
+        // If the player is already on foot and the car is already
+        // parked at the road nearest the target, skip straight to the
+        // walk (a previous walk attempt was interrupted).
         {
           const sc = await readState(page);
-          if (sc.onFoot) {
-            await page.evaluate(() => { window.__game.state.onFoot = false; });
-            await sleep(300);
-          }
-        }
-        const cd = Math.hypot(s.cx - o.x, s.cz - o.z);
-        if (cd > (o.r || 5)) {
-          let routed = false;
-          if (roadGraph) {
-            const from = roadGraph.nearestNode(s.cx, s.cz);
-            const to = roadGraph.nearestNode(o.x, o.z);
-            const pathIdx = roadGraph.bfs(from.node, to.node);
-            if (pathIdx) {
-              routed = true;
-              const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
-              wps.push({ x: o.x, z: o.z });
-              const thin = [wps[0]];
-              for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 6) thin.push(p);
-              if (Math.hypot(thin[thin.length - 1].x - o.x, thin[thin.length - 1].z - o.z) > 1) thin.push({ x: o.x, z: o.z });
-              for (const wp of thin) {
-                const ok = await driveToPoint(page, wp.x, wp.z, 4, 10, 30000);
-                if (!ok) break;
-                const s3 = await readState(page);
-                if (s3.stageType !== 'escape') break;
+          const to = roadGraph ? roadGraph.nearestNode(o.x, o.z) : null;
+          const carParked = to && Math.hypot(sc.cx - roadGraph.nodes[to.node].x, sc.cz - roadGraph.nodes[to.node].z) < 8;
+          if (sc.onFoot && carParked) {
+            if (sc.wanted === 0) {
+              await walkToPoint(page, o.x, o.z, o.r || 5, 120000);
+            } else {
+              await sleep(1000);
+            }
+            await sleep(400);
+          } else {
+            // Enter the car (E can be consumed by a stage dialogue —
+            // press up to 3 times; last resort, put the player in
+            // directly — the car is parked on the road near the
+            // mission area, so getting in is not dodging anything).
+            for (let tries = 0; tries < 3; tries++) {
+              const sc2 = await readState(page);
+              if (!sc2.onFoot) break;
+              await page.keyboard.press('KeyE');
+              await sleep(700);
+            }
+            {
+              const sc2 = await readState(page);
+              if (sc2.onFoot) {
+                await page.evaluate(() => { window.__game.state.onFoot = false; });
+                await sleep(300);
               }
             }
-          }
-          if (!routed) {
-            // No road path (or no graph) — drive straight at it.
-            await driveToPoint(page, o.x, o.z, o.r || 5, 10, 60000);
+            const cd = Math.hypot(s.cx - o.x, s.cz - o.z);
+            if (cd > (o.r || 5)) {
+              await routeDrive(page, o.x, o.z, 10, 45000);
+            }
+            // Off-road target: the car cannot reach the radius. Wait
+            // for the heat to clear, then walk the final leg.
+            const s4 = await readState(page);
+            const cd2 = Math.hypot(s4.cx - o.x, s4.cz - o.z);
+            if (s4.stageType === 'escape' && cd2 > (o.r || 5)) {
+              if (s4.wanted === 0) {
+                await page.keyboard.press('KeyE'); // exit the car
+                await sleep(600);
+                const s5 = await readState(page);
+                if (s5.onFoot) {
+                  await walkToPoint(page, o.x, o.z, o.r || 5, 120000);
+                }
+              }
+            }
+            await sleep(1000);
           }
         }
-        await sleep(1000);
       } else {
         // goto / deliver / race: teleport to the checkpoint. Races
         // need the player driving: enter the car with E first.
         if (s.stageType === 'race' && s.onFoot) {
-          await teleport(page, s.cx, s.cz);
+          await teleportPlayer(page, s.cx, s.cz);
           await sleep(300);
           await page.keyboard.press('KeyE');
           await sleep(600);
@@ -449,7 +549,7 @@ async function playMission(page, id, label) {
             await page.evaluate(() => { window.__game.state.onFoot = false; });
           }
         }
-        await teleport(page, o.x, o.z);
+        await teleportPlayer(page, o.x, o.z);
         await sleep(400);
       }
     }
