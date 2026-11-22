@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T10:17:06.854Z",
+  "generated": "2026-11-22T10:46:39.049Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -429,6 +429,19 @@
           "jumpsBonusClaimed": true,
           "storedCount": 8,
           "hasSJ8": true
+        }
+      }
+    },
+    "jobs": {
+      "result": "FAIL",
+      "how": "human-like",
+      "ms": 266374,
+      "error": "J1: routeDrive to (44,13.6) failed",
+      "evidence": {
+        "start": {
+          "money": 1500,
+          "xp": 1240,
+          "rank": "DECKHAND"
         }
       }
     }

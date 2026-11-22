@@ -1607,59 +1607,6 @@ async function testJobs() {
     return s.side.active;
   }
   try {
-    // --- J1 complete ---
-    const { ctx, page, errors } = await newPage();
-    try {
-      const s0 = await readState(page);
-      evidence.start = { money: s0.money, xp: s0.xp, rank: s0.side.rank };
-      if (s0.money !== 1500) throw new Error(`fresh money ${s0.money}, expected 1500`);
-      // Player 1u from boulevard_west (-50,0); car 5u east — E must
-      // start the job, not the car (the car-nearer rule: dCar<4 AND
-      // dCar<marker dist lets E enter the car; dCar=5 is safe).
-      const active = await startJobAt(page, -50, 1, -45, 0);
-      if (active !== 'J1') throw new Error(`J1 did not start, active=${active}`);
-      // PICKUP (goto boulevard_west r=4) completes at once — the
-      // panel advances to stage 2 DROP.
-      let panel = '';
-      for (let i = 0; i < 10 && !panel.includes('DROP'); i++) { await sleep(500); panel = await jobPanel(page); }
-      if (!panel.includes('DROP')) throw new Error(`J1 PICKUP did not advance to DROP, panel='${panel}'`);
-      if (!(await boardCar(page))) throw new Error('J1: could not board car');
-      const before = await readState(page);
-      if (!(await routeDrive(page, 44, 13.6, 4, 20000))) throw new Error('J1: routeDrive to (44,13.6) failed');
-      const legs = [[44, 25, 2, 5], [46.2, 25, 1, 4], [46.2, 32, 2, 5], [35, 32, 2, 5]];
-      for (const [wx, wz, r, cap] of legs) {
-        if (!(await driveToPoint(page, wx, wz, r, cap, 60000))) {
-          const c = await readCar(page);
-          throw new Error(`J1: driveToPoint (${wx},${wz}) failed, car at (${c.x.toFixed(1)},${c.z.toFixed(1)})`);
-        }
-      }
-      await sleep(1000);
-      const after = await readState(page);
-      const toast = await toastText(page);
-      const dCoins = after.side.coinsDone - before.side.coinsDone;
-      const dJumps = after.side.jumpsDone - before.side.jumpsDone;
-      const rankUp = after.side.rank !== before.side.rank;
-      const j1 = after.side.jobs.find((j) => j.id === 'J1');
-      evidence.j1 = { moneyBefore: before.money, moneyAfter: after.money, xpBefore: before.xp, xpAfter: after.xp, coins: dCoins, jumps: dJumps, rankBefore: before.side.rank, rankAfter: after.side.rank, status: j1 ? j1.status : null, toast };
-      if (!j1 || j1.status !== 'DONE ×1') throw new Error(`J1 status '${j1 ? j1.status : 'missing'}', expected DONE ×1`);
-      const expectMoney = before.money + 300 + 50 * dCoins + 150 * dJumps + (rankUp ? 500 : 0);
-      if (after.money !== expectMoney) throw new Error(`J1 money ${before.money} -> ${after.money}, expected ${expectMoney} (+300 job${dCoins ? ` +${50 * dCoins} from ${dCoins} coin(s)` : ''}${dJumps ? ` +${150 * dJumps} from ${dJumps} jump(s)` : ''}${rankUp ? ' +500 WHEELMAN' : ''})`);
-      const xpGain = after.xp - before.xp;
-      const driveXp = xpGain - 200 - 25 * dCoins - 100 * dJumps;
-      if (xpGain < 200 + 25 * dCoins + 100 * dJumps) throw new Error(`J1 xp ${before.xp} -> ${after.xp}, expected at least +${200 + 25 * dCoins + 100 * dJumps} (job + coins + jumps)`);
-      if (driveXp < -0.5 || driveXp > 120) throw new Error(`J1 driving XP ${driveXp.toFixed(1)} out of range (xp gain ${xpGain.toFixed(1)})`);
-      if (rankUp && after.side.rank !== 'WHEELMAN') throw new Error(`J1 unexpected rank-up to ${after.side.rank}`);
-      if (!toast.includes('COMPLETE')) throw new Error(`J1 completion toast '${toast}' does not say COMPLETE`);
-      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
-      evidence.j1Persisted = { jobsDone: stored.jobsDone };
-      if ((stored.jobsDone || {}).J1 !== 1) throw new Error(`stored jobsDone.J1 ${(stored.jobsDone || {}).J1}, expected 1`);
-      const hud = await page.evaluate(() => { const h = document.getElementById('side-hud'); return h ? h.textContent : null; });
-      if (!hud || !hud.includes('JOBS 1/9')) throw new Error(`HUD chip '${hud}' does not show JOBS 1/9`);
-      if (errors.length) throw new Error('page errors: ' + errors.slice(0, 3).join(' | '));
-      console.log(`[jobs] J1 OK: +S 300 +200 XP, rank ${before.side.rank}->${after.side.rank}, coins +${dCoins}, jumps +${dJumps}, driveXp ${driveXp.toFixed(1)}, persists`);
-    } finally {
-      await ctx.close();
-    }
     // --- J1 fail: start again, let the 90 s timer expire ---
     const f = await newPage();
     try {
@@ -1729,6 +1676,62 @@ async function testJobs() {
       if (g.errors.length) throw new Error('page errors: ' + g.errors.slice(0, 3).join(' | '));
     } finally {
       await g.ctx.close();
+    }
+    // --- J1 complete (runs LAST — the drive to the forecourt is
+    // OPEN: cap 3 keeps the car on the boulevard but the 90 deg turn
+    // onto x=44 overshoots / reverseOut backs it west; cap 4 weaves
+    // off the road. See the run log in reports/sidecontent-run.json.)
+    const { ctx, page, errors } = await newPage();
+    try {
+      const s0 = await readState(page);
+      evidence.start = { money: s0.money, xp: s0.xp, rank: s0.side.rank };
+      if (s0.money !== 1500) throw new Error(`fresh money ${s0.money}, expected 1500`);
+      // Player 1u from boulevard_west (-50,0); car 5u east — E must
+      // start the job, not the car (the car-nearer rule: dCar<4 AND
+      // dCar<marker dist lets E enter the car; dCar=5 is safe).
+      const active = await startJobAt(page, -50, 1, -45, 0);
+      if (active !== 'J1') throw new Error(`J1 did not start, active=${active}`);
+      // PICKUP (goto boulevard_west r=4) completes at once — the
+      // panel advances to stage 2 DROP.
+      let panel = '';
+      for (let i = 0; i < 10 && !panel.includes('DROP'); i++) { await sleep(500); panel = await jobPanel(page); }
+      if (!panel.includes('DROP')) throw new Error(`J1 PICKUP did not advance to DROP, panel='${panel}'`);
+      if (!(await boardCar(page))) throw new Error('J1: could not board car');
+      const before = await readState(page);
+      if (!(await routeDrive(page, 44, 13.6, 3, 20000))) throw new Error('J1: routeDrive to (44,13.6) failed');
+      const legs = [[44, 25, 2, 5], [46.2, 25, 1, 4], [46.2, 32, 2, 5], [35, 32, 2, 5]];
+      for (const [wx, wz, r, cap] of legs) {
+        if (!(await driveToPoint(page, wx, wz, r, cap, 60000))) {
+          const c = await readCar(page);
+          throw new Error(`J1: driveToPoint (${wx},${wz}) failed, car at (${c.x.toFixed(1)},${c.z.toFixed(1)})`);
+        }
+      }
+      await sleep(1000);
+      const after = await readState(page);
+      const toast = await toastText(page);
+      const dCoins = after.side.coinsDone - before.side.coinsDone;
+      const dJumps = after.side.jumpsDone - before.side.jumpsDone;
+      const rankUp = after.side.rank !== before.side.rank;
+      const j1 = after.side.jobs.find((j) => j.id === 'J1');
+      evidence.j1 = { moneyBefore: before.money, moneyAfter: after.money, xpBefore: before.xp, xpAfter: after.xp, coins: dCoins, jumps: dJumps, rankBefore: before.side.rank, rankAfter: after.side.rank, status: j1 ? j1.status : null, toast };
+      if (!j1 || j1.status !== 'DONE ×1') throw new Error(`J1 status '${j1 ? j1.status : 'missing'}', expected DONE ×1`);
+      const expectMoney = before.money + 300 + 50 * dCoins + 150 * dJumps + (rankUp ? 500 : 0);
+      if (after.money !== expectMoney) throw new Error(`J1 money ${before.money} -> ${after.money}, expected ${expectMoney} (+300 job${dCoins ? ` +${50 * dCoins} from ${dCoins} coin(s)` : ''}${dJumps ? ` +${150 * dJumps} from ${dJumps} jump(s)` : ''}${rankUp ? ' +500 WHEELMAN' : ''})`);
+      const xpGain = after.xp - before.xp;
+      const driveXp = xpGain - 200 - 25 * dCoins - 100 * dJumps;
+      if (xpGain < 200 + 25 * dCoins + 100 * dJumps) throw new Error(`J1 xp ${before.xp} -> ${after.xp}, expected at least +${200 + 25 * dCoins + 100 * dJumps} (job + coins + jumps)`);
+      if (driveXp < -0.5 || driveXp > 120) throw new Error(`J1 driving XP ${driveXp.toFixed(1)} out of range (xp gain ${xpGain.toFixed(1)})`);
+      if (rankUp && after.side.rank !== 'WHEELMAN') throw new Error(`J1 unexpected rank-up to ${after.side.rank}`);
+      if (!toast.includes('COMPLETE')) throw new Error(`J1 completion toast '${toast}' does not say COMPLETE`);
+      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
+      evidence.j1Persisted = { jobsDone: stored.jobsDone };
+      if ((stored.jobsDone || {}).J1 !== 1) throw new Error(`stored jobsDone.J1 ${(stored.jobsDone || {}).J1}, expected 1`);
+      const hud = await page.evaluate(() => { const h = document.getElementById('side-hud'); return h ? h.textContent : null; });
+      if (!hud || !hud.includes('JOBS 1/9')) throw new Error(`HUD chip '${hud}' does not show JOBS 1/9`);
+      if (errors.length) throw new Error('page errors: ' + errors.slice(0, 3).join(' | '));
+      console.log(`[jobs] J1 OK: +S 300 +200 XP, rank ${before.side.rank}->${after.side.rank}, coins +${dCoins}, jumps +${dJumps}, driveXp ${driveXp.toFixed(1)}, persists`);
+    } finally {
+      await ctx.close();
     }
     const rec = { result: 'PASS', how: 'human-like', ms: Date.now() - started, evidence };
     await saveResult(label, rec);
