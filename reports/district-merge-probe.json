@@ -1,0 +1,176 @@
+{
+ "district4": {
+  "total": 249,
+  "fold": 102,
+  "keepNoMerge": 26,
+  "keepNonUnif": 121,
+  "keepOther": 0,
+  "foldByMat": {
+   "#dccfb8": 3,
+   "#3a3a3a": 5,
+   "#ffffff": 51,
+   "#c9bfa8": 2,
+   "#bfa06e": 5,
+   "#2b2b2b": 6,
+   "#b8b2a4": 2,
+   "#5a7a4a": 1,
+   "#1a1a1a": 1,
+   "#2e4a5e": 1,
+   "#8a6a4a": 8,
+   "#e8dcc0": 1,
+   "#d8cbb2": 1,
+   "#b8a888": 1,
+   "#8a7a5a": 1,
+   "#b4552d": 1,
+   "#6e6a64": 6,
+   "#c93a6b": 3,
+   "#f7ebd7": 3
+  },
+  "nonUnif": {
+   "MeshStandardMaterial|map metal0": 23,
+   "MeshBasicMaterial|trans metal0": 33,
+   "MeshStandardMaterial| metal0": 21,
+   "MeshBasicMaterial| metal0": 10,
+   "MeshStandardMaterial|trans metal0.4": 1,
+   "MeshBasicMaterial|map metal0": 13,
+   "MeshStandardMaterial|trans metal0": 1,
+   "MeshStandardMaterial|emis metal0": 15,
+   "MeshStandardMaterial| metal0.7": 1,
+   "MeshStandardMaterial| metal0.25": 1,
+   "MeshStandardMaterial|emis metal0.4": 2
+  }
+ },
+ "figure": {
+  "total": 15,
+  "fold": 15,
+  "keepNoMerge": 0,
+  "keepNonUnif": 0,
+  "keepOther": 0,
+  "foldByMat": {
+   "#1a1a1a": 2,
+   "#f4f1ea": 2,
+   "#a8cbb0": 5,
+   "#f2c49b": 1,
+   "#f2c9a0": 4,
+   "#2b2b2b": 1
+  },
+  "nonUnif": {}
+ },
+ "stella": {
+  "total": 16,
+  "fold": 1,
+  "keepNoMerge": 0,
+  "keepNonUnif": 15,
+  "keepOther": 0,
+  "foldByMat": {
+   "#ffffff": 1
+  },
+  "nonUnif": {
+   "MeshStandardMaterial|trans metal0.3": 1,
+   "MeshStandardMaterial| metal0.3": 2,
+   "MeshStandardMaterial|emis metal0": 2,
+   "MeshStandardMaterial| metal0.7": 1,
+   "MeshStandardMaterial| metal0.35": 4,
+   "MeshStandardMaterial| metal0.6": 4,
+   "MeshBasicMaterial|maptrans metal0": 1
+  }
+ },
+ "traffic-pickup": {
+  "total": 12,
+  "fold": 1,
+  "keepNoMerge": 0,
+  "keepNonUnif": 11,
+  "keepOther": 0,
+  "foldByMat": {
+   "#ffffff": 1
+  },
+  "nonUnif": {
+   "MeshStandardMaterial| metal0.3": 1,
+   "MeshStandardMaterial|emis metal0": 1,
+   "MeshStandardMaterial| metal0.35": 4,
+   "MeshStandardMaterial| metal0.6": 4,
+   "MeshBasicMaterial|maptrans metal0": 1
+  }
+ },
+ "traffic-sedan": {
+  "total": 12,
+  "fold": 1,
+  "keepNoMerge": 0,
+  "keepNonUnif": 11,
+  "keepOther": 0,
+  "foldByMat": {
+   "#ffffff": 1
+  },
+  "nonUnif": {
+   "MeshStandardMaterial| metal0.3": 1,
+   "MeshStandardMaterial|emis metal0": 1,
+   "MeshStandardMaterial| metal0.35": 4,
+   "MeshStandardMaterial| metal0.6": 4,
+   "MeshBasicMaterial|maptrans metal0": 1
+  }
+ },
+ "traffic-van": {
+  "total": 12,
+  "fold": 1,
+  "keepNoMerge": 0,
+  "keepNonUnif": 11,
+  "keepOther": 0,
+  "foldByMat": {
+   "#ffffff": 1
+  },
+  "nonUnif": {
+   "MeshStandardMaterial| metal0.3": 1,
+   "MeshStandardMaterial|emis metal0": 1,
+   "MeshStandardMaterial| metal0.35": 4,
+   "MeshStandardMaterial| metal0.6": 4,
+   "MeshBasicMaterial|maptrans metal0": 1
+  }
+ },
+ "police-cruiser": {
+  "total": 16,
+  "fold": 3,
+  "keepNoMerge": 0,
+  "keepNonUnif": 13,
+  "keepOther": 0,
+  "foldByMat": {
+   "#ffffff": 1,
+   "#f4f1ea": 2
+  },
+  "nonUnif": {
+   "MeshStandardMaterial| metal0.3": 1,
+   "MeshStandardMaterial|emis metal0": 3,
+   "MeshStandardMaterial| metal0.35": 4,
+   "MeshStandardMaterial| metal0.6": 4,
+   "MeshBasicMaterial|maptrans metal0": 1
+  }
+ },
+ "walker": {
+  "total": 5,
+  "fold": 5,
+  "keepNoMerge": 0,
+  "keepNonUnif": 0,
+  "keepOther": 0,
+  "foldByMat": {
+   "#2b2b2b": 2,
+   "#ffffff": 1,
+   "#2e7f8f": 2
+  },
+  "nonUnif": {}
+ },
+ "guard-heli": {
+  "total": 6,
+  "fold": 4,
+  "keepNoMerge": 0,
+  "keepNonUnif": 2,
+  "keepOther": 0,
+  "foldByMat": {
+   "#ffffff": 1,
+   "#1a1a1a": 2,
+   "#c0392b": 1
+  },
+  "nonUnif": {
+   "MeshStandardMaterial|trans metal0.3": 1,
+   "MeshBasicMaterial|trans metal0": 1
+  }
+ }
+}

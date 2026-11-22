@@ -1,0 +1,52 @@
+{
+  "method": "Node-driven manual renders (same method as reports/perf-after.json). Camera re-set inside EVERY timed iteration (the live rAF loop moves it otherwise — see cross-check). SwiftShader = LOWER BOUND, not game performance.",
+  "when": "2026-11-22T14:00:33.539Z",
+  "renders": 20,
+  "views": {
+    "avenue": {
+      "avgMs": 55.5,
+      "medianMs": 22.7,
+      "minMs": 7.1,
+      "maxMs": 327.6,
+      "calls": 352,
+      "triangles": 560119,
+      "cars": 23,
+      "peds": 40,
+      "camera": "pos (0,0.2,-20) -> look (0,0.5,20)"
+    },
+    "ring": {
+      "avgMs": 14.8,
+      "medianMs": 3.4,
+      "minMs": 2.9,
+      "maxMs": 81.6,
+      "calls": 175,
+      "triangles": 518447,
+      "cars": 23,
+      "peds": 40,
+      "camera": "pos (44,2,-20) -> look (44,2,-60)"
+    },
+    "promenade": {
+      "avgMs": 19.4,
+      "medianMs": 7.3,
+      "minMs": 5.7,
+      "maxMs": 69.3,
+      "calls": 557,
+      "triangles": 619155,
+      "cars": 23,
+      "peds": 40,
+      "camera": "pos (35,2,29) -> look (-20,2,29)"
+    },
+    "city": {
+      "avgMs": 38.9,
+      "medianMs": 14.9,
+      "minMs": 8.3,
+      "maxMs": 121.4,
+      "calls": 828,
+      "triangles": 692185,
+      "cars": 23,
+      "peds": 40,
+      "camera": "pos (0,200,40) -> look (0,0,0)"
+    }
+  },
+  "errors": []
+}
