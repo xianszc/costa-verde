@@ -1279,6 +1279,24 @@ export function createGame(container) {
   // --- ?shot staging (the kit's pattern) ---
   function stageShot(name, params = {}) {
     state.mode = 'shot';
+    // ?time=H staging (item 4): pin the clock to the requested hour for
+    // this shot. The branches below each assign their own default hour
+    // (18.7 golden hour, 23.2 night, 17.0/17.5 storm, ...); while pinned,
+    // those writes are ignored and every read (updateLighting, renders,
+    // __gameStats) sees the requested hour. Restored to a plain value
+    // at the end of stageShot (and in the road branch's early return),
+    // so the live clock advances normally from the pinned hour after.
+    const timePin = params.time !== undefined && params.time !== null && params.time !== ''
+      ? Math.max(0, Math.min(23.99, parseFloat(params.time)))
+      : null;
+    const timePinned = timePin !== null && Number.isFinite(timePin);
+    if (timePinned) {
+      Object.defineProperty(state, 'time', {
+        configurable: true,
+        get() { return timePin; },
+        set() { /* branch defaults ignored while pinned */ },
+      });
+    }
     const seed = parseInt(params.seed || '1', 10);
     if (name === 'road') {
       if (showcase) { scene.remove(showcase.group); }
@@ -1321,6 +1339,7 @@ export function createGame(container) {
         triangles: renderer.info.render.triangles,
         mode: name, time: state.time,
       };
+      if (timePinned) Object.defineProperty(state, 'time', { configurable: true, writable: true, value: timePin });
       return;
     }
     district.group.visible = true;
@@ -1849,6 +1868,7 @@ export function createGame(container) {
     }
     // Push the live HUD values into the DOM now, so a ?shot capture
     // shows real numbers even if no animation frame has run yet.
+    if (timePinned) Object.defineProperty(state, 'time', { configurable: true, writable: true, value: timePin });
     updateHUD(performance.now());
     window.__shotReady = true;
     window.__ready = true;

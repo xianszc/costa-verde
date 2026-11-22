@@ -60,7 +60,7 @@ function stageWheels() {
   const carKind = params.get('car') || 'player';
   const angle = params.get('angle') || 'front34';
   // Base scene: golden-hour drive staging (play mode, HUD, lighting).
-  game.stageShot('drive', { seed, district: 'oldtown', night: '0', storm: '0' });
+  game.stageShot('drive', { seed, district: 'oldtown', night: '0', storm: '0', time: params.get('time') });
   // Wheels are the subject: hide the HUD (its speed readout would be
   // stale — the drive staging ran at 94 km/h before we parked the car).
   for (const id of ['hud-stage', 'topbar', 'title-card', 'version']) {
@@ -127,7 +127,7 @@ function stageWheels() {
   if (angle === 'motion') {
     // In-motion: re-stage the drive so the car is mid-drive with spun
     // wheels, then shoot it low from the side with drift marks behind.
-    game.stageShot('drive', { seed, district: 'oldtown', night: '0', storm: '0' });
+    game.stageShot('drive', { seed, district: 'oldtown', night: '0', storm: '0', time: params.get('time') });
     const c = game.car;
     // Drift trail along the car's path, on both rear-wheel tracks.
     for (let i = 0; i < 8; i++) {
@@ -166,7 +166,7 @@ function stageWheels() {
 // waits for window.__ready before screenshotting.
 const debugSkip = params.get('debug') === '1' && params.get('skip') === '1';
 if (debugSkip && params.get('at') === 'cbd_center') {
-  game.stageShot('cbd', { seed, view: 'street' });
+  game.stageShot('cbd', { seed, view: 'street', time: params.get('time') });
   window.__gameReady = true;
 } else if (shot === 'wheels') {
   stageWheels();
@@ -179,6 +179,7 @@ if (debugSkip && params.get('at') === 'cbd_center') {
     storm: params.get('storm') || '0',
     m: params.get('m') || '1',
     view: params.get('view') || 'street',
+    time: params.get('time'),
   });
   window.__gameReady = true;
 } else {
@@ -193,21 +194,6 @@ if (params.get('hud') === '0') {
   for (const id of ['hud-stage', 'topbar', 'title-card', 'version']) {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
-  }
-}
-
-// ?time=H locks a staged shot to an hour (12 midday clear sky, 22 night:
-// lit windows, street lamps, headlights). Applies after staging, so it
-// overrides the shot's default golden hour (18.7); the scene is static
-// in 'shot' mode, so re-render twice to show the new lighting. No-op in
-// normal play (mode is 'title'/'play', not 'shot').
-const timeParam = params.get('time');
-if (timeParam !== null && game.state.mode === 'shot') {
-  const h = parseFloat(timeParam);
-  if (Number.isFinite(h)) {
-    game.setTime(h);
-    game.renderer.render(game.scene, game.camera);
-    game.renderer.render(game.scene, game.camera);
   }
 }
 
