@@ -2108,7 +2108,7 @@ export function createGame(container) {
   return {
     state, car, player, traffic, cbdTraffic, peds, renderer, scene, camera,
     stageShot, setStorm, startPlay, district, setPaused, updateVisibility,
-    wanted, combat, missions, hub, radio, saveSystem,
+    wanted, combat, missions, hub, radio, saveSystem, doSave, doLoad,
     get duelTarget() { return duelTarget; },
     // Test-only fast simulation (see ?fastsim in main.js): steps the
     // game logic at a fixed 1/60 s dt without rendering. The sim is
