@@ -630,7 +630,7 @@ export function buildZoneInto(def, pools, atlas) {
   if (def.id === 'promenade-ext') {
     for (const r of def.rects) {
       for (const s of r.ns) {
-        for (const dx of [-1.4, -0.7, 0, 0.7, 1.4]) reg.box('zebra', s.x + dx, 13.6, 0.35, 1.8);
+        for (const dx of [-1.4, -0.7, 0, 0.7, 1.4]) reg.flat('zebra', s.x + dx, 13.6, 0.35, 1.8);
       }
     }
   }

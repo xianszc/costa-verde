@@ -116,6 +116,15 @@ export function createMarkings() {
   function box(type, cx, cz, w, d) {
     return add(type, colored(xform(new THREE.BoxGeometry(w, 0.01, d), cx, MARK_Y[type], cz), 0xffffff));
   }
+  // Flat quad marking, centred (cx, cz), size w (x) by d (z) — same
+  // footprint as box() but 2 triangles instead of 12. For zebra bars
+  // (item 4: 23,937 bars = 287,244 tris as boxes, ~48k as quads); the
+  // top face is all a driver ever sees of a painted marking, and the
+  // 0.01-high box sides are invisible at this scale. Single-sided
+  // (normal +Y after the -90 deg flatten) — correct for a road marking.
+  function flat(type, cx, cz, w, d) {
+    return add(type, colored(xform(new THREE.PlaneGeometry(w, d), cx, MARK_Y[type], cz, 0, 1, -Math.PI / 2), 0xffffff));
+  }
   // Flat shape marking (turn arrows): geo is a ShapeGeometry in the XY
   // plane; xform flattens it (rx -90) and rotates it (ry).
   function shape(type, geo, cx, cz, ry) {
@@ -197,7 +206,7 @@ export function createMarkings() {
     }
     return group;
   }
-  return { items, parts, add, box, shape, shapeIfFree, audit, build };
+  return { items, parts, add, box, flat, shape, shapeIfFree, audit, build };
 }
 
 // --- Shared longitudinal-gap helpers (ring + zones) -------------------
@@ -277,9 +286,9 @@ export function zebraApproach(m, cx, cz, leg, crossHalf, boxHalf, edge) {
   if (leg === 'N') { bx = cx; bz = cz + d; }
   if (leg === 'W' || leg === 'E') {
     // Bars long in x (parallel to E-W traffic), spaced in z across the road.
-    for (const dz of offs) m.box('zebra', bx, bz + dz, ZEBRA_BAR_LEN, 0.04);
+    for (const dz of offs) m.flat('zebra', bx, bz + dz, ZEBRA_BAR_LEN, 0.04);
   } else {
-    for (const dx of offs) m.box('zebra', bx + dx, bz, 0.04, ZEBRA_BAR_LEN);
+    for (const dx of offs) m.flat('zebra', bx + dx, bz, 0.04, ZEBRA_BAR_LEN);
   }
   return { x: bx, z: bz };
 }
