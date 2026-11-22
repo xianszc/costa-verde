@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T21:29:36.109Z",
+  "generated": "2026-11-22T21:30:17.975Z",
   "commit": "b9bb5d5",
   "missions": {
     "M1": {
@@ -50,26 +50,13 @@
     },
     "M5": {
       "mission": "M5",
-      "result": "STALL",
-      "attempts": 2,
-      "fails": 1,
-      "maxStage": 2,
-      "ms": 206088,
-      "abortReason": "no 20m improvement in 90s game time (stall)",
-      "trace": [
-        "[trace] M5 stage=0 RECON player=(-2.0,-1.5) car=(-8.0,-0.7) target=(-47,-39) distPlayer=58.6u distCar=54.6u wanted=0 onFoot=true",
-        "[trace] M5 stage=1 TAKE player=(-7.1,-1.7) car=(-48.9,-37.0) target=(-47,-39) distPlayer=54.6u distCar=2.8u wanted=0 onFoot=false",
-        "[trace] M5 stage=2 ESCAPE player=(-7.1,-1.7) car=(-45.5,-29.0) target=(5,20) distPlayer=24.8u distCar=70.3u wanted=0 onFoot=false",
-        "[trace] M5 stage=2 ESCAPE player=(-7.1,-1.7) car=(-48.0,-27.4) target=(5,20) distPlayer=24.8u distCar=71.1u wanted=0 onFoot=false"
-      ],
-      "lastTrace": "[trace] M5 stage=2 ESCAPE player=(-7.1,-1.7) car=(-48.0,-27.4) target=(5,20) distPlayer=24.8u distCar=71.1u wanted=0 onFoot=false",
-      "stages": {
-        "0": "RECON: reached by driving (human-like)",
-        "1": "TAKE: drive 0.0u + walk 0.0u (human-like)",
-        "2": "ESCAPE: drive + walk final leg (human-like)"
-      },
-      "errors": 0,
-      "commit": "03b6361"
+      "result": "ERROR",
+      "attempts": 0,
+      "fails": 0,
+      "maxStage": 0,
+      "ms": 0,
+      "error": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.",
+      "commit": "b9bb5d5"
     },
     "M6": {
       "mission": "M6",
