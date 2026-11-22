@@ -116,6 +116,7 @@ const PAGE_URL = BASE + (FASTSIM > 1 ? '/?fastsim=' + FASTSIM : '/');
 // no-teleport flow — drive the car on the road graph, walk only the
 // final leg. Without it, the old teleport convenience stays (and any
 // PASS it produces is labelled 'workaround', never 'human-like').
+const HUMAN_LIKE = process.argv.includes('--human-like') || process.env.HUMAN_LIKE === '1';
 const CHROMIUM = '/home/hatch/.cache/ms-playwright/chromium-1148/chrome-linux/chrome';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
