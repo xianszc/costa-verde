@@ -852,7 +852,7 @@ export function createGame(container) {
       // the west, rim only 0.4): lift the warm east fill so the
       // promenade + old town east faces keep their colour.
       rim.intensity = 0.75 + elev * 0.4;
-      scene.fog.color.setHex(phase === 'dusk' ? 0xe8836b : 0xf7d9a8);
+      scene.fog.color.setHex(phase === 'dusk' ? 0xe8836b : phase === 'day' ? 0xcfe0ea : 0xf7d9a8);
     } else {
       sun.color.setHex(0x8aa8d8);
       sun.intensity = 0.3;
@@ -1069,7 +1069,7 @@ export function createGame(container) {
     const hh = Math.floor(state.time);
     const mm = Math.floor((state.time - hh) * 60);
     const phase = skyPhaseForHour(state.time);
-    const phaseLabel = { golden: 'GOLDEN HOUR', dusk: 'DUSK', night: 'NIGHT', dawn: 'DAWN' }[phase];
+    const phaseLabel = { golden: 'GOLDEN HOUR', day: 'MIDDAY', dusk: 'DUSK', night: 'NIGHT', dawn: 'DAWN' }[phase];
     setText('hud-clock', `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
     setText('hud-clock-sub', `${phaseLabel} · DAY ${state.day}`);
     const stars = $('hud-wanted-stars');

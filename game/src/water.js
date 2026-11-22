@@ -180,6 +180,7 @@ export function makeSailboat(scale = 1, sailColor = 0xf2f0ea, phase = 0) {
 // the active texture only when the phase changes.
 const SKY_STOPS = {
   golden: [[0.0, '#7fb2d9'], [0.35, '#f7c98a'], [0.62, '#f2a35e'], [0.8, '#e8836b'], [1.0, '#f7d9a8']],
+  day: [[0.0, '#2f6fc2'], [0.35, '#5ea3dd'], [0.62, '#8ec3e8'], [0.8, '#cfe8f5'], [1.0, '#e8f4fa']],
   dusk: [[0.0, '#4a5a8a'], [0.35, '#c96a8a'], [0.6, '#e8836b'], [0.8, '#8a4a6a'], [1.0, '#3a2a4a']],
   night: [[0.0, '#0a1226'], [0.4, '#16233d'], [0.7, '#1e2a4a'], [1.0, '#2a2a3a']],
   dawn: [[0.0, '#6a8ab5'], [0.35, '#f2b98a'], [0.62, '#f7c98a'], [0.8, '#e89a7a'], [1.0, '#f7e0b8']],
@@ -202,9 +203,13 @@ export function skyTexture(phase) {
 }
 // Which sky phase a game hour belongs to (24 h clock). Golden hour runs
 // to 19:00 so the 18:42 default is still golden, never dusk or night.
+// Midday (10:00-16:00) is its own clear-blue 'day' phase — noon must
+// read as midday, not golden hour (?time=12 staging).
 export function skyPhaseForHour(h) {
   if (h >= 5 && h < 7.5) return 'dawn';
-  if (h >= 7.5 && h < 19) return 'golden';
+  if (h >= 7.5 && h < 10) return 'golden';
+  if (h >= 10 && h < 16) return 'day';
+  if (h >= 16 && h < 19) return 'golden';
   if (h >= 19 && h < 21) return 'dusk';
   return 'night';
 }
