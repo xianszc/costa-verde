@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T20:33:05.985Z",
+  "generated": "2026-11-22T20:34:11.210Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -125,15 +125,14 @@
     },
     "M9": {
       "mission": "M9",
-      "result": "PASS",
-      "attempts": 1,
-      "fails": 0,
-      "maxStage": 2,
-      "ms": 72774,
-      "money": 2750,
-      "xp": 2040,
+      "result": "FAIL",
+      "attempts": 2,
+      "fails": 2,
+      "maxStage": 0,
+      "ms": 23267,
+      "stages": {},
+      "abortReason": "could not exit car for final walk",
       "errors": 0,
-      "how": "workaround",
       "commit": "unknown"
     },
     "M11": {
