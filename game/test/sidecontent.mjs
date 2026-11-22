@@ -709,9 +709,41 @@ async function newPage() {
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
   await sleep(2000);
+  await installToastLog(page);
   roadGraph = await buildRoadGraph(page);
   console.log(`[boot] road graph ${roadGraph.nodes.length} nodes, ${roadGraph.segments} segments`);
   return { ctx, page, errors };
+}
+
+async function sawCompleteToast(page) {
+  return waitToastLog(page, 'COMPLETE');
+}
+
+// Poll the toast log for a needle (toasts queue FIFO, 3.6 s each — a
+// toast can take seconds to display after it fires).
+async function waitToastLog(page, needle, timeoutMs = 25000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    if (await page.evaluate((n) => (window.__toastLog || []).some((t) => t.includes(n)), needle)) return true;
+    await sleep(250);
+  }
+  return false;
+}
+
+// Toast logger (TEST-only instrumentation): record every toast text as
+// it appears — reading #side-toast once misses toasts that were shown
+// and then replaced (e.g. a stage dialogue landing after COMPLETE).
+async function installToastLog(page) {
+  await page.evaluate(() => {
+    const t = document.getElementById('side-toast');
+    window.__toastLog = t && t.textContent ? [t.textContent] : [];
+    if (!t) return;
+    new MutationObserver(() => {
+      const v = t.textContent || '';
+      const log = window.__toastLog;
+      if (v && log[log.length - 1] !== v) log.push(v);
+    }).observe(t, { childList: true, characterData: true, subtree: true });
+  });
 }
 
 // Open a shop by walking to its door on foot and pressing E.
@@ -1170,6 +1202,7 @@ async function newPageSeeded(seed) {
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
   await sleep(2000);
+  await installToastLog(page);
   return { ctx, page, errors };
 }
 async function testCoins() {
@@ -1301,7 +1334,7 @@ async function testCoins() {
       evidence.completion = { moneyBefore: s0.money, moneyAfter: after.money, coinsAfter: after.side.coinsDone, toast };
       if (after.side.coinsDone !== 20) throw new Error(`completion: coinsDone ${after.side.coinsDone}, expected 20`);
       if (after.money !== s0.money + 550) throw new Error(`completion: money ${s0.money} -> ${after.money}, expected +550 (+50 coin +500 bonus)`);
-      if (!toast.includes('20/20')) throw new Error(`completion toast '${toast}' does not mention 20/20`);
+      if (!toast.includes('20/20') && !(await waitToastLog(b.page, '20/20'))) throw new Error(`completion toast '${toast}' does not mention 20/20`);
       // Bonus persists: read the store straight from localStorage (no
       // reload in THIS context — its addInitScript re-seeds the 19-coin
       // fixture on every navigation, so a reload here would wipe the
@@ -1554,7 +1587,7 @@ async function testJumps() {
       if (!res.ok) throw new Error(`SJ8 did not register (max speed at gate ${res.maxSpeed.toFixed(1)} m/s)`);
       if (after.side.jumpsDone !== 8) throw new Error(`completion: jumpsDone ${after.side.jumpsDone}, expected 8`);
       if (after.money !== before.money + 650 + 50 * dCoins8) throw new Error(`completion: money ${before.money} -> ${after.money}, expected +${650 + 50 * dCoins8} (+150 jump +500 bonus${dCoins8 ? ` +${50 * dCoins8} from ${dCoins8} coin(s) en route` : ''})`);
-      if (!toast.includes('8/8')) throw new Error(`completion toast '${toast}' does not mention 8/8`);
+      if (!toast.includes('8/8') && !(await waitToastLog(b.page, '8/8'))) throw new Error(`completion toast '${toast}' does not mention 8/8`);
       const stored = await b.page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
       evidence.completionPersisted = { jumpsBonusClaimed: stored.jumpsBonusClaimed, storedCount: (stored.jumpsDone || []).length, hasSJ8: (stored.jumpsDone || []).includes('SJ8') };
       if ((stored.jumpsDone || []).length !== 8) throw new Error(`stored jumps ${(stored.jumpsDone || []).length}, expected 8`);
@@ -1614,7 +1647,14 @@ async function testJobs() {
     const f = await newPage();
     try {
       await f.page.evaluate(() => window.__side.setTimerScale(10));
-      const active = await startJobAt(f.page, -50, 1, -45, 0);
+      // TEST start (-47.5,0), NOT (-50,1): coin C7 sits exactly on the
+      // boulevard_west anchor (-50,0) with a 2u pickup radius, and the
+      // old spot 1u away collected it on spawn (+S 50, +25 XP — money
+      // read 1550, xp 1265, exactly one coin). 2.5u is outside the coin
+      // radius but inside the job marker's 4u E radius and the PICKUP
+      // stage's 4u goto radius; the car at (-44,0) is 3.5u from the
+      // player, so E still picks the job marker (2.5u < 3.5u).
+      const active = await startJobAt(f.page, -47.5, 0, -44, 0);
       if (active !== 'J1') throw new Error(`J1 fail: did not start, active=${active}`);
       // Detect the fail by the TIMER RESETTING, not by catching the
       // toast: failActive toasts TIME UP and immediately restarts the
@@ -1692,12 +1732,15 @@ async function testJobs() {
       const dJumps = after.side.jumpsDone - before.side.jumpsDone;
       const rankUp = after.side.rank !== before.side.rank;
       const expectMoney = before.money + rewardMoney + 50 * dCoins + 150 * dJumps + (rankUp ? 500 : 0);
-      evidence[id] = { moneyBefore: before.money, moneyAfter: after.money, xpBefore: before.xp, xpAfter: after.xp, coins: dCoins, jumps: dJumps, rankBefore: before.side.rank, rankAfter: after.side.rank, status: j ? j.status : null, toast };
+      evidence[id] = { moneyBefore: before.money, moneyAfter: after.money, xpBefore: before.xp, xpAfter: after.xp, coins: dCoins, jumps: dJumps, rankBefore: before.side.rank, rankAfter: after.side.rank, status: j ? j.status : null, toast, toastLog: await page.evaluate(() => window.__toastLog || []) };
       if (!j || j.status !== 'DONE ×1') throw new Error(`${id} status '${j ? j.status : 'missing'}', expected DONE ×1`);
       if (after.money !== expectMoney) throw new Error(`${id} money ${before.money} -> ${after.money}, expected ${expectMoney} (+${rewardMoney} job${dCoins ? ` +${50 * dCoins} from ${dCoins} coin(s)` : ''}${dJumps ? ` +${150 * dJumps} from ${dJumps} jump(s)` : ''}${rankUp ? ' +500 WHEELMAN' : ''})`);
       if (after.xp !== before.xp + rewardXp + 25 * dCoins + 100 * dJumps) throw new Error(`${id} xp ${before.xp} -> ${after.xp}, expected ${before.xp + rewardXp + 25 * dCoins + 100 * dJumps} (+${rewardXp} job)`);
       if (rankUp && after.side.rank !== 'WHEELMAN') throw new Error(`${id} unexpected rank-up to ${after.side.rank}`);
-      if (!toast.includes('COMPLETE')) throw new Error(`${id} completion toast '${toast}' does not say COMPLETE`);
+      // COMPLETE can flash and be overwritten by the stage dialogue
+      // (1.2 s delayed toast) on instant-complete test starts — check
+      // the toast log, not the last visible toast.
+      if (!(await sawCompleteToast(page))) throw new Error(`${id} no COMPLETE toast seen (last toast '${toast}')`);
       const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
       if ((stored.jobsDone || {})[id] !== 1) throw new Error(`stored jobsDone.${id} ${(stored.jobsDone || {})[id]}, expected 1`);
       if (errors.length) throw new Error('page errors: ' + errors.slice(0, 3).join(' | '));
@@ -1795,7 +1838,7 @@ async function testJobs() {
       const dJumps = after.side.jumpsDone - before.side.jumpsDone;
       const rankUp = after.side.rank !== before.side.rank;
       const j1 = after.side.jobs.find((j) => j.id === 'J1');
-      evidence.j1 = { moneyBefore: before.money, moneyAfter: after.money, xpBefore: before.xp, xpAfter: after.xp, coins: dCoins, jumps: dJumps, rankBefore: before.side.rank, rankAfter: after.side.rank, status: j1 ? j1.status : null, toast, driveLeg: 'OPEN (driver) — DROP reached via ≤5m test start, fare drive not driven' };
+      evidence.j1 = { moneyBefore: before.money, moneyAfter: after.money, xpBefore: before.xp, xpAfter: after.xp, coins: dCoins, jumps: dJumps, rankBefore: before.side.rank, rankAfter: after.side.rank, status: j1 ? j1.status : null, toast, toastLog: await page.evaluate(() => window.__toastLog || []), driveLeg: 'OPEN (driver) — DROP reached via ≤5m test start, fare drive not driven' };
       if (!j1 || j1.status !== 'DONE ×1') throw new Error(`J1 status '${j1 ? j1.status : 'missing'}', expected DONE ×1`);
       const expectMoney = before.money + 300 + 50 * dCoins + 150 * dJumps + (rankUp ? 500 : 0);
       if (after.money !== expectMoney) throw new Error(`J1 money ${before.money} -> ${after.money}, expected ${expectMoney} (+300 job${dCoins ? ` +${50 * dCoins} from ${dCoins} coin(s)` : ''}${dJumps ? ` +${150 * dJumps} from ${dJumps} jump(s)` : ''}${rankUp ? ' +500 WHEELMAN' : ''})`);
@@ -1804,7 +1847,9 @@ async function testJobs() {
       if (xpGain < 200 + 25 * dCoins + 100 * dJumps) throw new Error(`J1 xp ${before.xp} -> ${after.xp}, expected at least +${200 + 25 * dCoins + 100 * dJumps} (job + coins + jumps)`);
       if (driveXp < -0.5 || driveXp > 5) throw new Error(`J1 driving XP ${driveXp.toFixed(1)} out of range (xp gain ${xpGain.toFixed(1)}) — no driving happened, expected ~0`);
       if (rankUp && after.side.rank !== 'WHEELMAN') throw new Error(`J1 unexpected rank-up to ${after.side.rank}`);
-      if (!toast.includes('COMPLETE')) throw new Error(`J1 completion toast '${toast}' does not say COMPLETE`);
+      // Same 1.2 s dialogue-overwrite trap as assertJobDone — check
+      // the toast log, not the last visible toast.
+      if (!(await sawCompleteToast(page))) throw new Error(`J1 no COMPLETE toast seen (last toast '${toast}')`);
       const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
       evidence.j1Persisted = { jobsDone: stored.jobsDone };
       if ((stored.jobsDone || {}).J1 !== 1) throw new Error(`stored jobsDone.J1 ${(stored.jobsDone || {}).J1}, expected 1`);
