@@ -189,11 +189,77 @@ async function releaseKeys(page) { await setKeys(page, {}); }
 // reverse interrupts — that was the M2 tail timeout: the car drove
 // east to the boulevard end (44.6,-5.5) and wedged while the smuggler
 // went west to -37.4, 82.1u away.
+// DRIVER fix (M10 22 Nov ~08:45): NEVER reverse to turn around. The
+// old code reversed (S key) when |diff| > 2.2 rad — on a 2.2u street
+// the reversing car swings sideways and wedges against the buildings
+// (M10 run 3: wedged (-12.8,-4.8) on the boulevard U-turn and
+// (-10.0,-41.2) at the VIA DEL NORD turn). A human does a 3-point
+// turn instead (see threePointTurn) — this function only steers
+// forward. The stall-recovery reverses (driveToPoint sidestep,
+// followTail) are untouched — reversing OUT of a wedge is still the
+// right move.
 function carSteerKeys(diff, speed, cap) {
-  if (Math.abs(diff) > 2.2) {
-    return { w: false, a: diff < -0.15, d: diff > 0.15, s: true };
-  }
   return { w: Math.abs(speed) < cap, a: diff > 0.15, d: diff < -0.15, s: false };
+}
+
+// 3-point turn (DRIVER, M10 22 Nov ~08:55): align the car's nose
+// toward (tx,tz) with SHORT alternating reverse/forward phases
+// (<=1.5u each), so the car never leaves the street. A single long
+// reverse (the old U-turn-first block) displaced the car 5-7u
+// sideways into the buildings — M10 run 3 wedged (-12.8,-4.8) on
+// the boulevard U-turn and (-10.0,-41.2) at the VIA DEL NORD turn.
+// Physics: turn rate is 1.9 rad/s * steerAuthority (|speed|/6, capped
+// at 1), so the tightest forward turn is ~3.2u radius at 4-6 u/s —
+// a U-turn does NOT fit inside a 2.2u street, and slowing down
+// below 3 u/s makes the radius WORSE (authority drops). The only
+// tight turnaround is a 3-point turn: reverse a little, drive a
+// little, each phase rotating the nose ~0.4 rad. Returns true when
+// aligned (|diff| < 0.5).
+async function threePointTurn(page, tx, tz) {
+  // Brake to a stop first — a phase measured from a moving car would
+  // overshoot its 1.2u budget in the braking distance.
+  for (let i = 0; i < 10; i++) {
+    const c = await readCar(page);
+    if (c.mode !== 'play') return false;
+    if (Math.abs(c.speed) < 0.5) break;
+    await setKeys(page, { s: true, a: false, d: false, w: false });
+    await sleep(200);
+  }
+  await releaseKeys(page);
+  const started = Date.now();
+  let reverse = true;
+  while (Date.now() - started < 20000) {
+    const c = await readCar(page);
+    if (c.mode !== 'play') { await releaseKeys(page); return false; }
+    const diff = normAngle(Math.atan2(-(tz - c.z), tx - c.x) - c.angle);
+    if (Math.abs(diff) < 0.5) { await releaseKeys(page); return true; }
+    const sx = c.x, sz = c.z;
+    const pStart = Date.now();
+    while (Date.now() - pStart < 2000) {
+      const c2 = await readCar(page);
+      if (Math.hypot(c2.x - sx, c2.z - sz) > 1.0) break;
+      const diff2 = normAngle(Math.atan2(-(tz - c2.z), tx - c2.x) - c2.angle);
+      if (Math.abs(diff2) < 0.5) break;
+      // Cap phase speed at ~3 u/s and poll every 150 ms: at
+      // FASTSIM=2 a 300 ms poll is 600 ms of game time, and the car
+      // travels 2-3u per poll — the 1.0u budget would overshoot to
+      // 4u per phase and wedge the car (probe 22 Nov ~09:00: 2
+      // phases put the car 8u off-road). Forward phases are faster
+      // than reverse (0.5x accel), so a shared 3 u/s cap keeps the
+      // pair balanced and the net drift ~1u. Reversing flips the
+      // turn-rate sign, so the steering is inverted vs forward
+      // (diff > 0 needs D in reverse, A forward).
+      const drive = Math.abs(c2.speed) < 3;
+      if (reverse) await setKeys(page, { s: drive, a: diff2 < -0.15, d: diff2 > 0.15, w: false });
+      else await setKeys(page, { w: drive, a: diff2 > 0.15, d: diff2 < -0.15, s: false });
+      await sleep(150);
+    }
+    await releaseKeys(page);
+    await sleep(200);
+    reverse = !reverse;
+  }
+  await releaseKeys(page);
+  return false;
 }
 
 // Drive the car to a fixed point (tx, tz) within radius r. Returns
@@ -213,36 +279,17 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   // 4u (not 2.5u): the median nose needs the car at z<=-1.3 before
   // x=-34.7, and a 2.5u offset still clips the nose corner (D2).
   // The reverse is 3 s so the car backs up far enough to turn.
-  let sideStep = 0;
-  // U-turn FIRST (angle-based): if the car faces away from the target
-  // (|diff| > 1.0), reverse with inverted steering until the nose is
-  // within ~0.5 rad of the desired heading (max 15 s). DRIVER fix
-  // (M10 22 Nov 07:40): the old 2.2 rad (126 deg) threshold let a car
-  // facing ~90 deg off drive FORWARD into a 90 deg turn at 12 u/s —
-  // turning radius 12/1.9 = 6.3u on a 2.2u street — so it arced into
-  // the buildings: boulevard leg (-9.2,-1.1)->(-22.4,0) wedged at
-  // (-12.8,-4.9) against the (-12,-6) front row, and the x -33.6
-  // junction leg wedged at (-33.1,-33.2). Reversing first moves the
-  // car AWAY from the corner (backward = opposite the nose) while the
-  // nose turns, so the car enters the turn already aligned.
+  // Turn around FIRST when the car faces away from the target
+  // (|diff| > 1.0): a 3-point turn in place (see threePointTurn) —
+  // never a long reverse, never a fast forward arc into the corner.
   {
     const c0 = await readCar(page);
     const desired0 = Math.atan2(-(tz - c0.z), tx - c0.x);
     if (Math.abs(normAngle(desired0 - c0.angle)) > 1.0) {
-      const uStart = Date.now();
-      const sx = c0.x, sz = c0.z;
-      while (Date.now() - uStart < 15000) {
-        const c = await readCar(page);
-        if (c.mode !== 'play') { await releaseKeys(page); return false; }
-        const diff = normAngle(Math.atan2(-(tz - c.z), tx - c.x) - c.angle);
-        if (Math.abs(diff) < 0.5) break;
-        if (Math.hypot(c.x - sx, c.z - sz) > 6) break; // too far off — recover forward
-        await setKeys(page, { s: true, a: diff < -0.15, d: diff > 0.15, w: false });
-        await sleep(300);
-      }
-      await releaseKeys(page);
+      await threePointTurn(page, tx, tz);
     }
   }
+  let sideStep = 0;
   const started = Date.now();
   let lastDist = Infinity, lastProgress = Date.now(), reverses = 0, reversingUntil = 0;
   while (Date.now() - started < timeoutMs) {
@@ -289,12 +336,15 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
     }
     const desired = Math.atan2(-(stz - c.z), stx - c.x);
     const diff = normAngle(desired - c.angle);
-    // Brake into corners (M10 22 Nov 07:40): turning radius is
-    // v/1.9, so at 12 u/s it is 6.3u — wider than a 2.2u street and
-    // the car cuts the inside building corner on a bend. At 6 u/s
-    // the radius is ~3.2u. A human brakes for the corner; the
-    // driver caps speed at 6 while the heading error is large.
-    const effCap = Math.abs(diff) > 0.7 ? 6 : cap;
+    // Brake into corners (M10 22 Nov 07:40, tiered 22 Nov ~08:55):
+    // turning radius is v / turnRate, and turnRate is 1.9 * min(1,
+    // v/6) * min(1, v/4+0.2) — so the radius is ~3.2u for v in 3..12
+    // and GROWS below 3 u/s (steer authority drops). Slowing to 2.5
+    // does NOT tighten the turn; the tightest turn is at 4-6 u/s.
+    // A human brakes for the corner; the driver caps speed by
+    // heading error. Big turns (>1.0 rad) are handled by the
+    // 3-point turn at leg start, not by crawling through the arc.
+    const effCap = Math.abs(diff) > 1.5 ? 4 : Math.abs(diff) > 0.7 ? 6 : cap;
     await setKeys(page, carSteerKeys(diff, c.speed, effCap));
     await sleep(300);
   }
@@ -366,8 +416,17 @@ async function walkToPoint(page, tx, tz, r, timeoutMs) {
     if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
     if (Date.now() < followUntil) { await sleep(300); continue; }
     if (Date.now() - lastProgress > 6000) {
-      // Blocked by a wall — strafe along it to find the end.
-      followSide = -followSide;
+      // Blocked by a wall — strafe along it toward the TARGET's side
+      // (DRIVER fix, M11 22 Nov ~08:45): the old code flipped the
+      // strafe side every episode, so the player slid east 3 s then
+      // west 3 s and never reached the promenade gap (x 3.5..8) from
+      // x=-6.7 (M11 TIMEOUT 317 s). The side is recomputed from the
+      // live bearing each episode, so the slide stays consistent
+      // toward the gap. diff > 0 = target left of heading = strafe
+      // left (A); diff < 0 = target right = strafe right (D).
+      const desiredB = Math.atan2(-(tz - s.pz), tx - s.px);
+      const diffB = normAngle(desiredB - s.angle);
+      followSide = diffB >= 0 ? -1 : 1;
       await setKeys(page, { w: true, a: followSide < 0, d: followSide > 0, s: false });
       followUntil = Date.now() + 3000;
       lastProgress = Date.now();
