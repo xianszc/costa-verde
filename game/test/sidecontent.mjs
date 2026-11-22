@@ -1641,11 +1641,13 @@ async function testJobs() {
       if (!failed) throw new Error(`J1 fail: no TIME UP (timer reset) within 300 s (panel timer last read: '${lastTimer}', min: ${minTimer === Infinity ? 'n/a' : minTimer + 's'})`);
       const s2 = await readState(f.page);
       const j1 = s2.side.jobs.find((j) => j.id === 'J1');
-      evidence.j1fail = { activeAfter: s2.side.active, status: j1 ? j1.status : null, money: s2.money, xp: s2.xp };
+      const stored = await f.page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
+      evidence.j1fail = { activeAfter: s2.side.active, status: j1 ? j1.status : null, jobsDoneJ1: (stored.jobsDone || {}).J1, money: s2.money, xp: s2.xp };
       // failActive restarts the job from stage 1 (fresh 90 s timer)
-      // — active stays J1, no reward is paid.
+      // — active stays J1 (status 'ACTIVE' is the restart, correct),
+      // but NO reward is paid: jobsDone must not contain J1.
       if (s2.side.active !== 'J1') throw new Error(`J1 fail: active=${s2.side.active} after TIME UP (job should restart, not clear)`);
-      if (!j1 || j1.status !== 'AVAILABLE') throw new Error(`J1 fail: status '${j1 ? j1.status : 'missing'}' after timeout (no reward should be paid)`);
+      if ((stored.jobsDone || {}).J1 !== undefined) throw new Error(`J1 fail: jobsDone.J1=${stored.jobsDone.J1} after a timeout (no reward should be paid)`);
       if (s2.money !== 1500) throw new Error(`J1 fail: money ${s2.money} changed after a timeout`);
       if (f.errors.length) throw new Error('page errors: ' + f.errors.slice(0, 3).join(' | '));
       console.log('[jobs] J1 fail OK: TIME UP, job restarts, no reward');

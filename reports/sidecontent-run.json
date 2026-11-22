@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T11:04:13.680Z",
+  "generated": "2026-11-22T11:09:55.394Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -435,9 +435,16 @@
     "jobs": {
       "result": "FAIL",
       "how": "human-like",
-      "ms": 346790,
-      "error": "J1 fail: no TIME UP toast within 300 s (panel timer last read: '00:00')",
-      "evidence": {}
+      "ms": 317786,
+      "error": "J1 fail: status 'ACTIVE' after timeout (no reward should be paid)",
+      "evidence": {
+        "j1fail": {
+          "activeAfter": "J1",
+          "status": "ACTIVE",
+          "money": 1550,
+          "xp": 1265
+        }
+      }
     }
   }
 }
