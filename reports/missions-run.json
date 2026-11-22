@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T19:38:44.258Z",
+  "generated": "2026-11-22T19:39:41.246Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -73,11 +73,12 @@
       "result": "FAIL",
       "attempts": 2,
       "fails": 2,
-      "maxStage": 2,
-      "ms": 23695,
+      "maxStage": 1,
+      "ms": 14870,
       "stages": {
         "0": "CROSS: reached by driving (human-like)"
       },
+      "abortReason": "cannot board car (player-car 21.2u)",
       "errors": 0,
       "commit": "unknown"
     },
