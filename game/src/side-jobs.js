@@ -1,13 +1,20 @@
-// AZZURA HEIST — side content: 9 side jobs.
+// AZZURA HEIST — side content: 9 side jobs (4 enabled, 5 disabled).
 // Same shape as the story MISSIONS (missions.js) and run through the
 // same engine (a second createMissionEngine instance), so goto /
 // interact / tail / escape / deliver / race stages, timers and fail
 // events behave exactly like the story missions. Every target is a
 // NAMED ANCHOR — no raw coordinates. Rewards pay soli + XP and raise
 // standing in the job's district (+6).
+// J5–J9 are DISABLED (amendment 18:03): a job that is wired but
+// untested must not be playable. Their data stays in this file so the
+// expansion to 8 jobs (after item 4) only removes the flag. J9 also
+// has a known start-shadow bug: its PICKUP marker casino_entrance
+// (35,27) sits 2u from J7's promenade_mid (35,29), so E starts J7 —
+// fix (move J9 PICKUP to a casino side-door anchor (42,27)) lands
+// with the re-enable.
 import { anchor, anchorXZ } from './anchors.js';
 
-export const SIDE_JOBS = [
+const ALL_JOBS = [
   {
     id: 'J1', code: 'J1', kind: 'job', title: 'FARE TO THE CASINO',
     brief: 'A high roller needs a ride from the west end to the Casino Azzura — fast, smooth, no sirens.',
@@ -60,7 +67,7 @@ export const SIDE_JOBS = [
     ],
   },
   {
-    id: 'J5', code: 'J5', kind: 'job', title: 'THREE KEYS',
+    id: 'J5', code: 'J5', kind: 'job', disabled: true, title: 'THREE KEYS',
     brief: 'Félix needs three cars "borrowed" off the boulevard and brought to the marina. No alarms, no scratches.',
     district: 'boulevard', giver: 'FELIX', reward: { money: 600, xp: 400 },
     stages: [
@@ -74,7 +81,7 @@ export const SIDE_JOBS = [
     ],
   },
   {
-    id: 'J6', code: 'J6', kind: 'job', title: 'SKYLINE CIRCUIT',
+    id: 'J6', code: 'J6', kind: 'job', disabled: true, title: 'SKYLINE CIRCUIT',
     brief: 'A pilot is waiting at the Azzura Tower lobby. Walk the tour route — plaza, casino, quay — and bring the guests home.',
     district: 'cbd', giver: 'IRIS', reward: { money: 450, xp: 300 },
     stages: [
@@ -88,7 +95,7 @@ export const SIDE_JOBS = [
     ],
   },
   {
-    id: 'J7', code: 'J7', kind: 'job', title: 'POSTCARDS OF AZZURA',
+    id: 'J7', code: 'J7', kind: 'job', disabled: true, title: 'POSTCARDS OF AZZURA',
     brief: 'A postcard seller wants the three best views in town: the promenade, the plaza, the old town.',
     district: 'promenade', giver: 'GUS', reward: { money: 350, xp: 250 },
     stages: [
@@ -100,7 +107,7 @@ export const SIDE_JOBS = [
     ],
   },
   {
-    id: 'J8', code: 'J8', kind: 'job', title: 'THE QUIET DROP',
+    id: 'J8', code: 'J8', kind: 'job', disabled: true, title: 'THE QUIET DROP',
     brief: 'Tail the smuggler\u2019s car down the boulevard without spooking him, then report at the marina.',
     district: 'boulevard', giver: 'VI', reward: { money: 500, xp: 350 },
     stages: [
@@ -111,7 +118,7 @@ export const SIDE_JOBS = [
     ],
   },
   {
-    id: 'J9', code: 'J9', kind: 'job', title: 'CASINO COURIER',
+    id: 'J9', code: 'J9', kind: 'job', disabled: true, title: 'CASINO COURIER',
     brief: 'A sealed envelope for the tower: pick it up at the casino entrance and run it to the Azzura Tower lobby.',
     district: 'promenade', giver: 'ALDO', reward: { money: 380, xp: 250 },
     stages: [
@@ -122,3 +129,8 @@ export const SIDE_JOBS = [
     ],
   },
 ];
+
+// Only enabled jobs are wired (map markers, E prompts, HUD count).
+// Disabled jobs (J5–J9, untested) are not playable; their data stays
+// above for the post-item-4 expansion.
+export const SIDE_JOBS = ALL_JOBS.filter((j) => !j.disabled);
