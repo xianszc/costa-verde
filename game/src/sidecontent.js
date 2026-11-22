@@ -227,10 +227,17 @@ function buy(sectionId, itemId) {
   if (item.kind === 'outfit' && store.outfit === item.outfit) return { ok: false, msg: 'Already wearing it.' };
   if (item.kind === 'paint' && store.paint === item.paint) return { ok: false, msg: 'Already painted that colour.' };
   if (item.kind === 'tune' && (store.tunes[item.tune] || 0) >= item.level) return { ok: false, msg: 'Already installed.' };
+  // AUDIT m-16: tunes are a ladder — level N needs level N-1 first.
+  // (Rank gates alone did not enforce it: engine II needs FIXER, so
+  // a fresh FIXER could buy it without ever owning engine I.)
+  if (item.kind === 'tune' && (store.tunes[item.tune] || 0) < item.level - 1) return { ok: false, msg: 'Install the previous level first.' };
   if (!rankUnlocked(item.rank)) return { ok: false, msg: `Locked — needs rank ${item.rank}.` };
   const price = itemOwned(section, item) ? 0 : priceFor(section, item);
   if (game.state.money < price) return { ok: false, msg: `Need ${fmtMoney(price)} — you have ${fmtMoney(game.state.money)}.` };
-  game.state.money -= price;
+  // AUDIT M-11: paint pays only AFTER it takes — the old code deducted
+  // the money (and recorded the paint owned) before applyPaint ran,
+  // so a failed paint still charged the player.
+  if (item.kind !== 'paint') game.state.money -= price;
   if (item.kind === 'ammo') {
     game.combat.ammo[item.weapon].reserve += item.qty;
   } else if (item.kind === 'weapon') {
@@ -250,9 +257,10 @@ function buy(sectionId, itemId) {
     if (!store.outfitsOwned.includes(item.outfit)) store.outfitsOwned.push(item.outfit);
     applyOutfit(item.outfit);
   } else if (item.kind === 'paint') {
+    if (!applyPaint(item.paint)) return { ok: false, msg: 'Paint did not take — the Stella is out of range. Try again in the garage.' };
     const key = item.id.replace('paint-', '');
     if (!store.paintsOwned.includes(key)) store.paintsOwned.push(key);
-    if (!applyPaint(item.paint)) return { ok: false, msg: 'Paint did not take — the Stella is out of range. Try again in the garage.' };
+    game.state.money -= price;
   } else if (item.kind === 'tune') {
     store.tunes[item.tune] = item.level;
     applyTunes();
@@ -1051,8 +1059,11 @@ function loop(now) {
       const isTail = !!s && s.type === 'tail';
       smugglerMesh.visible = isTail;
       if (isTail) {
+        // AUDIT M-7: y 0.2 is already ROAD_Y; the rotation was PI/2
+        // (sideways across the lane) — PI faces it along the road,
+        // like the story smuggler in game.js.
         smugglerMesh.position.set(engine.tailPos.x, 0.2, engine.tailPos.z);
-        smugglerMesh.rotation.y = Math.PI / 2;
+        smugglerMesh.rotation.y = Math.PI;
       }
     }
     updateJobPanel(false);

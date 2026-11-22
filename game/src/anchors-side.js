@@ -10,9 +10,14 @@ import { ANCHORS } from './anchors.js';
 export const SIDE_ANCHORS = {};
 
 export const SIDE_SPOTS = {
-  // Kelo Arms (weapons): old town main street, 4 m east of the staging
-  // spot, on the cobbles — clear of the M3/M4 targets.
-  weaponsShop: { x: ANCHORS.oldtown_main_street.x + 4, z: ANCHORS.oldtown_main_street.z, district: 'old town' },
+  // Kelo Arms (weapons): on the old town main street staging spot
+  // itself — AUDIT m-17: the old +4 put the door 1u from the fortress
+  // plaza (-47,-39), inside nearestShop's 4u radius, so the plaza
+  // interact and the shop prompt fought each other. At the anchor
+  // (-52,-39) the door is 5u clear of the plaza. (Races start from
+  // the map/hub, not an E marker, so sharing the R3 line-up spot
+  // blocks no race start; the LINE UP stage is a goto.)
+  weaponsShop: { x: ANCHORS.oldtown_main_street.x, z: ANCHORS.oldtown_main_street.z, district: 'old town' },
   // Sartoria Azzura (clothes): promenade walkway, 6 m west of the
   // middle — clear of the casino entrance and the M10 checkpoint.
   clothesShop: { x: ANCHORS.promenade_mid.x - 6, z: ANCHORS.promenade_mid.z, district: 'promenade' },
