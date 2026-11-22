@@ -1882,8 +1882,140 @@ async function testJobs() {
   }
 }
 
+async function testRanks() {
+  const label = 'ranks';
+  const started = Date.now();
+  const evidence = {};
+  try {
+    // --- 1. Fresh state: DECKHAND reward already claimed at boot ---
+    // (fresh XP 1240 >= 500: +S 250, money 1250 -> 1500, Harbor
+    // Stripes owned free — shops-near proves the free apply).
+    const { ctx, page, errors } = await newPage();
+    try {
+      const s0 = await readState(page);
+      evidence.start = { money: s0.money, xp: s0.xp, rank: s0.side.rank, outfit: s0.side.outfit };
+      if (s0.money !== 1500) throw new Error(`fresh money ${s0.money}, expected 1500 (1250 + DECKHAND 250)`);
+      if (s0.side.rank !== 'DECKHAND') throw new Error(`fresh rank ${s0.side.rank}, expected DECKHAND (XP 1240 >= 500)`);
+      const harbour = await page.evaluate(() => {
+        const st = window.__side.getState();
+        const it = st.shops.flatMap((s) => s.items).find((i) => i.id === 'outfit-harbour');
+        return it ? { owned: it.owned, locked: it.locked, price: it.price } : null;
+      });
+      evidence.deckhandReward = harbour;
+      if (!harbour || !harbour.owned) throw new Error('outfit-harbour NOT owned at start — DECKHAND rank reward did not fire');
+      // --- 2. 11 real coins (C1..C10 + C12) -> WHEELMAN at the 11th ---
+      // Same legs as the coins test (C12 before C11: the walk north to
+      // C11 passes 1.0 m from C12, so C11 is skipped here).
+      const legs = [
+        { id: 'C1', from: { x: 0.6, z: -9.6 } },
+        { id: 'C2', from: { x: 8.9, z: -10.0 } },
+        { id: 'C3', from: { x: -9.5, z: 1.3 } },
+        { id: 'C4', from: { x: -1.5, z: -1.0 } },
+        { id: 'C5', from: { x: 11.5, z: 0.0 } },
+        { id: 'C6', from: { x: -26.5, z: -0.7 } },
+        { id: 'C7', from: { x: -46.5, z: 0.0 } },
+        { id: 'C8', from: { x: 52.5, z: -0.7 } },
+        { id: 'C9', from: { x: -44.0, z: -33.5 } },
+        { id: 'C10', from: { x: -47.0, z: -32.5 } },
+        { id: 'C12', from: { x: -46.0, z: -40.0 } },
+      ];
+      for (let i = 0; i < legs.length; i++) {
+        const leg = legs[i];
+        const c = coinXZ(leg.id);
+        const faceAngle = Math.atan2(-(c.z - leg.from.z), c.x - leg.from.x);
+        await placePlayer(page, leg.from.x, leg.from.z, faceAngle);
+        const before = await readState(page);
+        const wok = await walkToPoint(page, c.x, c.z, 1.95, 60000, (s) => s.side.coinsDone > before.side.coinsDone);
+        if (!wok) throw new Error(`walk to ${leg.id} (${c.x},${c.z}) failed`);
+        await sleep(1000);
+        const after = await readState(page);
+        if (after.side.coinsDone !== i + 1) throw new Error(`${leg.id}: coinsDone ${after.side.coinsDone}, expected ${i + 1}`);
+        const rankUp = after.side.rank !== before.side.rank;
+        const expectMoney = before.money + 50 + (rankUp ? 500 : 0);
+        if (after.money !== expectMoney) throw new Error(`${leg.id}: money ${before.money} -> ${after.money}, expected ${expectMoney}${rankUp ? ' (incl. WHEELMAN +500)' : ''}`);
+        if (rankUp && after.side.rank !== 'WHEELMAN') throw new Error(`${leg.id}: unexpected rank-up to ${after.side.rank}`);
+        if (after.xp !== before.xp + 25) throw new Error(`${leg.id}: xp ${before.xp} -> ${after.xp}, expected +25`);
+        console.log(`[ranks] ${leg.id} OK: coins ${i + 1}/20, money ${after.money}, rank ${after.side.rank}`);
+      }
+      const sw = await readState(page);
+      evidence.wheelman = { money: sw.money, xp: sw.xp, rank: sw.side.rank, coins: sw.side.coinsDone };
+      if (sw.side.rank !== 'WHEELMAN') throw new Error(`rank ${sw.side.rank} after 11 coins, expected WHEELMAN`);
+      if (sw.money !== 2550) throw new Error(`money ${sw.money} after 11 coins, expected 2550 (1500 + 11x50 + 500 WHEELMAN)`);
+      if (sw.xp !== 1515) throw new Error(`xp ${sw.xp} after 11 coins, expected 1515`);
+      // WHEELMAN reward: Harbor Teal paint owned free.
+      const teal = await page.evaluate(() => {
+        const st = window.__side.getState();
+        const it = st.shops.flatMap((s) => s.items).find((i) => i.id === 'paint-teal');
+        return it ? { owned: it.owned, locked: it.locked, price: it.price } : null;
+      });
+      evidence.wheelmanReward = teal;
+      if (!teal || !teal.owned) throw new Error('paint-teal NOT owned after WHEELMAN — rank reward did not fire');
+      // --- 3. Sartoria Azzura: the rank gate boundary is at WHEELMAN ---
+      await placePlayer(page, 26.5, 29, 0);
+      await walkToShopAtDoor(page, 29, 29, 'Sartoria');
+      const gate = await page.evaluate(() => {
+        const b = (id) => { const el = document.querySelector(`[data-buy="${id}"]`); return el ? { disabled: el.disabled, text: el.textContent } : null; };
+        return { harvest: b('outfit-harvest'), casino: b('outfit-casino') };
+      });
+      evidence.gate = gate;
+      if (!gate.harvest || !gate.harvest.disabled) throw new Error('outfit-harvest NOT locked at WHEELMAN (expected disabled, FIXER-gated)');
+      if (!gate.casino || gate.casino.disabled) throw new Error('outfit-casino LOCKED at WHEELMAN (expected enabled, WHEELMAN-gated)');
+      // --- 4. Decision B (Xian 22 Nov 15:30): buy outfit-casino S 800
+      // at WHEELMAN — money deducted, outfit applied, saved. ---
+      const buy = await clickBuy(page, 'outfit-casino');
+      evidence.casinoBuy = { moneyBefore: buy.before.money, moneyAfter: buy.after.money, outfitBefore: buy.before.side.outfit, outfitAfter: buy.after.side.outfit };
+      if (buy.after.money !== buy.before.money - 800) throw new Error(`outfit-casino: money ${buy.before.money} -> ${buy.after.money}, expected -800`);
+      if (buy.after.side.outfit !== 'casino') throw new Error(`outfit-casino: outfit ${buy.after.side.outfit}, expected casino`);
+      await closeShop(page);
+      console.log('[ranks] casino OK: Casino Sharp bought S 800, worn, money 1750');
+      // --- 5. Save (slot 1) -> reload -> load slot 1 ---
+      let st = await readState(page);
+      for (let i = 0; i < 12 && st.wanted > 0; i++) { await sleep(5000); st = await readState(page); }
+      if (st.wanted > 0) throw new Error(`wanted ${st.wanted} — cannot save`);
+      const savedMoney = st.money, savedOutfit = st.side.outfit, savedCoins = st.side.coinsDone;
+      await page.keyboard.press('Escape');
+      await sleep(800);
+      await page.click('#pause-save');
+      await sleep(500);
+      st = await readState(page);
+      evidence.saved = { money: savedMoney, outfit: savedOutfit, coins: savedCoins, saveMsg: await page.evaluate(() => window.__game.state.saveMsg) };
+      await page.keyboard.press('Escape'); // resume
+      await sleep(500);
+      await page.goto(PAGE_URL, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => window.__gameReady, null, { timeout: 120000 });
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
+      await sleep(2000);
+      const fresh = await readState(page);
+      evidence.afterReload = { money: fresh.money, coins: fresh.side.coinsDone, outfit: fresh.side.outfit };
+      if (fresh.money !== 1250) throw new Error(`after reload money ${fresh.money}, expected fresh 1250 (slot not loaded yet)`);
+      if (fresh.side.coinsDone !== savedCoins) throw new Error(`side store coins ${fresh.side.coinsDone} != ${savedCoins} after reload`);
+      if (fresh.side.outfit !== 'casino') throw new Error(`side store outfit ${fresh.side.outfit} != casino after reload`);
+      await page.keyboard.press('Escape');
+      await sleep(800);
+      await page.click('#pause-load');
+      await sleep(800);
+      const loaded = await readState(page);
+      evidence.afterLoad = { money: loaded.money, outfit: loaded.side.outfit, coins: loaded.side.coinsDone };
+      if (loaded.money !== savedMoney) throw new Error(`after load money ${loaded.money} != saved ${savedMoney}`);
+      if (loaded.side.outfit !== savedOutfit) throw new Error(`after load outfit ${loaded.side.outfit} != saved ${savedOutfit}`);
+      if (errors.length) throw new Error('page errors: ' + errors.slice(0, 3).join(' | '));
+      console.log('[ranks] PASS: WHEELMAN via 11 coins (+500, paint-teal), outfit-casino S 800 bought + saved, FIXER harvest locked');
+    } finally {
+      await ctx.close();
+    }
+    const rec = { result: 'PASS', how: 'human-like', ms: Date.now() - started, evidence };
+    await saveResult(label, rec);
+    return rec;
+  } catch (e) {
+    const rec = { result: 'FAIL', how: 'human-like', ms: Date.now() - started, error: String(e.message || e), evidence };
+    await saveResult(label, rec);
+    return rec;
+  }
+}
+
 // --- Runner ---
-const TESTS = { shops: testShops, 'shops-near': testShopsNear, coins: testCoins, jumps: testJumps, jobs: testJobs };
+const TESTS = { shops: testShops, 'shops-near': testShopsNear, coins: testCoins, jumps: testJumps, jobs: testJobs, ranks: testRanks };
 const selected = ONLY ? [ONLY] : Object.keys(TESTS);
 let allPass = true;
 for (const label of selected) {
