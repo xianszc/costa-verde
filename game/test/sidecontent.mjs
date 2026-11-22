@@ -31,6 +31,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { anchorXZ } from '../src/anchors.js';
 import { COLLECTIBLES } from '../src/side-collectibles.js';
+import { SIDE_JUMPS } from '../src/side-jumps.js';
 
 const RESULTS_PATH = fileURLToPath(new URL('../../reports/sidecontent-run.json', import.meta.url));
 const require = createRequire(import.meta.url);
@@ -1310,8 +1311,193 @@ async function testCoins() {
   }
 }
 
+
+// --- T4 jumps (3c.4): drive stunt-jump gates at speed; reward; persists ---
+// Minimum-first (amandemen 15:45): 4 real jumps SJ1..SJ4 + a slow-pass
+// negative + save. Phase B proves the 8/8 completion bonus: a FRESH
+// context whose side store is pre-seeded with 7 jumps (a save-file
+// fixture — a human player can own 7 jumps; the 8th is driven for
+// real). Full 8-for-real expansion is deferred until after item 4.
+// RUN-UP NOTE (disclosed, reasoned exception to the 5 m start rule):
+// a jump needs the car at >16 m/s AT the gate, and the Stella reaches
+// 16 m/s in <1u from standstill (accel 15 m/s^2), so the car starts
+// 4u before the gate ON THE SAME ROAD, facing it — the run-up IS the
+// jump mechanic (a player lines up down the road and floors it), not
+// an approach drive. A 5 m start could never prove the feature: from
+// 5 m the car cannot reach 16 m/s. The player boards with E
+// (human-like) before each leg; the driving itself is real keys.
+function jumpXZ(id) {
+  const j = SIDE_JUMPS.find((k) => k.id === id);
+  const a = anchorXZ(j.anchor);
+  return { x: a.x + (j.dx || 0), z: a.z + (j.dz || 0), dir: j.dir, name: j.name };
+}
+// Drive straight through the gate (the player is already in the car,
+// facing the gate, 4u back). Full throttle, W only — no steering on a
+// straight road. For the slow pass, tap W to hold ~7 m/s. `before` is
+// the jumpsDone COUNT before the drive (readState's side.jumpsDone is
+// a count, not the array) — the jump registered when the count rises.
+// Returns whether the jump registered and the max speed within 5u of
+// the gate.
+async function driveThroughGate(page, gate, before, slow) {
+  const dx = gate.dir === 'ew' ? 1 : 0;
+  const dz = gate.dir === 'ew' ? 0 : 1;
+  const started = Date.now();
+  let maxSpeedAtGate = 0;
+  while (Date.now() - started < 60000) {
+    const c = await readCar(page);
+    const s = await readState(page);
+    if (s.side.jumpsDone > before) { await releaseKeys(page); return { ok: true, maxSpeed: maxSpeedAtGate }; }
+    const d = Math.hypot(c.x - gate.x, c.z - gate.z);
+    if (d < 5) maxSpeedAtGate = Math.max(maxSpeedAtGate, Math.abs(c.speed));
+    const beyond = (c.x - gate.x) * dx + (c.z - gate.z) * dz;
+    if (beyond > 6) break;
+    if (slow) await setKeys(page, { w: Math.abs(c.speed) < 6, a: false, d: false, s: false });
+    else await setKeys(page, { w: true, a: false, d: false, s: false });
+    await sleep(200);
+  }
+  await releaseKeys(page);
+  for (let i = 0; i < 15; i++) {
+    const c = await readCar(page);
+    if (Math.abs(c.speed) < 0.5) break;
+    await setKeys(page, { s: true, a: false, d: false, w: false });
+    await sleep(200);
+  }
+  await releaseKeys(page);
+  return { ok: false, maxSpeed: maxSpeedAtGate };
+}
+async function testJumps() {
+  const label = 'jumps';
+  const started = Date.now();
+  const evidence = {};
+  try {
+    // --- Phase A: slow-pass negative + 4 real jumps ---
+    const { ctx, page, errors } = await newPage();
+    try {
+      const s0 = await readState(page);
+      evidence.start = { money: s0.money, xp: s0.xp, jumpsDone: s0.side.jumpsDone, rank: s0.side.rank };
+      if (s0.money !== 1500) throw new Error(`fresh money ${s0.money}, expected 1500 (1250 + DECKHAND 250)`);
+      if (s0.side.jumpsDone !== 0) throw new Error(`fresh jumpsDone ${s0.side.jumpsDone}, expected 0`);
+      // Slow pass first, on SJ1: drive through at ~7 m/s — the gate
+      // must NOT trigger (speed gate is the feature).
+      const g1 = jumpXZ('SJ1');
+      await placeCar(page, g1.x - 4, g1.z, 0);
+      await placePlayer(page, g1.x - 4, g1.z + 1.5, 0);
+      if (!(await boardCar(page))) throw new Error('slow pass: could not board car');
+      const slow = await driveThroughGate(page, g1, 0, true);
+      evidence.slowPass = { maxSpeedAtGate: +slow.maxSpeed.toFixed(1), registered: slow.ok };
+      if (slow.ok) throw new Error('slow pass SJ1 registered a jump — the speed gate is broken');
+      if (slow.maxSpeedAtGate >= 16) throw new Error(`slow pass max speed ${slow.maxSpeedAtGate} m/s, not a slow pass`);
+      if ((await readState(page)).side.jumpsDone !== 0) throw new Error('slow pass: jumpsDone changed');
+      console.log(`[jumps] slow pass OK: SJ1 not triggered at ${slow.maxSpeed.toFixed(1)} m/s`);
+      // Fast passes: SJ1..SJ4. 3rd jump ranks up to WHEELMAN
+      // (XP 1240 + 3x100 = 1540 >= 1500), so its money check is
+      // rank-aware (+150 jump +500 WHEELMAN reward).
+      const legs = [
+        { id: 'SJ1', car: { x: -4, z: 0, angle: 0 }, player: { x: -4, z: 1.5 } },
+        { id: 'SJ2', car: { x: -34, z: -0.725, angle: 0 }, player: { x: -34, z: 0.775 } },
+        { id: 'SJ3', car: { x: 0, z: 4, angle: -Math.PI / 2 }, player: { x: 1.5, z: 4 } },
+        { id: 'SJ4', car: { x: 31, z: 29, angle: 0 }, player: { x: 31, z: 30.5 } },
+      ];
+      for (let i = 0; i < legs.length; i++) {
+        const leg = legs[i];
+        const g = jumpXZ(leg.id);
+        await placeCar(page, leg.car.x, leg.car.z, leg.car.angle);
+        await placePlayer(page, leg.player.x, leg.player.z, leg.car.angle);
+        if (!(await boardCar(page))) throw new Error(`${leg.id}: could not board car`);
+        const before = await readState(page);
+        const res = await driveThroughGate(page, g, before.side.jumpsDone, false);
+        await sleep(1000); // HUD chip refreshes every 500 ms
+        const after = await readState(page);
+        const hud = await page.evaluate(() => {
+          const h = document.getElementById('side-hud');
+          return h ? { text: h.textContent, display: h.style.display } : null;
+        });
+        evidence[leg.id] = { maxSpeedAtGate: +res.maxSpeed.toFixed(1), moneyBefore: before.money, moneyAfter: after.money, xpBefore: before.xp, xpAfter: after.xp, jumpsBefore: before.side.jumpsDone, jumpsAfter: after.side.jumpsDone, rankBefore: before.side.rank, rankAfter: after.side.rank, hud };
+        if (!res.ok) throw new Error(`${leg.id}: jump did not register (max speed at gate ${res.maxSpeed.toFixed(1)} m/s)`);
+        if (res.maxSpeed < 16) throw new Error(`${leg.id}: registered at ${res.maxSpeed.toFixed(1)} m/s, below the 16 m/s gate`);
+        if (after.side.jumpsDone !== i + 1) throw new Error(`${leg.id}: jumpsDone ${after.side.jumpsDone}, expected ${i + 1}`);
+        const rankUp = after.side.rank !== before.side.rank;
+        const expectMoney = before.money + 150 + (rankUp ? 500 : 0);
+        if (after.money !== expectMoney) throw new Error(`${leg.id}: money ${before.money} -> ${after.money}, expected ${expectMoney}${rankUp ? ' (incl. WHEELMAN +500)' : ''}`);
+        if (rankUp && after.side.rank !== 'WHEELMAN') throw new Error(`${leg.id}: unexpected rank-up to ${after.side.rank}`);
+        if (after.xp !== before.xp + 100) throw new Error(`${leg.id}: xp ${before.xp} -> ${after.xp}, expected +100`);
+        if (!hud || !hud.text.includes(`JUMPS ${i + 1}/8`)) throw new Error(`${leg.id}: HUD chip '${hud ? hud.text : 'missing'}' does not show JUMPS ${i + 1}/8`);
+        console.log(`[jumps] ${leg.id} OK: jumps ${i + 1}/8 at ${res.maxSpeed.toFixed(1)} m/s, money ${after.money}, rank ${after.side.rank}`);
+      }
+      // Save: side store (jumps) auto-persists; money needs the
+      // explicit pause slot-1 save + load (same pattern as coins).
+      let st = await readState(page);
+      for (let i = 0; i < 12 && st.wanted > 0; i++) { await sleep(5000); st = await readState(page); }
+      if (st.wanted > 0) throw new Error(`wanted ${st.wanted} — cannot save`);
+      await page.keyboard.press('Escape');
+      await sleep(800);
+      await page.click('#pause-save');
+      await sleep(500);
+      await page.keyboard.press('Escape');
+      await sleep(500);
+      await page.goto(PAGE_URL, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => window.__gameReady, null, { timeout: 120000 });
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
+      await sleep(2000);
+      const reloaded = await readState(page);
+      evidence.afterReload = { jumpsDone: reloaded.side.jumpsDone, money: reloaded.money, rank: reloaded.side.rank };
+      if (reloaded.side.jumpsDone !== 4) throw new Error(`after reload jumpsDone ${reloaded.side.jumpsDone}, expected 4`);
+      if (reloaded.money !== 1250) throw new Error(`after reload money ${reloaded.money}, expected fresh 1250 (reload resets; slot load restores)`);
+      await page.keyboard.press('Escape');
+      await sleep(800);
+      await page.click('#pause-load');
+      await sleep(800);
+      const loaded = await readState(page);
+      evidence.afterLoad = { jumpsDone: loaded.side.jumpsDone, money: loaded.money, rank: loaded.side.rank };
+      if (loaded.side.jumpsDone !== 4) throw new Error(`after load jumpsDone ${loaded.side.jumpsDone}, expected 4`);
+      if (loaded.money !== 2600) throw new Error(`after load money ${loaded.money}, expected 2600 (1500 + 4x150 + WHEELMAN 500)`);
+      if (errors.length) throw new Error('page errors: ' + errors.slice(0, 3).join(' | '));
+      console.log('[jumps] phase A OK: slow pass rejected, 4 jumps, WHEELMAN rank-up on the 3rd, jumps persist across reload, money 2600 restored by slot-1 load');
+    } finally {
+      await ctx.close();
+    }
+    // --- Phase B: 8/8 completion bonus (7 pre-seeded, 8th for real) ---
+    const seed = { version: 1, jumpsDone: ['SJ1', 'SJ2', 'SJ3', 'SJ4', 'SJ5', 'SJ6', 'SJ7'] };
+    const b = await newPageSeeded(seed);
+    try {
+      const s0 = await readState(b.page);
+      if (s0.side.jumpsDone !== 7) throw new Error(`seeded jumpsDone ${s0.side.jumpsDone}, expected 7`);
+      const g8 = jumpXZ('SJ8');
+      await placeCar(b.page, g8.x, g8.z - 4, -Math.PI / 2);
+      await placePlayer(b.page, g8.x + 1.5, g8.z - 4, -Math.PI / 2);
+      if (!(await boardCar(b.page))) throw new Error('SJ8: could not board car');
+      const before = await readState(b.page);
+      const res = await driveThroughGate(b.page, g8, before.side.jumpsDone, false);
+      await sleep(1000);
+      const after = await readState(b.page);
+      const toast = await b.page.evaluate(() => (document.getElementById('side-toast') || {}).textContent || '');
+      evidence.completion = { maxSpeedAtGate: +res.maxSpeed.toFixed(1), moneyBefore: before.money, moneyAfter: after.money, jumpsAfter: after.side.jumpsDone, toast };
+      if (!res.ok) throw new Error(`SJ8 did not register (max speed at gate ${res.maxSpeed.toFixed(1)} m/s)`);
+      if (after.side.jumpsDone !== 8) throw new Error(`completion: jumpsDone ${after.side.jumpsDone}, expected 8`);
+      if (after.money !== before.money + 650) throw new Error(`completion: money ${before.money} -> ${after.money}, expected +650 (+150 jump +500 bonus)`);
+      if (!toast.includes('8/8')) throw new Error(`completion toast '${toast}' does not mention 8/8`);
+      const stored = await b.page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
+      evidence.completionPersisted = { jumpsBonusClaimed: stored.jumpsBonusClaimed, storedCount: (stored.jumpsDone || []).length, hasSJ8: (stored.jumpsDone || []).includes('SJ8') };
+      if ((stored.jumpsDone || []).length !== 8) throw new Error(`stored jumps ${(stored.jumpsDone || []).length}, expected 8`);
+      if (!stored.jumpsBonusClaimed) throw new Error('jumpsBonusClaimed not persisted');
+      if (b.errors.length) throw new Error('page errors: ' + b.errors.slice(0, 3).join(' | '));
+      console.log('[jumps] phase B OK: 8/8 bonus +S 500, persists');
+    } finally {
+      await b.ctx.close();
+    }
+    const rec = { result: 'PASS', how: 'human-like', ms: Date.now() - started, evidence };
+    await saveResult(label, rec);
+    return rec;
+  } catch (e) {
+    const rec = { result: 'FAIL', how: 'human-like', ms: Date.now() - started, error: String(e.message || e), evidence };
+    await saveResult(label, rec);
+    return rec;
+  }
+}
+
 // --- Runner ---
-const TESTS = { shops: testShops, 'shops-near': testShopsNear, coins: testCoins };
+const TESTS = { shops: testShops, 'shops-near': testShopsNear, coins: testCoins, jumps: testJumps };
 const selected = ONLY ? [ONLY] : Object.keys(TESTS);
 let allPass = true;
 for (const label of selected) {

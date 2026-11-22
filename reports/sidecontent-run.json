@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T09:16:36.236Z",
+  "generated": "2026-11-22T09:24:21.654Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -319,6 +319,39 @@
           "coinsBonusClaimed": true,
           "storedCount": 20,
           "hasC20": true
+        }
+      }
+    },
+    "jumps": {
+      "result": "FAIL",
+      "how": "human-like",
+      "ms": 106798,
+      "error": "SJ1: jump did not register (max speed at gate 13.0 m/s)",
+      "evidence": {
+        "start": {
+          "money": 1500,
+          "xp": 1240,
+          "jumpsDone": 0,
+          "rank": "DECKHAND"
+        },
+        "slowPass": {
+          "maxSpeedAtGate": 6.5,
+          "registered": false
+        },
+        "SJ1": {
+          "maxSpeedAtGate": 13,
+          "moneyBefore": 1800,
+          "moneyAfter": 1800,
+          "xpBefore": 1433.2024166666395,
+          "xpAfter": 1486.8889166666168,
+          "jumpsBefore": 0,
+          "jumpsAfter": 0,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 6/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
         }
       }
     }
