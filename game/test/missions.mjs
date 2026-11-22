@@ -402,7 +402,23 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs, opts = {}) {
       // (M4 ESCAPE: 8 identical failures at (-54,-26), the car
       // ending (-46,-29) after every reverse-out). At a junction
       // the forward arc + early turn (r=5) is the right move.
-      if (!opts.noReverseOut) await reverseOut(page, tx, tz);
+      // DRIVER fix (driver-fix 23 Nov ~04:40): also SKIP the
+      // reverse-out when the car is OFF-ROAD (its distance to the
+      // nearest road segment exceeds the segment half-width + 0.5u).
+      // M5 att 1: leg (-54,-6) r=2.5, reverseOut fired while the car
+      // was already off the road and threw it 12u east into the
+      // block, wedged total. Reversing from inside a block only
+      // drives the car deeper into it; the backtrack / blacklist
+      // (routeDrive) is what gets it out.
+      if (!opts.noReverseOut) {
+        const offRoad = roadGraph && roadGraph.distToRoad
+          ? roadGraph.distToRoad(c0.x, c0.z).d > 0.5 : false;
+        if (offRoad) {
+          console.log(`[driveToPoint] reverseOut SKIPPED off-road at (${c0.x.toFixed(1)},${c0.z.toFixed(1)}) distToRoad=${roadGraph.distToRoad(c0.x, c0.z).d.toFixed(1)}u`);
+        } else {
+          await reverseOut(page, tx, tz);
+        }
+      }
     }
   }
   let sideStep = 0;
@@ -519,15 +535,29 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
   // count), or to the plan-start position if none, and re-plans from
   // there with a clean approach. A second identical failure from
   // the same spot returns false instead of looping.
+  // DRIVER fix (driver-fix 23 Nov ~04:40): WAYPOINT BLACKLIST. The
+  // corner probe (23 Nov ~04:30) proved the (-54,-26) junction is
+  // UNDRIVABLE: the minimap claims a z=-26 road that runs through a
+  // row of old-town houses (house (-51.5..-48.5, -28.5..-25.5) sits
+  // on the centreline; a car teleported onto the leg wedges
+  // immediately, 0.2-0.5 u/s with W held, wanted=0 hp=100). No
+  // amount of backtracking fixes a road that does not exist. So on
+  // the second identical failure the driver BLACKLISTS the failed
+  // waypoint's node (up to 2 per call), backtracks to the last
+  // genuinely visited waypoint, and re-plans WITHOUT that node —
+  // the BFS routes around it (e.g. via the ring road + boulevard).
+  // Up to 6 plans per call (4 base + 2 blacklist re-plans).
   let backtracked = false;
   let lastFailWp = null, lastFailPos = null;
-  for (let plan = 0; plan < 4; plan++) {
+  const blocked = new Set();
+  let blacklists = 0;
+  for (let plan = 0; plan < 6; plan++) {
     const c = await readCar(page);
     const planStart = { x: c.x, z: c.z };
-    const from = roadGraph.nearestNode(c.x, c.z);
-    const to = roadGraph.nearestNode(tx, tz);
-    const pathIdx = roadGraph.route(from.node, to.node);
-    if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz})`); return false; }
+    const from = roadGraph.nearestNodeUnblocked(c.x, c.z, blocked);
+    const to = roadGraph.nearestNodeUnblocked(tx, tz, blocked);
+    const pathIdx = roadGraph.route(from.node, to.node, blocked);
+    if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz}) blocked=${blocked.size}`); return false; }
     const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
     const thin = [wps[0]];
     for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 3) thin.push(p);
@@ -565,12 +595,27 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
       // 3.2u (turning radius) + ~1.2u (one poll of steering lag at
       // 4 u/s, FASTSIM=2) before the corner, so the 90 deg arc exits
       // on the centreline instead of 3.2u off the road. The last
-      // waypoint keeps 2.5u (it IS the target).
+      // waypoint keeps 2.5u unless it is a sharp turn toward the
+      // final target (see below).
       let r = 2.5;
       if (wi > 0 && wi < thin.length - 1) {
         const a = thin[wi - 1], b = thin[wi], c = thin[wi + 1];
         const v1 = Math.atan2(-(b.z - a.z), b.x - a.x);
         const v2 = Math.atan2(-(c.z - b.z), c.x - b.x);
+        let turn = v2 - v1;
+        while (turn > Math.PI) turn -= 2 * Math.PI;
+        while (turn < -Math.PI) turn += 2 * Math.PI;
+        if (Math.abs(turn) > 0.7) r = 5;
+      }
+      // DRIVER fix (23 Nov ~04:40): the LAST waypoint can be a sharp
+      // turn too — the turn AT it is toward the final target (tx,tz).
+      // M5 att 1: leg (-54,-6) r=2.5 was the last waypoint of a 90 deg
+      // turn; reverseOut fired and threw the car 12u into the block.
+      // Treat it the same: r=5 + noReverseOut (r===5 sets it below).
+      if (wi === thin.length - 1 && wi > 0) {
+        const a = thin[wi - 1], b = thin[wi];
+        const v1 = Math.atan2(-(b.z - a.z), b.x - a.x);
+        const v2 = Math.atan2(-(tz - b.z), tx - b.x);
         let turn = v2 - v1;
         while (turn > Math.PI) turn -= 2 * Math.PI;
         while (turn < -Math.PI) turn += 2 * Math.PI;
@@ -600,10 +645,27 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
       }
     }
     // Identical-failure guard: same waypoint failed from the same
-    // spot twice — no re-plan helps, stop burning mission time.
+    // spot twice. First time it happens, BLACKLIST the waypoint's
+    // node (the road there is not drivable — see the header comment),
+    // backtrack to the last genuinely visited waypoint, and re-plan
+    // around it. Only when the blacklist is exhausted do we give up.
     if (failedWp) {
       if (lastFailWp && Math.hypot(failedWp.x - lastFailWp.x, failedWp.z - lastFailWp.z) < 0.5
         && Math.hypot(c2.x - lastFailPos.x, c2.z - lastFailPos.z) < 1.5) {
+        if (blacklists < 2) {
+          const bn = roadGraph.nearestNode(failedWp.x, failedWp.z).node;
+          blocked.add(bn);
+          blacklists++;
+          console.log(`[routeDrive] BLACKLIST node (${roadGraph.nodes[bn].x},${roadGraph.nodes[bn].z}) after identical failure at (${failedWp.x.toFixed(1)},${failedWp.z.toFixed(1)}) — re-planning around it (${blacklists}/2)`);
+          const target = lastGood || planStart;
+          const c4 = await readCar(page);
+          if (Math.hypot(c4.x - target.x, c4.z - target.z) > 2.5) {
+            console.log(`[routeDrive] BLACKLIST backtrack to (${target.x.toFixed(1)},${target.z.toFixed(1)}) from (${c4.x.toFixed(1)},${c4.z.toFixed(1)})`);
+            await driveToPoint(page, target.x, target.z, 2.5, 8, 30000);
+          }
+          lastFailWp = null; lastFailPos = null;
+          continue;
+        }
         console.log(`[routeDrive] identical failure at (${failedWp.x.toFixed(1)},${failedWp.z.toFixed(1)}) from same spot — giving up`);
         return false;
       }
@@ -932,8 +994,13 @@ async function buildRoadGraph(page) {
       if (!nodes[b].adj.has(a) || nodes[b].adj.get(a) > cost) nodes[b].adj.set(a, cost);
     }
   }
-  function route(a, b) {
+  function route(a, b, blocked) {
     // Dijkstra (weighted shortest path) over the width-weighted graph.
+    // `blocked` (Set of node indices) is skipped — used by routeDrive's
+    // waypoint-blacklist: a junction proven unwedgeable (e.g. a minimap
+    // road that runs through houses) is removed from the graph and the
+    // route re-planned around it, instead of retrying the same leg.
+    if (blocked && (blocked.has(a) || blocked.has(b))) return null;
     const dist = new Array(nodes.length).fill(Infinity);
     const prev = new Array(nodes.length).fill(-1);
     const done = new Array(nodes.length).fill(false);
@@ -945,6 +1012,7 @@ async function buildRoadGraph(page) {
       done[n] = true;
       if (n === b) break;
       for (const [m, c] of nodes[n].adj) {
+        if (blocked && blocked.has(m)) continue;
         if (dist[n] + c < dist[m]) { dist[m] = dist[n] + c; prev[m] = n; }
       }
     }
@@ -959,7 +1027,35 @@ async function buildRoadGraph(page) {
     nodes.forEach((n, i) => { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = i; } });
     return { node: best, dist: bd };
   }
-  return { nodes, route, nearestNode, segments: segments.length };
+  // Nearest node NOT in the blacklist (falls back to nearestNode when the
+  // blacklist is empty or everything is blocked).
+  function nearestNodeUnblocked(x, z, blocked) {
+    if (!blocked || blocked.size === 0) return nearestNode(x, z);
+    let best = -1, bd = Infinity;
+    nodes.forEach((n, i) => {
+      if (blocked.has(i)) return;
+      const d = Math.hypot(n.x - x, n.z - z);
+      if (d < bd) { bd = d; best = i; }
+    });
+    if (best < 0) return nearestNode(x, z);
+    return { node: best, dist: bd };
+  }
+  // Distance from (x,z) to the nearest road segment's centerline, minus
+  // that segment's half-width: <=0 means the car is on the road surface,
+  // >0.5 means it is off-road (in a block). Used to gate reverseOut.
+  function distToRoad(x, z) {
+    let best = Infinity, bestHalf = 1;
+    for (const s of segments) {
+      const dx = s.x2 - s.x1, dz = s.z2 - s.z1;
+      const len2 = dx * dx + dz * dz;
+      let t = len2 ? ((x - s.x1) * dx + (z - s.z1) * dz) / len2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      const d = Math.hypot(x - (s.x1 + dx * t), z - (s.z1 + dz * t));
+      if (d < best) { best = d; bestHalf = (s.w || 2) / 2; }
+    }
+    return { d: best - bestHalf, half: bestHalf };
+  }
+  return { nodes, route, nearestNode, nearestNodeUnblocked, segments, distToRoad };
 }
 
 // One position-trace line: stage, player + car + target positions,
