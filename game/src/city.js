@@ -580,13 +580,14 @@ export function buildDistrict4() {
   // The connector signal ticker (working cycles) is stepped with the
   // district tickers, next to the grid's own signal ticker.
   if (roads.tickers) tickers.push(...roads.tickers);
-  // GAME fix (M10 simplify, 22 Nov): the boulevard median is visual
-  // only — NO colliders. The median strips sit on the road centreline
-  // (z 0), so a car driving along the boulevard wedged on the median
-  // nose at (-34.7, 0) in every M10 run (runs 7-11). The race, the tail
-  // and the escapes all drive along the boulevard, so the whole avenue
-  // must be drivable end-to-end. The low stone strip (0.35 high) reads
-  // as a mountable divider; crossings at the intersections are unchanged.
+  // GAME fix (22 Nov): the boulevard median is visual only — NO
+  // colliders. The median strips sit on the road centreline (z 0), so a
+  // car driving along the boulevard wedged on the median nose at
+  // (-34.7, 0) in every M10 run (runs 7-11) before the race was cut.
+  // The tail, the escapes and the side races all drive along the
+  // boulevard, so the whole avenue must be drivable end-to-end. The low
+  // stone strip (0.35 high) reads as a mountable divider; crossings at
+  // the intersections are unchanged.
 
   // --- buildings (merged into a few draw calls) ---
   const buildings = new THREE.Group();

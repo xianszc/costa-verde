@@ -25,8 +25,8 @@ export const ANCHORS = {
   // STAGE 1 part 5: the pavilion moves to the marina strip (the east
   // end of the marina, on the promenade walkway).
   harbormaster_pavilion: { x: 5, z: 20, district: 'marina' },
-  // The middle of the boulevard. M1 ESCAPE, M4 ESCAPE, M10 race finish
-  // and PODIUM.
+  // The middle of the boulevard. M1 ESCAPE, M4 ESCAPE, and the
+  // side-race finish.
   boulevard_mid: { x: 0, z: 0, district: 'boulevard' },
   // Where the smuggler's car starts its boulevard loop (M2 TAIL).
   // GRID REBUILD: the boulevard is 3.5 wide now, so the north lane is
@@ -57,11 +57,11 @@ export const ANCHORS = {
   // The foot of the old bell tower (M4 DROP).
   bell_tower: { x: -47, z: -36, district: 'old town' },
   // The fortress plaza in the old town — the chapel arcade (M5 RECON /
-  // TAKE) and the old-town safehouse (M9 RUN / LAY LOW / REPORT), and
-  // race checkpoint 1 (M10 RACE). In the new pocket, on the main street.
+  // TAKE) and the old-town safehouse (M9 RUN / LAY LOW / REPORT).
+  // In the new pocket, on the main street.
   fortress_plaza: { x: -47, z: -39, district: 'old town' },
-  // The Casino Azzura forecourt on the promenade (M6 MEET, M10 race
-  // checkpoint 2, M12 CONFRONT / DUEL / AFTERMATH). The M12 duel spawns
+  // The Casino Azzura forecourt on the promenade (M6 MEET, M12
+  // CONFRONT / DUEL / AFTERMATH). The M12 duel spawns
   // Aldo here, facing the boulevard. STAGE 1 part 5: the forecourt is
   // on the promenade walkway, at the casino fountain.
   casino_forecourt: { x: 35, z: 30, district: 'promenade' },
@@ -80,11 +80,11 @@ export const ANCHORS = {
   // The quay at the shore (M7 RETURN, M8 QUAY / SIGNAL, M11 ESCAPE).
   // STAGE 1 part 5: the new quay (z 31..35), at the water's edge.
   quay_end: { x: 0, z: 33, district: 'quay' },
-  // The race start on the boulevard (M10 LINE UP) — also the drive /
+  // The race start on the boulevard (side-race LINE UP) — also the drive /
   // night / storm ?shot staging car. GRID REBUILD: north lane z -0.725.
   race_start_1: { x: -30, z: -0.725, angle: 0, district: 'boulevard' },
-  // Race checkpoint 3 on the promenade (M10 RACE) — the middle of the
-  // promenade walkway, in front of the casino.
+  // The middle of the promenade walkway (side-race checkpoint) — in
+  // front of the casino.
   promenade_mid: { x: 35, z: 29, district: 'promenade' },
   // The Azzura Tower lobby — LOBBY, the service LIFT and the penthouse
   // VAULT all stage here (M11). GRID REBUILD: the Azzura Tower stands

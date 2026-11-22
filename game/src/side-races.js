@@ -1,5 +1,5 @@
 // AZZURA HEIST — side content: 4 street races.
-// Same shape as M10 (missions.js): LINE UP (goto), RACE (race stage
+// Same shape as the old story race (cut 22 Nov): LINE UP (goto), RACE (race stage
 // with checkpoint targets + a time limit + best time persisted),
 // PODIUM (interact). Every checkpoint is a NAMED ANCHOR. Best times
 // are recorded by the engine and persisted by sidecontent.js.

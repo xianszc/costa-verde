@@ -491,7 +491,7 @@ export function createGame(container) {
       // forecourt, white suit and falcon cane, 120 hp.
       if (doneStage && doneStage.type === 'duel') clearDuelTarget();
       if (s.type === 'duel') spawnDuelTarget();
-      // Race lineup (M10): the cars take the grid facing the race
+      // Race lineup (side races): the cars take the grid facing the race
       // direction. The player lines up on foot at race_start_1, so
       // the car is placed on the start line facing west — otherwise
       // the race starts with the car 22u east of the line facing the
@@ -1248,7 +1248,7 @@ export function createGame(container) {
         wanted.setLevel(mm.wantedAtStart);
         wantedForMission = missions.missionId;
       }
-      // M10 race: the HUD timer shows the race clock, not the default.
+      // Race stages: the HUD timer shows the race clock, not the default.
       if (mm.timeLimit && !missions.done && missions.stageDef()
         && missions.stageDef().type === 'race') {
         state.missionTime = Math.max(0, mm.timeLimit - missions.elapsed);
