@@ -1,22 +1,18 @@
 {
-  "generated": "2026-11-22T15:28:47.773Z",
+  "generated": "2026-11-22T15:43:58.661Z",
   "commit": "unknown",
   "missions": {
     "M1": {
       "mission": "M1",
-      "result": "TIMEOUT",
-      "attempts": 1,
-      "fails": 0,
-      "maxStage": 2,
-      "ms": 271938,
-      "abortReason": "hard cap 240s reached",
-      "trace": [
-        "[trace] M1 stage=0 RECON player=(-2.0,-1.5) car=(-8.0,-0.7) target=(5,20) distPlayer=22.6u distCar=24.5u wanted=0 onFoot=true",
-        "[trace] M1 stage=2 ESCAPE player=(7.0,19.2) car=(-8.0,-0.7) target=(0,0) distPlayer=20.4u distCar=8.0u wanted=0 onFoot=true",
-        "[trace] M1 stage=2 ESCAPE player=(7.5,12.2) car=(-8.0,-0.7) target=(0,0) distPlayer=14.3u distCar=8.0u wanted=0 onFoot=true"
-      ],
-      "lastTrace": "[trace] M1 stage=2 ESCAPE player=(7.5,12.2) car=(-8.0,-0.7) target=(0,0) distPlayer=14.3u distCar=8.0u wanted=0 onFoot=true",
-      "stages": {},
+      "result": "FAIL",
+      "attempts": 2,
+      "fails": 2,
+      "maxStage": 1,
+      "ms": 409114,
+      "stages": {
+        "0": "RECON: reached by driving (human-like)"
+      },
+      "abortReason": "final walk failed, 10.6u short of objective",
       "errors": 0,
       "commit": "unknown"
     },
@@ -158,11 +154,11 @@
     }
   },
   "saveLoad": {
-    "saved": false,
-    "loaded": false,
-    "money": -1,
-    "xp": -1,
-    "missionId": -1,
-    "pass": false
+    "saved": true,
+    "loaded": true,
+    "money": 7777,
+    "xp": 1234,
+    "missionId": 4,
+    "pass": true
   }
 }
