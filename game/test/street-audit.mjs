@@ -28,12 +28,17 @@
 //    into one solid band and run perpendicular to traffic (registry
 //    standard: bars 2.0 long parallel to traffic). It bypasses the
 //    registry, so it never appears in check 1.
-import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
 import { writeFileSync } from 'node:fs';
+// ESM import ignores NODE_PATH, so Playwright is loaded via createRequire,
+// which does (same pattern as game/test/missions.mjs).
+const require = createRequire(import.meta.url);
+const { chromium } = require('playwright-core');
 
 const CHROMIUM = process.env.HOME + '/.cache/ms-playwright/chromium-1148/chrome-linux/chrome';
 const outArg = process.argv.find((a) => a.startsWith('--out'));
-const OUT = outArg ? outArg.split('=')[1] : 'reports/street-audit-before.json';
+const eq = outArg ? outArg.split('=')[1] : undefined;
+const OUT = eq !== undefined ? eq : (outArg ? process.argv[process.argv.indexOf(outArg) + 1] : 'reports/street-audit-before.json');
 
 const browser = await chromium.launch({ executablePath: CHROMIUM, args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--disable-dev-shm-usage'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
@@ -51,6 +56,7 @@ const raw = await page.evaluate(() => {
     peds: (g.peds || []).map((p) => ({ path: p.path ? { a: p.path.a, b: p.path.b } : null })),
     pedCount: (g.peds || []).length,
     trafficCount: (g.traffic || []).length,
+    cbdTrafficCount: (g.cbdTraffic || []).length,
     trafficKeys: g.traffic && g.traffic[0] ? Object.keys(g.traffic[0]) : [],
     districtReport: d.report || null,
     lanesKeys: d.lanes ? Object.keys(d.lanes) : null,
@@ -105,16 +111,44 @@ for (const it of allItems) {
   byRegion[k] = (byRegion[k] || 0) + 1;
 }
 
-// ---- 2. Road rects from minimap segments; furniture (colliders) on asphalt ----
-const roadRects = raw.minimap.map((s) => {
-  const hw = (s.w || 7) / 2;
-  return { x0: Math.min(s.x1, s.x2) - hw, z0: Math.min(s.z1, s.z2) - hw, x1: Math.max(s.x1, s.x2) + hw, z1: Math.max(s.z1, s.z2) + hw };
-});
-const rectHits = (x0, z0, x1, z1) => roadRects.some((r) => x0 < r.x1 && r.x0 < x1 && z0 < r.z1 && r.z0 < z1);
+// ---- 2. Road geometry from minimap segments (EXACT, not bboxes) ----
+// A segment is a capsule: centreline + half-width w/2. Bbox rects would
+// swallow plots beside diagonal (ring) roads, so colliders are tested
+// with SAT (AABB vs the segment's rotated rect) and path points with
+// exact point-to-segment distance.
+function segRect(s) {
+  return { ...s, cx: (s.x1 + s.x2) / 2, cz: (s.z1 + s.z2) / 2 };
+}
+const roadOBBs = raw.minimap.map(segRect);
+function pointToSegDist(x, z, s) {
+  const dx = s.x2 - s.x1, dz = s.z2 - s.z1;
+  const len2 = dx * dx + dz * dz || 1;
+  let t = ((x - s.x1) * dx + (z - s.z1) * dz) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(x - (s.x1 + dx * t), z - (s.z1 + dz * t));
+}
+const pointOnRoad = (x, z) => raw.minimap.some((s) => pointToSegDist(x, z, s) <= (s.w || 7) / 2);
+// SAT: AABB (centre a, half-extents ahx/ahz) vs OBB (centre c, half-extents
+// hu along unit u, hv along unit v). Axes: x, z, u, v.
+function aabbHitsObb(x0, z0, x1, z1, o) {
+  const acx = (x0 + x1) / 2, acz = (z0 + z1) / 2, ahx = (x1 - x0) / 2, ahz = (z1 - z0) / 2;
+  const dx = o.x2 - o.x1, dz = o.z2 - o.z1;
+  const len = Math.hypot(dx, dz) || 1;
+  const ux = dx / len, uz = dz / len, vx = -uz, vz = ux;
+  const hu = len / 2, hv = (o.w || 7) / 2;
+  const dcx = o.cx - acx, dcz = o.cz - acz;
+  const axes = [[1, 0], [0, 1], [ux, uz], [vx, vz]];
+  for (const [ax, az] of axes) {
+    const aR = ahx * Math.abs(ax) + ahz * Math.abs(az);
+    const oR = hu * Math.abs(ux * ax + uz * az) + hv * Math.abs(vx * ax + vz * az);
+    if (Math.abs(dcx * ax + dcz * az) >= aR + oR) return false;
+  }
+  return true;
+}
 const onAsphalt = [];
 for (const c of raw.colliders) {
   if (c.x0 === undefined) continue;
-  if (rectHits(c.x0, c.z0, c.x1, c.z1)) onAsphalt.push({ id: c.id || '?', x0: c.x0, z0: c.z0, x1: c.x1, z1: c.z1 });
+  if (roadOBBs.some((o) => aabbHitsObb(c.x0, c.z0, c.x1, c.z1, o))) onAsphalt.push({ id: c.id || '?', x0: c.x0, z0: c.z0, x1: c.x1, z1: c.z1 });
 }
 const onAsphaltById = {};
 for (const o of onAsphalt) {
@@ -123,7 +157,7 @@ for (const o of onAsphalt) {
 }
 
 // ---- 3. Ped paths on asphalt (101 samples, flag when on-road fraction > 0.5) ----
-const pointOnRoad = (x, z) => roadRects.some((r) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1);
+// Point-on-road is exact point-to-segment distance (see section 2).
 function pathOnRoad(a, b) {
   let on = 0;
   for (let i = 0; i <= 100; i++) {
@@ -147,19 +181,19 @@ for (const p of allPaths) {
 const result = {
   generated: new Date().toISOString(),
   markings: { registries: perRegistry, registryTotal, registrySkipped, itemsTotal: allItems.length, independentOverlaps: overlapPairs.size, overlapSamples, byType, byRegion },
-  roads: { minimapSegments: raw.minimap.length, roadRects: roadRects.length },
+  roads: { minimapSegments: raw.minimap.length, roadOBBs: roadOBBs.length },
   furnitureOnAsphalt: { count: onAsphalt.length, byIdPrefix: onAsphaltById, sample: onAsphalt.slice(0, 20) },
   pedPaths: { checked: allPaths.length, flagged: pedPathFlags.length, flags: pedPathFlags.slice(0, 20) },
   peds: { count: raw.pedCount },
-  traffic: { count: raw.trafficCount, keys: raw.trafficKeys },
+  traffic: { count: raw.trafficCount, cbdCount: raw.cbdTrafficCount, keys: raw.trafficKeys },
   districtReport: raw.districtReport,
   lanesKeys: raw.lanesKeys,
 };
 writeFileSync(OUT, JSON.stringify(result, null, 2));
 console.log(JSON.stringify({
   markingsItems: allItems.length, registryTotal, registrySkipped, independentOverlaps: overlapPairs.size,
-  roadRects: roadRects.length, colliders: raw.colliders.length, furnitureOnAsphalt: onAsphalt.length,
+  roadOBBs: roadOBBs.length, colliders: raw.colliders.length, furnitureOnAsphalt: onAsphalt.length,
   pedPathsChecked: allPaths.length, pedPathsFlagged: pedPathFlags.length,
-  peds: raw.pedCount, traffic: raw.trafficCount, districtReport: raw.districtReport,
+  peds: raw.pedCount, traffic: raw.trafficCount, cbdTraffic: raw.cbdTrafficCount, districtReport: raw.districtReport,
 }, null, 1));
 console.log('wrote ' + OUT);
