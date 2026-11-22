@@ -1361,7 +1361,12 @@ async function driveThroughGate(page, gate, before, slow) {
     if (d < 5) maxSpeedAtGate = Math.max(maxSpeedAtGate, Math.abs(c.speed));
     const beyond = (c.x - gate.x) * dx + (c.z - gate.z) * dz;
     if (beyond > 6) break;
-    if (slow) await setKeys(page, { w: Math.abs(c.speed) < 5, a: false, d: false, s: Math.abs(c.speed) > 6 });
+    // Slow pass: crawl at ~4 m/s (W only below 3.5, brake above 4.5 —
+    // the brake at 24/s is far stronger than the 15 accel, so the
+    // speed stays in a tight 3.5-4.5 band despite the coarse
+    // headless sampling; a W-tap can gain at most ~6 in one
+    // iteration, so the peak stays under the 10 gate).
+    if (slow) await setKeys(page, { w: Math.abs(c.speed) < 3.5, a: false, d: false, s: Math.abs(c.speed) > 4.5 });
     else await setKeys(page, { w: true, a: false, d: false, s: false });
     await sleep(200);
   }
