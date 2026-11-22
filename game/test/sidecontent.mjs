@@ -1504,8 +1504,12 @@ async function testJumps() {
       const s0 = await readState(b.page);
       if (s0.side.jumpsDone !== 7) throw new Error(`seeded jumpsDone ${s0.side.jumpsDone}, expected 7`);
       const g8 = jumpXZ('SJ8');
-      await placeCar(b.page, g8.x, g8.z - 4, -Math.PI / 2);
-      await placePlayer(b.page, g8.x + 1.5, g8.z - 4, -Math.PI / 2);
+      // Direction-aware start: 'ew' gates are approached from the
+      // west, 'ns' gates from the north (the old ns start at
+      // (35,23) sat INSIDE the casino collider and wedged the car).
+      const ew = g8.dir === 'ew';
+      await placeCar(b.page, ew ? g8.x - 4 : g8.x, ew ? g8.z : g8.z - 4, ew ? 0 : -Math.PI / 2);
+      await placePlayer(b.page, ew ? g8.x - 4 : g8.x + 1.5, ew ? g8.z + 1.5 : g8.z - 4, ew ? 0 : -Math.PI / 2);
       if (!(await boardCar(b.page))) throw new Error('SJ8: could not board car');
       const before = await readState(b.page);
       const res = await driveThroughGate(b.page, g8, before.side.jumpsDone, false);
@@ -1516,7 +1520,7 @@ async function testJumps() {
       evidence.completion = { maxSpeedAtGate: +res.maxSpeed.toFixed(1), moneyBefore: before.money, moneyAfter: after.money, coinsBefore: before.side.coinsDone, coinsAfter: after.side.coinsDone, jumpsAfter: after.side.jumpsDone, toast };
       if (!res.ok) throw new Error(`SJ8 did not register (max speed at gate ${res.maxSpeed.toFixed(1)} m/s)`);
       if (after.side.jumpsDone !== 8) throw new Error(`completion: jumpsDone ${after.side.jumpsDone}, expected 8`);
-      if (after.money !== before.money + 650 + 50 * dCoins8) throw new Error(`completion: money ${before.money} -> ${after.money}, expected +${650 + 50 * dCoins8} (+150 jump +500 bonus${dCoins8 ? ` +${50 * dCoins8} from ${dCoins8} coin(s) — C14 sits on the gate` : ''})`);
+      if (after.money !== before.money + 650 + 50 * dCoins8) throw new Error(`completion: money ${before.money} -> ${after.money}, expected +${650 + 50 * dCoins8} (+150 jump +500 bonus${dCoins8 ? ` +${50 * dCoins8} from ${dCoins8} coin(s) en route` : ''})`);
       if (!toast.includes('8/8')) throw new Error(`completion toast '${toast}' does not mention 8/8`);
       const stored = await b.page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
       evidence.completionPersisted = { jumpsBonusClaimed: stored.jumpsBonusClaimed, storedCount: (stored.jumpsDone || []).length, hasSJ8: (stored.jumpsDone || []).includes('SJ8') };
