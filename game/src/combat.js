@@ -27,7 +27,7 @@ const MAX_DECALS = 24;
 const MAX_BURSTS = 6;
 
 export function createCombat(scene, camera, opts) {
-  const { getPlayer, getTargets, onCrime, onDamage, onFire } = opts;
+  const { getPlayer, getTargets, onCrime, onDamage, onFire, audio } = opts;
   const ammo = WEAPONS.map((w) => ({ mag: w.mag, reserve: w.reserve }));
   let selected = 1;
   let cooldown = 0;
@@ -174,15 +174,43 @@ export function createCombat(scene, camera, opts) {
     decals.push({ mesh: m, life: 10 });
   }
 
+  // AUDIO: ray vs the world colliders (2D AABBs {x0,z0,x1,z1,id}).
+  // A collider counts as a ~3u wall; material by id ('glass' → glass,
+  // the harbor crane → metal, everything else → wall). Buildings are
+  // taller than 3u, so a shot over a low prop is not a wall hit.
+  function rayColliderHit(origin, d, range) {
+    let bestT = Infinity, bestMat = null;
+    for (const c of opts.colliders || []) {
+      let tmin = 0, tmax = range;
+      for (const [o, dd, lo, hi] of [[origin.x, d.x, c.x0, c.x1], [origin.z, d.z, c.z0, c.z1]]) {
+        if (Math.abs(dd) < 1e-8) { if (o < lo || o > hi) { tmin = Infinity; break; } }
+        else {
+          let t1 = (lo - o) / dd, t2 = (hi - o) / dd;
+          if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+          tmin = Math.max(tmin, t1);
+          tmax = Math.min(tmax, t2);
+          if (tmin > tmax) { tmin = Infinity; break; }
+        }
+      }
+      if (tmin === Infinity || tmin >= bestT) continue;
+      const yAt = origin.y + d.y * tmin;
+      if (yAt < 0 || yAt > 3) continue;
+      bestT = tmin;
+      bestMat = (c.id && String(c.id).includes('glass')) ? 'glass'
+        : (c.id === 'crane') ? 'metal' : 'wall';
+    }
+    return bestT < Infinity ? { t: bestT, material: bestMat } : null;
+  }
   function fire() {
     const w = WEAPONS[selected];
     if (cooldown > 0 || reloading > 0) return false;
-    if (ammo[selected].mag <= 0) { startReload(); return false; }
+    if (ammo[selected].mag <= 0) { startReload(); if (audio) audio.emptyClick(); return false; }
     cooldown = 1 / w.rate;
     lastPlayerShotAt = combatTime; // the Guard answers fire (see update())
     if (w.mag !== Infinity) ammo[selected].mag--;
     const { origin, dir } = muzzleWorld();
     showFlash(origin, dir);
+    if (audio) audio.gunshot(w.name);
     const pellets = w.pellets || 1;
     let hitAny = false;
     for (let i = 0; i < pellets; i++) {
@@ -217,16 +245,23 @@ export function createCombat(scene, camera, opts) {
         if (owner && owner.damage) {
           owner.damage(w.damage);
           hitAny = true;
+          if (audio) audio.impact('body');
           if (owner.kind === 'police' && onCrime) onCrime(8);
           if (owner.kind === 'ped' && onCrime) onCrime(10);
         }
-      } else if (d.y < -0.02) {
-        // Miss: the round reaches the road — mark the asphalt.
-        const t = (0.21 - origin.y) / d.y;
-        if (t > 0 && t < w.range) {
-          const gp = origin.clone().addScaledVector(d, t);
+      } else {
+        // Miss: wall first (ray vs colliders), else the road.
+        const wh = rayColliderHit(origin, d, w.range);
+        const gt = d.y < -0.02 ? (0.21 - origin.y) / d.y : Infinity;
+        if (wh && wh.t < gt) {
+          end = origin.clone().addScaledVector(d, wh.t);
+          hitPoint = end.clone();
+          if (audio) audio.impact(wh.material);
+        } else if (gt > 0 && gt < w.range) {
+          const gp = origin.clone().addScaledVector(d, gt);
           showDecal(gp, new THREE.Vector3(0, 1, 0));
           showSparks(gp, new THREE.Vector3(0, 1, 0));
+          if (audio) audio.impact('wall');
         }
       }
       showTracer(origin, end, 'player');
@@ -244,6 +279,7 @@ export function createCombat(scene, camera, opts) {
     if (w.mag === Infinity || reloading > 0) return;
     if (ammo[selected].reserve <= 0 || ammo[selected].mag === w.mag) return;
     reloading = 1.2;
+    if (audio) audio.reload();
   }
   function finishReload() {
     const w = WEAPONS[selected];
@@ -361,6 +397,7 @@ export function createCombat(scene, camera, opts) {
         to.z += (Math.random() - 0.5) * 3;
       }
       showTracer(from, to, 'enemy');
+      if (audio) audio.gunshot('TAMBURO', { quiet: true });
       if (hits && onDamage) {
         const dmg = (6 + wantedLevel * 2) * (cover ? 0.25 : 1);
         onDamage(Math.round(dmg), u);

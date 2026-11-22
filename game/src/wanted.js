@@ -107,9 +107,12 @@ export function createWanted(scene, opts) {
     if (l !== level) setLevel(l);
   }
   function setLevel(l) {
+    const prev = level;
     level = Math.max(0, Math.min(5, l));
     heat = Math.max(heat, THRESHOLDS[level]);
     if (level === 0) heat = 0;
+    // AUDIO: game.js passes onLevel — wanted up/down stings.
+    if (level !== prev && opts.onLevel) opts.onLevel(level, prev);
   }
   function spawnUnit(kind, x, z) {
     if (kind === 'heli') { heli.active = true; heli.mesh.visible = true; return null; }
