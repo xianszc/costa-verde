@@ -11,5 +11,5 @@ export const SIDE_JUMPS = [
   { id: 'SJ5', name: 'Quay Hop', anchor: 'quay_end', dx: 0, dz: 0, dir: 'ew', district: 'quay' },
   { id: 'SJ6', name: 'Cobble Jump', anchor: 'oldtown_main_street', dx: 0, dz: 0, dir: 'ew', district: 'old town' },
   { id: 'SJ7', name: 'Marina Air', anchor: 'harbormaster_pavilion', dx: 0, dz: 0, dir: 'ew', district: 'marina' },
-  { id: 'SJ8', name: 'Casino Rise', anchor: 'casino_entrance', dx: 0, dz: 0, dir: 'ns', district: 'promenade' },
+  { id: 'SJ8', name: 'Casino Rise', anchor: 'casino_entrance', dx: 22, dz: 5, dir: 'ew', district: 'promenade' },
 ];
