@@ -406,15 +406,31 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
     let failed = false;
     for (let wi = 0; wi < thin.length; wi++) {
       const wp = thin[wi];
-      // DRIVER fix (M10 run 8, 22 Nov ~10:00): intermediate waypoints
-      // use arrival radius 4u (was 2.5u) so the car starts a 90 deg
-      // turn ~4u before the corner — the 3.2u turning radius plus
-      // ~1 poll of steering lag (2.4u at 4 u/s, FASTSIM=2) means a
-      // 2.5u switch turns the car too late and it exits the turn
-      // off the road. The last waypoint keeps 2.5u (it IS the target).
-      const ok = await driveToPoint(page, wp.x, wp.z, wi === thin.length - 1 ? 2.5 : 4, cap, perWpMs);
+      // DRIVER fix (M10 run 9, 22 Nov ~10:15): arrival radius by TURN
+      // ANGLE, not one radius for all. Run 8's flat 4u backfired on
+      // STRAIGHT legs: the car "arrived" at (-54,-16) while still at
+      // (-51.3,-15.3), aimed diagonally at (-54,-26), and scraped
+      // the west house faces (face at x=-55.1, car body to -55.5)
+      // for 20 s at 0.14 u/s. On a straight leg the car must actually
+      // visit the waypoint (2.5u) to stay on the 1u asphalt. On a
+      // SHARP turn (>0.7 rad) the radius is 5u: the turn must start
+      // 3.2u (turning radius) + ~1.2u (one poll of steering lag at
+      // 4 u/s, FASTSIM=2) before the corner, so the 90 deg arc exits
+      // on the centreline instead of 3.2u off the road. The last
+      // waypoint keeps 2.5u (it IS the target).
+      let r = 2.5;
+      if (wi > 0 && wi < thin.length - 1) {
+        const a = thin[wi - 1], b = thin[wi], c = thin[wi + 1];
+        const v1 = Math.atan2(-(b.z - a.z), b.x - a.x);
+        const v2 = Math.atan2(-(c.z - b.z), c.x - b.x);
+        let turn = v2 - v1;
+        while (turn > Math.PI) turn -= 2 * Math.PI;
+        while (turn < -Math.PI) turn += 2 * Math.PI;
+        if (Math.abs(turn) > 0.7) r = 5;
+      }
+      const ok = await driveToPoint(page, wp.x, wp.z, r, cap, perWpMs);
       const cc = await readCar(page);
-      console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
+      console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) r=${r} ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
       if (!ok) { failed = true; break; }
     }
     const c2 = await readCar(page);
