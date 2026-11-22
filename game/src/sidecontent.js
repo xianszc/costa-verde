@@ -108,14 +108,28 @@ let outfitRoles = null; // { top: [materials], bottom, shoes, accent }
 let currentPaint = STOCK_PAINT;
 
 function el(id) { return document.getElementById(id); }
-function toast(msg) {
+// Toast queue (3c.5, 22 Nov): toasts used to overwrite each other in
+// the same tick — a job COMPLETE toast landing with a rank-up (same
+// side-loop tick) or a stage dialogue (1.2 s delayed) never displayed
+// at all, so the player never saw the completion feedback. Queue them
+// FIFO so every toast is shown for its full 3.6 s.
+const toastQueue = [];
+let toastShowing = false;
+function pumpToast() {
   const t = el('side-toast');
-  if (!t) return;
-  t.textContent = msg;
+  if (!t || toastShowing || !toastQueue.length) return;
+  toastShowing = true;
+  t.textContent = toastQueue.shift();
   t.style.opacity = '1';
   lastToastAt = performance.now();
   clearTimeout(t._fade);
-  t._fade = setTimeout(() => { t.style.opacity = '0'; }, 3600);
+  t._fade = setTimeout(() => { t.style.opacity = '0'; toastShowing = false; pumpToast(); }, 3600);
+}
+function toast(msg) {
+  const t = el('side-toast');
+  if (!t) return;
+  toastQueue.push(msg);
+  pumpToast();
 }
 
 function addStanding(district, pts) {
