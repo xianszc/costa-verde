@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T00:22:51.495Z",
+  "generated": "2026-11-22T00:39:30.495Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -102,12 +102,12 @@
     },
     "M10": {
       "mission": "M10",
-      "result": "ERROR",
-      "attempts": 0,
-      "fails": 0,
-      "maxStage": 0,
-      "ms": 0,
-      "error": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8941/?fastsim=2\nCall log:\n  - navigating to \"http://127.0.0.1:8941/?fastsim=2\", waiting until \"load\"\n",
+      "result": "FAIL",
+      "attempts": 2,
+      "fails": 2,
+      "maxStage": 1,
+      "ms": 351703,
+      "errors": 0,
       "commit": "unknown"
     },
     "M11": {
