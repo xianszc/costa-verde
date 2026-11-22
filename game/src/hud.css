@@ -416,3 +416,11 @@ html, body {
   margin-top: 6px; padding: 7px 14px; background: none; border: 1px solid var(--ink);
   border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: 1px; cursor: pointer;
 }
+
+/* ?hud=0 (main.js): hide every HUD element for clean staged shots.
+   !important because the side engine manages these elements' inline
+   display itself (toast queue, HUD chip, job panel) and would undo a
+   one-time inline hide — the class survives elements created later. */
+body.hud0 #hud-stage, body.hud0 #topbar, body.hud0 #title-card,
+body.hud0 #version, body.hud0 #side-toast, body.hud0 #side-hud,
+body.hud0 #side-job-panel, body.hud0 #side-prompt { display: none !important; }

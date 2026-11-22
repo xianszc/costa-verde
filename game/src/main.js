@@ -189,16 +189,11 @@ if (debugSkip && params.get('at') === 'cbd_center') {
 
 // ?hud=0 hides every HUD element (map shots: the whole city must be
 // visible, nothing cropped by the mission card / panels / minimap).
-// Applies after any staging above, so staged shots render HUD-free.
-// The side HUD (toast, COINS chip, job panel, E prompt) is created by
-// the side engine, so it is listed here too — without it a ?hud=0 city
-// shot still shows the toast + COINS chip.
-if (params.get('hud') === '0') {
-  for (const id of ['hud-stage', 'topbar', 'title-card', 'version', 'side-toast', 'side-hud', 'side-job-panel', 'side-prompt']) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  }
-}
+// A body class, not a one-time inline hide: the side engine manages
+// these elements' inline display itself (toast queue, HUD chip, job
+// panel) and would undo it, and some elements are created after this
+// runs — the CSS rule (hud.css, !important) covers them all.
+if (params.get('hud') === '0') document.body.classList.add('hud0');
 
 // Auto-pause when the tab hides mid-game (never run unseen).
 document.addEventListener('visibilitychange', () => {
