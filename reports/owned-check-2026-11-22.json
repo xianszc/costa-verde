@@ -1,0 +1,33 @@
+{
+  "generated": "2026-11-22T08:34:07.479Z",
+  "title": "Sartoria Azzura",
+  "money": 1500,
+  "outfit": "street",
+  "rows": [
+    {
+      "name": "Harbor Stripes",
+      "price": "Owned",
+      "button": "APPLY",
+      "disabled": false
+    },
+    {
+      "name": "Casino Sharp",
+      "price": "",
+      "button": "LOCKED",
+      "disabled": true
+    },
+    {
+      "name": "Harvest Gold",
+      "price": "",
+      "button": "LOCKED",
+      "disabled": true
+    },
+    {
+      "name": "King of the Riviera",
+      "price": "",
+      "button": "LOCKED",
+      "disabled": true
+    }
+  ],
+  "pageErrors": []
+}

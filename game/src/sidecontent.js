@@ -737,7 +737,7 @@ function renderShop() {
       const btn = it.locked ? 'LOCKED' : applied ? 'APPLIED' : owned ? 'APPLY' : 'BUY';
       return `<div class="shop-item${it.locked ? ' locked' : ''}">
         <div class="shop-info"><b>${it.name}</b><p>${it.desc || ''}${it.rank ? ` · Needs rank ${it.rank}.` : ''}</p></div>
-        <span class="shop-price">${it.locked ? '' : fmtMoney(it.price)}</span>
+        <span class="shop-price">${it.locked ? '' : owned ? 'Owned' : fmtMoney(it.price)}</span>
         <button data-buy="${it.id}"${it.locked || applied ? ' disabled' : ''}>${btn}</button></div>`;
     }).join('');
     list.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
