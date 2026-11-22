@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T05:16:42.234Z",
+  "generated": "2026-11-22T05:19:55.010Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -37,15 +37,12 @@
     },
     "M5": {
       "mission": "M5",
-      "result": "PASS",
-      "attempts": 1,
+      "result": "ERROR",
+      "attempts": 0,
       "fails": 0,
-      "maxStage": 2,
-      "ms": 161352,
-      "money": 2150,
-      "xp": 1819.4107929830957,
-      "errors": 0,
-      "how": "workaround",
+      "maxStage": 0,
+      "ms": 0,
+      "error": "ReferenceError: stageHow is not defined",
       "commit": "unknown"
     },
     "M6": {
@@ -76,7 +73,7 @@
         "2": "RETURN: drive 11.6u + walk 16.0u (human-like)"
       },
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     },
     "M8": {
