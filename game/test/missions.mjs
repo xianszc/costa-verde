@@ -240,16 +240,19 @@ async function threePointTurn(page, tx, tz) {
       if (Math.hypot(c2.x - sx, c2.z - sz) > 1.0) break;
       const diff2 = normAngle(Math.atan2(-(tz - c2.z), tx - c2.x) - c2.angle);
       if (Math.abs(diff2) < 0.5) break;
-      // Cap phase speed at ~3 u/s and poll every 150 ms: at
+      // Cap phase speed at ~2.5 u/s and poll every 150 ms: at
       // FASTSIM=2 a 300 ms poll is 600 ms of game time, and the car
       // travels 2-3u per poll — the 1.0u budget would overshoot to
       // 4u per phase and wedge the car (probe 22 Nov ~09:00: 2
-      // phases put the car 8u off-road). Forward phases are faster
-      // than reverse (0.5x accel), so a shared 3 u/s cap keeps the
-      // pair balanced and the net drift ~1u. Reversing flips the
-      // turn-rate sign, so the steering is inverted vs forward
-      // (diff > 0 needs D in reverse, A forward).
-      const drive = Math.abs(c2.speed) < 3;
+      // phases put the car 8u off-road). 2.5 u/s is also BELOW the
+      // pedestrian-hit threshold (|speed| > 3), so a drift onto the
+      // sidewalk cannot raise the wanted level (M10 run 5: wanted 4
+      // from ped hits during the turn, police pinned the car).
+      // Forward phases are faster than reverse (0.5x accel), so a
+      // shared 2.5 u/s cap keeps the pair balanced and the net drift
+      // ~1u. Reversing flips the turn-rate sign, so the steering is
+      // inverted vs forward (diff > 0 needs D in reverse, A forward).
+      const drive = Math.abs(c2.speed) < 2.5;
       if (reverse) await setKeys(page, { s: drive, a: diff2 < -0.15, d: diff2 > 0.15, w: false });
       else await setKeys(page, { w: drive, a: diff2 > 0.15, d: diff2 < -0.15, s: false });
       await sleep(150);

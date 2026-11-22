@@ -491,6 +491,20 @@ export function createGame(container) {
       // forecourt, white suit and falcon cane, 120 hp.
       if (doneStage && doneStage.type === 'duel') clearDuelTarget();
       if (s.type === 'duel') spawnDuelTarget();
+      // Race lineup (M10): the cars take the grid facing the race
+      // direction. The player lines up on foot at race_start_1, so
+      // the car is placed on the start line facing west — otherwise
+      // the race starts with the car 22u east of the line facing the
+      // wrong way, and the U-turn to get there runs over the
+      // boulevard pedestrians (wanted 4, police pin the car — M10
+      // run 5, 22 Nov). A human lines up by driving the car to the
+      // line; the grid snap is what the lineup stage means.
+      if (s.type === 'race') {
+        car.x = ANCHORS.race_start_1.x;
+        car.z = ANCHORS.race_start_1.z;
+        car.angle = Math.PI;
+        car.speed = 0;
+      }
       toast(`STAGE ${ev.stage + 1} — ${s.name}`);
       showNextDialogue();
     } else if (ev.type === 'checkpoint') {
