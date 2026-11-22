@@ -110,6 +110,12 @@ const BASE = 'http://127.0.0.1:8941';
 // Factor 2 is the verified safe max for this driver's 300 ms polls.
 const FASTSIM = Math.max(1, Math.min(8, parseInt(process.env.FASTSIM || '1', 10) || 1));
 const PAGE_URL = BASE + (FASTSIM > 1 ? '/?fastsim=' + FASTSIM : '/');
+
+// HUMAN-LIKE driver (22 Nov, Xian brief item 2): --human-like (or
+// HUMAN_LIKE=1) switches goto/deliver/interact/tail/race/escape to the
+// no-teleport flow — drive the car on the road graph, walk only the
+// final leg. Without it, the old teleport convenience stays (and any
+// PASS it produces is labelled 'workaround', never 'human-like').
 const CHROMIUM = '/home/hatch/.cache/ms-playwright/chromium-1148/chrome-linux/chrome';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -587,39 +593,24 @@ async function followTail(page, timeoutMs) {
   return false;
 }
 
-// Board the car FIRST (DRIVER fix for the M5/M6/M8 escape timeouts):
-// walk the player to the car when close, otherwise place the player
-// beside the car (the game's own exit placement, 2.2u) and press E at
-// close range (<4u — E does nothing beyond that). NEVER set
-// state.onFoot=false directly: the player's position stays behind,
-// the car drives off alone, and the escape is then measured from a
-// player 40-80u away on foot while the car sits at the target
+// Board the car WITHOUT teleporting (HUMAN-LIKE driver, 22 Nov, Xian
+// brief item 2): walk the player to the car when within 20u and press
+// E at close range (<4u — E does nothing beyond that). NEVER set
+// player.x/z or state.onFoot directly: the player's position stays
+// behind, the car drives off alone, and the escape is then measured
+// from a player 40-80u away on foot while the car sits at the target
 // (M5 trace: player 26.6u from target, car 26.9u, onFoot=true).
-// Positioning the player next to the car is the same class of test
-// convenience as the goto teleports below (it positions the player;
-// the driving itself is real, human-like keyboard driving).
+// If the car is further than 20u, or the walk fails, return false —
+// the caller records an honest fail. No teleport anywhere.
 async function boardCar(page) {
   for (let tries = 0; tries < 2; tries++) {
     const s = await readState(page);
     if (!s.onFoot) return true;
     const d = Math.hypot(s.px - s.cx, s.pz - s.cz);
     if (d > 3.5) {
-      if (d <= 15) {
-        const ok = await walkToPoint(page, s.cx, s.cz, 3.5, 60000);
-        if (!ok) {
-          await page.evaluate(() => {
-            const g = window.__game;
-            g.player.x = g.car.x + 2.2; g.player.z = g.car.z + 2.2;
-          });
-          await sleep(300);
-        }
-      } else {
-        await page.evaluate(() => {
-          const g = window.__game;
-          g.player.x = g.car.x + 2.2; g.player.z = g.car.z + 2.2;
-        });
-        await sleep(300);
-      }
+      if (d > 20) return false; // car too far to reach on foot
+      const ok = await walkToPoint(page, s.cx, s.cz, 3.5, 60000);
+      if (!ok) return false;
     }
     await page.keyboard.press('KeyE');
     await sleep(700);
@@ -627,6 +618,63 @@ async function boardCar(page) {
     if (!s2.onFoot) return true;
   }
   return false;
+}
+
+// HUMAN-LIKE goto/deliver (22 Nov, Xian brief item 2): drive the car
+// to the objective on the road graph (routeDrive, BFS on the minimap),
+// stop near it, exit, and walk only the final leg on foot. No teleport
+// anywhere. Returns { ok, driveU, walkU, reason }.
+// driveU = car distance closed toward the objective; walkU = on-foot
+// distance from where the car stopped to the objective. The brief's
+// "walk only the last 30 m" is the design target — off-road objectives
+// (quay, pavilion, fortress plaza) need a longer final leg because the
+// road graph ends at the nearest road node; the exact walk distance is
+// recorded in the stage label so it stays honest.
+async function driveToObjective(page, o, stageHow, stageIdx, stageName) {
+  const s0 = await readState(page);
+  const startD = Math.hypot(s0.cx - o.x, s0.cz - o.z);
+  let walkU = 0;
+  if (s0.onFoot) {
+    const boarded = await boardCar(page);
+    if (!boarded) {
+      const s = await readState(page);
+      return { ok: false, reason: `cannot board car (player-car ${Math.hypot(s.px - s.cx, s.pz - s.cz).toFixed(1)}u)` };
+    }
+  }
+  await routeDrive(page, o.x, o.z, 10, 20000);
+  let s = await readState(page);
+  if (s.stage !== stageIdx) {
+    if (stageHow) stageHow[stageIdx] = `${stageName}: reached by driving (human-like)`;
+    return { ok: true, driveU: Math.max(0, startD - Math.hypot(s.cx - o.x, s.cz - o.z)), walkU: 0, advanced: true };
+  }
+  const parkedD = Math.hypot(s.cx - o.x, s.cz - o.z);
+  const driveU = Math.max(0, startD - parkedD);
+  if (parkedD > (o.r || 5)) {
+    // Greedy close-in: the road graph ends at the nearest road node,
+    // but the car can often drive closer off-road (promenade, quay,
+    // plaza) before the final walk.
+    await driveToPoint(page, o.x, o.z, o.r || 5, 12, 30000);
+    s = await readState(page);
+    if (s.stage !== stageIdx) {
+      if (stageHow) stageHow[stageIdx] = `${stageName}: reached by driving (human-like)`;
+      return { ok: true, driveU, walkU: 0, advanced: true };
+    }
+  }
+  const d2 = Math.hypot(s.cx - o.x, s.cz - o.z);
+  if (d2 > (o.r || 5)) {
+    await page.keyboard.press('KeyE'); // exit the car
+    await sleep(600);
+    const s2 = await readState(page);
+    if (!s2.onFoot) return { ok: false, reason: 'could not exit car for final walk' };
+    walkU = Math.hypot(s2.px - o.x, s2.pz - o.z);
+    const ok = await walkToPoint(page, o.x, o.z, o.r || 5, 120000);
+    if (!ok) {
+      const s3 = await readState(page);
+      return { ok: false, reason: `final walk failed, ${Math.hypot(s3.px - o.x, s3.pz - o.z).toFixed(1)}u short of objective` };
+    }
+  }
+  if (stageHow) stageHow[stageIdx] = `${stageName}: drive ${driveU.toFixed(1)}u + walk ${walkU.toFixed(1)}u (human-like)`;
+  return { ok: true, driveU, walkU };
 }
 
 // --- Road routing (BFS on the minimap centerlines) ---
@@ -752,6 +800,8 @@ async function playMission(page, id, label, maxAttempts = 2) {
     let lastWanted = 0, lastWantedDropGame = 0, lastWantedDropReal = Date.now();
     let lastTraceLine = '';
     const traceBuf = [];
+    const stageHow = {}; // per-stage human-like labels (item 2)
+    let failReason = '';
     // FAST-FAIL (Xian 22 Nov 02:15): hard cap 240 s real per mission
     // (480 s for M2; +240 s once for any mission still making
     // progress at the cap — the long-escape case). A stuck mission
@@ -842,7 +892,7 @@ async function playMission(page, id, label, maxAttempts = 2) {
         }
         if (stalled) {
           traceLine(label, await readState(page), 'trace-timeout');
-          return { mission: label, result: 'STALL', attempts, fails, maxStage, ms: Date.now() - started, abortReason: why, trace: traceBuf.slice(-6), lastTrace: lastTraceLine };
+          return { mission: label, result: 'STALL', attempts, fails, maxStage, ms: Date.now() - started, abortReason: why, trace: traceBuf.slice(-6), lastTrace: lastTraceLine, stages: stageHow };
         }
       }
       // Cap extension (once): approaching the cap while still making
@@ -854,7 +904,21 @@ async function playMission(page, id, label, maxAttempts = 2) {
       const o = s.objective;
       if (!o) { await sleep(500); continue; }
       if (s.stageType === 'interact') {
-        await teleportPlayer(page, o.x, o.z);
+        if (HUMAN_LIKE) {
+          const d = Math.hypot(s.px - o.x, s.pz - o.z);
+          if (d > (o.r || 4)) {
+            const r = await driveToObjective(page, o, stageHow, s.stage, s.stageName);
+            if (!r.ok) { failReason = r.reason; fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-drive] ${label} ${s.stageName}: ${r.reason}`); break; }
+            // The drive may have completed this stage already (driving
+            // into the radius) — do not press E for the NEXT stage.
+            const sAfter = await readState(page);
+            if (sAfter.stage !== s.stage) { await sleep(400); continue; }
+          } else {
+            stageHow[s.stage] = `${s.stageName}: already at objective + E (human-like)`;
+          }
+        } else {
+          await teleportPlayer(page, o.x, o.z);
+        }
         await sleep(300);
         await page.keyboard.press('KeyE');
         await sleep(600);
@@ -866,22 +930,27 @@ async function playMission(page, id, label, maxAttempts = 2) {
         // catches up at 12 u/s when far. The game fix (timer holds
         // instead of decaying) means a bump that drops the player out
         // of range only pauses the tail — it is resumed by catching up.
-        // Enter the car. E can be consumed by a stage dialogue, so
-        // press it up to 3 times (waiting each time) and, as a last
-        // resort, put the player in the car directly — the car is
-        // parked on the road near the mission area, so getting in is
-        // not dodging anything.
-        for (let tries = 0; tries < 3; tries++) {
-          const sc = await readState(page);
-          if (!sc.onFoot) break;
-          await page.keyboard.press('KeyE');
-          await sleep(700);
-        }
-        {
-          const sc = await readState(page);
-          if (sc.onFoot) {
-            await page.evaluate(() => { window.__game.state.onFoot = false; });
-            await sleep(300);
+        // Enter the car. HUMAN-LIKE: walk to it and press E (boardCar)
+        // — the old code's last resort (setting state.onFoot=false
+        // directly) put the player in the car without walking, which
+        // is the same class of workaround as a teleport.
+        if (HUMAN_LIKE) {
+          const boarded = await boardCar(page);
+          if (!boarded) { failReason = 'cannot board car for tail'; fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-drive] ${label} TAIL: cannot board car`); break; }
+          stageHow[s.stage] = `${s.stageName}: drive, no teleport (human-like)`;
+        } else {
+          for (let tries = 0; tries < 3; tries++) {
+            const sc = await readState(page);
+            if (!sc.onFoot) break;
+            await page.keyboard.press('KeyE');
+            await sleep(700);
+          }
+          {
+            const sc = await readState(page);
+            if (sc.onFoot) {
+              await page.evaluate(() => { window.__game.state.onFoot = false; });
+              await sleep(300);
+            }
           }
         }
         await followTail(page, 300000);
@@ -894,6 +963,7 @@ async function playMission(page, id, label, maxAttempts = 2) {
           await sleep(500);
         }
       } else if (s.stageType === 'escape') {
+        if (HUMAN_LIKE) stageHow[s.stage] = `${s.stageName}: drive + walk final leg (human-like)`;
         // ESCAPE (human-like, 21:31 game fix + 21:34 rule): drive the
         // car on the roads to the road nearest the escape target
         // (routeDrive — no straight-line fallback through buildings).
@@ -974,13 +1044,18 @@ async function playMission(page, id, label, maxAttempts = 2) {
         // straight leg is clear). The objective updates as each
         // checkpoint is hit, so each loop iteration drives the next.
         if (s.onFoot) {
-          await teleportPlayer(page, s.cx, s.cz);
-          await sleep(300);
-          await page.keyboard.press('KeyE');
-          await sleep(600);
-          const s2 = await readState(page);
-          if (s2.onFoot) {
-            await page.evaluate(() => { window.__game.state.onFoot = false; });
+          if (HUMAN_LIKE) {
+            const boarded = await boardCar(page);
+            if (!boarded) { failReason = 'cannot board car for race'; fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-drive] ${label} RACE: cannot board car`); break; }
+          } else {
+            await teleportPlayer(page, s.cx, s.cz);
+            await sleep(300);
+            await page.keyboard.press('KeyE');
+            await sleep(600);
+            const s2 = await readState(page);
+            if (s2.onFoot) {
+              await page.evaluate(() => { window.__game.state.onFoot = false; });
+            }
           }
         }
         await routeDrive(page, o.x, o.z, 12, 20000);
@@ -990,32 +1065,39 @@ async function playMission(page, id, label, maxAttempts = 2) {
         }
         await sleep(400);
       } else {
-        // goto / deliver: the player walks (on foot) to the checkpoint.
-        // If the player is still in the car from the previous mission,
-        // get out FIRST — teleporting the player while in the car
-        // moves neither the player nor the car (the mission measures
-        // from the car while driving), so the stage would deadlock
-        // (that was the M2 MEET stall: onFoot=false, car 38.9u away).
-        if (!s.onFoot) {
-          await page.keyboard.press('KeyE'); // exit the car
-          await sleep(600);
+        // goto / deliver: HUMAN-LIKE — drive the car, walk only the
+        // final leg (driveToObjective). The old teleport is kept only
+        // when --human-like is off (and then the pass is 'workaround').
+        if (HUMAN_LIKE) {
+          const r = await driveToObjective(page, o, stageHow, s.stage, s.stageName);
+          if (!r.ok) { failReason = r.reason; fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-drive] ${label} ${s.stageName}: ${r.reason}`); break; }
+        } else {
+          // If the player is still in the car from the previous mission,
+          // get out FIRST — teleporting the player while in the car
+          // moves neither the player nor the car (the mission measures
+          // from the car while driving), so the stage would deadlock
+          // (that was the M2 MEET stall: onFoot=false, car 38.9u away).
+          if (!s.onFoot) {
+            await page.keyboard.press('KeyE'); // exit the car
+            await sleep(600);
+          }
+          await teleportPlayer(page, o.x, o.z);
         }
-        await teleportPlayer(page, o.x, o.z);
         await sleep(400);
       }
     }
     if (result === 'PASS') {
       const s = await readState(page);
-      return { mission: label, result: 'PASS', attempts, fails, maxStage, ms: Date.now() - started, money: s.money, xp: s.xp };
+      return { mission: label, result: 'PASS', attempts, fails, maxStage, ms: Date.now() - started, money: s.money, xp: s.xp, stages: stageHow };
     }
     if (result === 'FAIL-EVENT') continue; // retry once from scratch
     // Timeout: final trace with a fresh state read. The trace tail
     // (last 6 samples) rides in the JSON record so the failure
     // survives /tmp wipes.
     traceLine(label, await readState(page), 'trace-timeout');
-    return { mission: label, result: 'TIMEOUT', attempts, fails, maxStage, ms: Date.now() - started, abortReason: 'hard cap ' + Math.round(baseCapMs / 1000) + 's reached', trace: traceBuf.slice(-6), lastTrace: lastTraceLine };
+    return { mission: label, result: 'TIMEOUT', attempts, fails, maxStage, ms: Date.now() - started, abortReason: 'hard cap ' + Math.round(baseCapMs / 1000) + 's reached', trace: traceBuf.slice(-6), lastTrace: lastTraceLine, stages: stageHow };
   }
-  return { mission: label, result: 'FAIL', attempts, fails, maxStage, ms: Date.now() - started };
+  return { mission: label, result: 'FAIL', attempts, fails, maxStage, ms: Date.now() - started, stages: stageHow, abortReason: failReason || undefined };
 }
 
 // --- Main: save/load once, then ORDER missions, each in a fresh context ---
@@ -1169,6 +1251,19 @@ const saveLoad = await checkSaveLoad();
   await writeFile(RESULTS_PATH, JSON.stringify(data, null, 2));
 }
 
+// HUMAN-LIKE audit (22 Nov 11:40): the old 'human-like' labels in the
+// table are wrong — every old pass used teleports. In --human-like mode,
+// downgrade every mission NOT re-run here to 'workaround' so the table
+// tells the truth; the re-run missions get their fresh label below.
+if (HUMAN_LIKE) {
+  const data = await loadResults();
+  let changed = false;
+  for (const [code, rec] of Object.entries(data.missions)) {
+    if (rec.how === 'human-like' && !ORDER_RUN.includes(ID_BY_CODE[code])) { rec.how = 'workaround'; changed = true; }
+  }
+  if (changed) await writeFile(RESULTS_PATH, JSON.stringify(data, null, 2));
+}
+
 for (let i = fromIdx; i < ORDER_RUN.length; i++) {
   const id = ORDER_RUN[i];
   const label = CODE_BY_ID[id];
@@ -1178,7 +1273,7 @@ for (let i = fromIdx; i < ORDER_RUN.length; i++) {
   const maxAttempts = id === 1 ? 1 : 2;
   const r = await runMissionInFreshContext(id, label, maxAttempts);
   const blockMin = Math.round((Date.now() - blockStart) / 60000);
-  let record = { ...r, how: r.result === 'PASS' ? 'human-like' : undefined, commit: COMMIT };
+  let record = { ...r, how: r.result === 'PASS' ? (HUMAN_LIKE ? 'human-like' : 'workaround') : undefined, commit: COMMIT };
   if (id === 1 && r.result !== 'PASS') {
     record = { ...record, result: 'FAIL', open: true, timeboxMin: 30, timeboxUsedMin: blockMin, note: 'M2 did not pass human-like within the 30 min box — fail (open), see position trace in the run log' };
   }
