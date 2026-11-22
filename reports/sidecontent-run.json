@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T08:14:59.361Z",
+  "generated": "2026-11-22T09:16:36.236Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -113,6 +113,212 @@
           "p9reserve": 72,
           "armour": 60,
           "outfit": "harbour"
+        }
+      }
+    },
+    "coins": {
+      "result": "PASS",
+      "how": "human-like",
+      "ms": 216938,
+      "evidence": {
+        "start": {
+          "money": 1500,
+          "xp": 1240,
+          "coinsDone": 0,
+          "rank": "DECKHAND"
+        },
+        "C1": {
+          "moneyBefore": 1500,
+          "moneyAfter": 1550,
+          "xpBefore": 1240,
+          "xpAfter": 1265,
+          "coinsBefore": 0,
+          "coinsAfter": 1,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 1/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C2": {
+          "moneyBefore": 1550,
+          "moneyAfter": 1600,
+          "xpBefore": 1265,
+          "xpAfter": 1290,
+          "coinsBefore": 1,
+          "coinsAfter": 2,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 2/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C3": {
+          "moneyBefore": 1600,
+          "moneyAfter": 1650,
+          "xpBefore": 1290,
+          "xpAfter": 1315,
+          "coinsBefore": 2,
+          "coinsAfter": 3,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 3/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "map": {
+          "foot": "No waypoint set. Click a marker or a name to set one.  ·  Jobs 0/9 · Races 0/4 · Jumps 0/8 · Coins 3/20",
+          "coinDots": 17
+        },
+        "C4": {
+          "moneyBefore": 1650,
+          "moneyAfter": 1700,
+          "xpBefore": 1315,
+          "xpAfter": 1340,
+          "coinsBefore": 3,
+          "coinsAfter": 4,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 4/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C5": {
+          "moneyBefore": 1700,
+          "moneyAfter": 1750,
+          "xpBefore": 1340,
+          "xpAfter": 1365,
+          "coinsBefore": 4,
+          "coinsAfter": 5,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 5/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C6": {
+          "moneyBefore": 1750,
+          "moneyAfter": 1800,
+          "xpBefore": 1365,
+          "xpAfter": 1390,
+          "coinsBefore": 5,
+          "coinsAfter": 6,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 6/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C7": {
+          "moneyBefore": 1800,
+          "moneyAfter": 1850,
+          "xpBefore": 1390,
+          "xpAfter": 1415,
+          "coinsBefore": 6,
+          "coinsAfter": 7,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 7/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C8": {
+          "moneyBefore": 1850,
+          "moneyAfter": 1900,
+          "xpBefore": 1415,
+          "xpAfter": 1440,
+          "coinsBefore": 7,
+          "coinsAfter": 8,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 8/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C9": {
+          "moneyBefore": 1900,
+          "moneyAfter": 1950,
+          "xpBefore": 1440,
+          "xpAfter": 1465,
+          "coinsBefore": 8,
+          "coinsAfter": 9,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 9/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C10": {
+          "moneyBefore": 1950,
+          "moneyAfter": 2000,
+          "xpBefore": 1465,
+          "xpAfter": 1490,
+          "coinsBefore": 9,
+          "coinsAfter": 10,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "hud": {
+            "text": "COINS 10/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "display": "block"
+          }
+        },
+        "C12": {
+          "moneyBefore": 2000,
+          "moneyAfter": 2550,
+          "xpBefore": 1490,
+          "xpAfter": 1515,
+          "coinsBefore": 10,
+          "coinsAfter": 11,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "WHEELMAN",
+          "hud": {
+            "text": "COINS 11/20 · JUMPS 0/8 · JOBS 0/9 · WHEELMAN",
+            "display": "block"
+          }
+        },
+        "C11": {
+          "moneyBefore": 2550,
+          "moneyAfter": 2600,
+          "xpBefore": 1515,
+          "xpAfter": 1540,
+          "coinsBefore": 11,
+          "coinsAfter": 12,
+          "rankBefore": "WHEELMAN",
+          "rankAfter": "WHEELMAN",
+          "hud": {
+            "text": "COINS 12/20 · JUMPS 0/8 · JOBS 0/9 · WHEELMAN",
+            "display": "block"
+          }
+        },
+        "afterReload": {
+          "coinsDone": 12,
+          "money": 1250,
+          "rank": "DECKHAND"
+        },
+        "afterLoad": {
+          "coinsDone": 12,
+          "money": 2600,
+          "rank": "WHEELMAN"
+        },
+        "completion": {
+          "moneyBefore": 1500,
+          "moneyAfter": 2050,
+          "coinsAfter": 20,
+          "toast": "ALL LEDGER COINS — 20/20! Completion bonus +S 500."
+        },
+        "completionPersisted": {
+          "coinsBonusClaimed": true,
+          "storedCount": 20,
+          "hasC20": true
         }
       }
     }

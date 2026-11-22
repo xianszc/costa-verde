@@ -29,6 +29,8 @@
 import { writeFile, readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { anchorXZ } from '../src/anchors.js';
+import { COLLECTIBLES } from '../src/side-collectibles.js';
 
 const RESULTS_PATH = fileURLToPath(new URL('../../reports/sidecontent-run.json', import.meta.url));
 const require = createRequire(import.meta.url);
@@ -73,6 +75,16 @@ async function readState(page) {
       health: g.state.health, armour: g.state.armour,
       wanted: g.wanted.level,
       px: g.player.x, pz: g.player.z, angle: g.player.angle,
+      // TEST fix (coins 22 Nov ~15:45): on-foot movement is relative
+      // to the CAMERA heading (game.js stepPlayer), not player.angle.
+      // After a placePlayer the camera still faces the old way and
+      // swings behind the player over ~1 s — walking at once sends
+      // the player the wrong way (probe /tmp/walk-debug.mjs: placed
+      // facing east at (-9.9,-5.9), W walked WEST into a wall at
+      // (-10.4,-5.9) and wedged there; the camera then followed the
+      // west facing forever). Expose the camera forward (from the
+      // camera matrixWorld) so the driver can wait for it to settle.
+      camAngle: (() => { try { const e = g.camera.matrixWorld.elements; return Math.atan2(e[10], -e[8]); } catch { return g.player.angle; } })(),
       cx: g.car.x, cz: g.car.z, carAngle: g.car.angle, carSpeed: g.car.speed,
       fuel: g.car.fuel, damage: g.car.damage,
       ammo: g.combat.ammo.map((a) => ({ mag: a.mag, reserve: a.reserve })),
@@ -491,7 +503,7 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
   return false;
 }
 
-async function walkToPoint(page, tx, tz, r, timeoutMs) {
+async function walkToPoint(page, tx, tz, r, timeoutMs, stopWhen) {
   const started = Date.now();
   let lastDist = Infinity, lastProgress = Date.now();
   let followSide = 1, followUntil = 0;
@@ -501,6 +513,14 @@ async function walkToPoint(page, tx, tz, r, timeoutMs) {
     if (!s.onFoot) { await releaseKeys(page); return false; }
     const d = Math.hypot(s.px - tx, s.pz - tz);
     if (d < r) { await releaseKeys(page); return true; }
+    // TEST fix (coins 22 Nov ~16:00): some coins sit behind a
+    // collider face (C1 fountain, C2 podium, C10 bell tower, C11
+    // old-town house) — the player can only reach ~1.9 m of the
+    // coin, and the pickup fires at < 2 m, so the walk must stop
+    // the moment the feature fires instead of grinding to the
+    // timeout at the face. stopWhen(s) is an optional early-out
+    // (e.g. coinsDone increased); callers without it are unchanged.
+    if (stopWhen && stopWhen(s)) { await releaseKeys(page); return true; }
     if (d < lastDist - 0.3) { lastDist = d; lastProgress = Date.now(); }
     if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
     if (Date.now() < followUntil) { await sleep(300); continue; }
@@ -888,6 +908,20 @@ async function placePlayer(page, x, z, angle) {
     g.player.x = x; g.player.z = z; g.player.angle = angle;
     g.state.onFoot = true;
   }, { x, z, angle });
+  await waitCameraSettle(page);
+}
+// Wait until the chase camera has swung behind the placed player
+// (camAngle within ~20 deg of player.angle), up to 8 s. Without this,
+// the first W steps follow the stale camera heading — see the camAngle
+// note in readState. Proved by /tmp/cam-debug.mjs: aligned within 1 s.
+async function waitCameraSettle(page, timeoutMs = 8000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const s = await readState(page);
+    if (Math.abs(normAngle(s.camAngle - s.angle)) < 0.35) return true;
+    await sleep(300);
+  }
+  return false;
 }
 async function placeCar(page, x, z, angle) {
   await page.evaluate(({ x, z, angle }) => {
@@ -1073,8 +1107,211 @@ async function testShopsNear() {
   }
 }
 
+// --- T3 coins (3c.3): collect ledger coins on foot; counter + reward; persists ---
+// Xian 22 Nov 15:30 brief + amandemen 15:45 (minimum-first): every
+// side-content test starts the player within 5 m of the marker and
+// proves the FEATURE. Each coin leg places the player <=4.3 m from
+// the coin (a TEST start position set via page.evaluate — not a
+// mission teleport) and walks in with real keys. Phase A collects 12
+// real coins C1..C12 (pickup + HUD chip + map counter + money/XP +
+// save across reload). The 11th coin also ranks the player up to
+// WHEELMAN (XP 1240 + 11x25 = 1515 >= 1500), so its money check is
+// rank-aware (+50 coin +500 WHEELMAN reward). Phase B proves the
+// 20/20 completion bonus: a FRESH context whose side store is
+// pre-seeded with 19 coins (a save-file fixture — a human player can
+// own 19 coins; the 20th pickup itself is played for real, on foot,
+// from 4 m away). Full 20-for-real expansion is deferred until after
+// item 4 (amandemen 15:45).
+// Starts: the CLEAR 3.5 m approaches from the collider map
+// (/tmp/colliders-c1c12b.txt — straight segment from the start to
+// 1.9 m short of the coin clears every AABB inflated by the 0.5 m
+// player radius). C1's coin was moved by a GAME fix
+// (side-collectibles.js: the old spot was the fountain centre, sealed
+// by parked cars with 0.35 m gaps) to the plaza's open SE corner
+// (-2.9,-9.6); the leg starts 3.5 m east on the avenue (0.6,-9.6),
+// clear path west. C12's coin was moved by a GAME fix
+// (side-collectibles.js: it sat inside a house collider, 2.0 m from
+// the nearest reachable point — pickup needs < 2.0 m).
+function coinXZ(id) {
+  const c = COLLECTIBLES.find((k) => k.id === id);
+  const a = anchorXZ(c.anchor);
+  return { x: a.x + (c.dx || 0), z: a.z + (c.dz || 0) };
+}
+async function newPageSeeded(seed) {
+  await ensureBrowser();
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx.addInitScript((s) => localStorage.setItem('azzura-side-v1', s), JSON.stringify(seed));
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e.message || e)));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push('[console] ' + m.text()); });
+  await page.goto(PAGE_URL, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.__gameReady, null, { timeout: 120000 });
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
+  await sleep(2000);
+  return { ctx, page, errors };
+}
+async function testCoins() {
+  const label = 'coins';
+  const started = Date.now();
+  const evidence = {};
+  try {
+    // --- Phase A: 12 real coins on foot (C1..C12, minimum-first) ---
+    const { ctx, page, errors } = await newPage();
+    try {
+      const s0 = await readState(page);
+      evidence.start = { money: s0.money, xp: s0.xp, coinsDone: s0.side.coinsDone, rank: s0.side.rank };
+      if (s0.money !== 1500) throw new Error(`fresh money ${s0.money}, expected 1500 (1250 + DECKHAND 250)`);
+      if (s0.side.coinsDone !== 0) throw new Error(`fresh coinsDone ${s0.side.coinsDone}, expected 0`);
+      const legs = [
+        { id: 'C1', from: { x: 0.6, z: -9.6 } },
+        { id: 'C2', from: { x: 8.9, z: -10.0 } },
+        { id: 'C3', from: { x: -9.5, z: 1.3 } },
+        { id: 'C4', from: { x: -1.5, z: -1.0 } },
+        { id: 'C5', from: { x: 11.5, z: 0.0 } },
+        { id: 'C6', from: { x: -26.5, z: -0.7 } },
+        { id: 'C7', from: { x: -46.5, z: 0.0 } },
+        { id: 'C8', from: { x: 52.5, z: -0.7 } },
+        { id: 'C9', from: { x: -44.0, z: -33.5 } },
+        { id: 'C10', from: { x: -47.0, z: -32.5 } },
+        // C12 BEFORE C11: the two are 2.7 m apart, and the walk north
+        // to C11 passes 1.0 m from C12 — collecting C12 en route
+        // (coinsDone 12 after the C11 leg, expected 11). Collecting
+        // C12 first is clean: its path stays 2.7 m from C11.
+        { id: 'C12', from: { x: -46.0, z: -40.0 } },
+        { id: 'C11', from: { x: -47.0, z: -42.5 } },
+      ];
+      for (let i = 0; i < legs.length; i++) {
+        const leg = legs[i];
+        const c = coinXZ(leg.id);
+        // Face the coin at placement: a 180 deg turn from a stale
+        // facing is the walker's riskiest manoeuvre (the chase camera
+        // has to swing all the way around while the player strafes);
+        // spawning facing the objective removes it.
+        const faceAngle = Math.atan2(-(c.z - leg.from.z), c.x - leg.from.x);
+        await placePlayer(page, leg.from.x, leg.from.z, faceAngle);
+        const before = await readState(page);
+        // r=1.95 (just inside the 2 m pickup radius) + stopWhen: the
+        // walk ends the instant the coin is collected, which for the
+        // face coins (C1/C2/C10/C11) is at the collider face ~1.9 m
+        // out — the walker would otherwise grind to its timeout.
+        const wok = await walkToPoint(page, c.x, c.z, 1.95, 60000, (s) => s.side.coinsDone > before.side.coinsDone);
+        if (!wok) throw new Error(`walk to ${leg.id} (${c.x},${c.z}) failed`);
+        await sleep(1000); // HUD chip refreshes every 500 ms
+        const after = await readState(page);
+        const hud = await page.evaluate(() => {
+          const h = document.getElementById('side-hud');
+          return h ? { text: h.textContent, display: h.style.display } : null;
+        });
+        evidence[leg.id] = { moneyBefore: before.money, moneyAfter: after.money, xpBefore: before.xp, xpAfter: after.xp, coinsBefore: before.side.coinsDone, coinsAfter: after.side.coinsDone, rankBefore: before.side.rank, rankAfter: after.side.rank, hud };
+        if (after.side.coinsDone !== i + 1) throw new Error(`${leg.id}: coinsDone ${after.side.coinsDone}, expected ${i + 1}`);
+        // 11th coin ranks up to WHEELMAN (XP 1515 >= 1500): +500 reward.
+        const rankUp = after.side.rank !== before.side.rank;
+        const expectMoney = before.money + 50 + (rankUp ? 500 : 0);
+        if (after.money !== expectMoney) throw new Error(`${leg.id}: money ${before.money} -> ${after.money}, expected ${expectMoney}${rankUp ? ' (incl. WHEELMAN +500)' : ''}`);
+        if (rankUp && after.side.rank !== 'WHEELMAN') throw new Error(`${leg.id}: unexpected rank-up to ${after.side.rank}`);
+        if (after.xp !== before.xp + 25) throw new Error(`${leg.id}: xp ${before.xp} -> ${after.xp}, expected +25`);
+        if (!hud || !hud.text.includes(`${i + 1}/20`)) throw new Error(`${leg.id}: HUD chip '${hud ? hud.text : 'missing'}' does not show ${i + 1}/20`);
+        console.log(`[coins] ${leg.id} OK: coins ${i + 1}/20, money ${after.money}, rank ${after.side.rank}, HUD '${hud.text}'`);
+        if (i === 2) {
+          // Map counter: M opens the map, footer shows Coins 3/20, 17 dots left.
+          await page.keyboard.press('KeyM');
+          await sleep(1200);
+          const mapFoot = await page.evaluate(() => (document.getElementById('map-foot') || {}).textContent || '');
+          const dots = await page.evaluate(() => [...document.querySelectorAll('#map-svg-wrap svg circle')].filter((el) => el.getAttribute('r') === '3').length);
+          evidence.map = { foot: mapFoot, coinDots: dots };
+          if (!mapFoot.includes('Coins 3/20')) throw new Error(`map footer '${mapFoot}' does not show Coins 3/20`);
+          if (dots !== 17) throw new Error(`map shows ${dots} coin dots, expected 17`);
+          await page.keyboard.press('KeyM');
+          await sleep(800);
+        }
+      }
+      // Save: the SIDE store (coins) auto-persists on every pickup and
+      // survives a plain reload; money/XP live in the MAIN save and
+      // need an explicit pause-menu save (slot 1) + load — the same
+      // pattern the shops-near test proves. A plain reload must RESET
+      // money to the fresh 1250 (that is the reset working, not a
+      // bug); the slot-1 load restores it.
+      let st = await readState(page);
+      for (let i = 0; i < 12 && st.wanted > 0; i++) { await sleep(5000); st = await readState(page); }
+      if (st.wanted > 0) throw new Error(`wanted ${st.wanted} — cannot save`);
+      const savedMoney = st.money;
+      await page.keyboard.press('Escape');
+      await sleep(800);
+      await page.click('#pause-save');
+      await sleep(500);
+      await page.keyboard.press('Escape'); // resume
+      await sleep(500);
+      await page.goto(PAGE_URL, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => window.__gameReady, null, { timeout: 120000 });
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
+      await sleep(2000);
+      const reloaded = await readState(page);
+      evidence.afterReload = { coinsDone: reloaded.side.coinsDone, money: reloaded.money, rank: reloaded.side.rank };
+      if (reloaded.side.coinsDone !== 12) throw new Error(`after reload coinsDone ${reloaded.side.coinsDone}, expected 12`);
+      if (reloaded.money !== 1250) throw new Error(`after reload money ${reloaded.money}, expected fresh 1250 (reload resets; slot load restores)`);
+      await page.keyboard.press('Escape');
+      await sleep(800);
+      await page.click('#pause-load');
+      await sleep(800);
+      const loaded = await readState(page);
+      evidence.afterLoad = { coinsDone: loaded.side.coinsDone, money: loaded.money, rank: loaded.side.rank };
+      if (loaded.side.coinsDone !== 12) throw new Error(`after load coinsDone ${loaded.side.coinsDone}, expected 12`);
+      if (loaded.money !== 2600) throw new Error(`after load money ${loaded.money}, expected 2600 (1500 + 12x50 + WHEELMAN 500)`);
+      if (errors.length) throw new Error('page errors: ' + errors.slice(0, 3).join(' | '));
+      console.log('[coins] phase A OK: 12 coins, HUD + map counter, WHEELMAN rank-up on the 11th coin (C12), coins persist across reload, money 2600 restored by slot-1 load');
+    } finally {
+      await ctx.close();
+    }
+    // --- Phase B: 20/20 completion bonus (19 pre-seeded, 20th for real) ---
+    const seed = { version: 1, collectiblesDone: COLLECTIBLES.slice(0, 19).map((c) => c.id) };
+    const b = await newPageSeeded(seed);
+    try {
+      const s0 = await readState(b.page);
+      if (s0.side.coinsDone !== 19) throw new Error(`seeded coinsDone ${s0.side.coinsDone}, expected 19`);
+      const c20 = coinXZ('C20');
+      await placePlayer(b.page, c20.x - 4, c20.z, 0);
+      const wok = await walkToPoint(b.page, c20.x, c20.z, 1.5, 60000);
+      if (!wok) throw new Error(`walk to C20 (${c20.x},${c20.z}) failed`);
+      await sleep(1000);
+      const after = await readState(b.page);
+      const toast = await b.page.evaluate(() => (document.getElementById('side-toast') || {}).textContent || '');
+      evidence.completion = { moneyBefore: s0.money, moneyAfter: after.money, coinsAfter: after.side.coinsDone, toast };
+      if (after.side.coinsDone !== 20) throw new Error(`completion: coinsDone ${after.side.coinsDone}, expected 20`);
+      if (after.money !== s0.money + 550) throw new Error(`completion: money ${s0.money} -> ${after.money}, expected +550 (+50 coin +500 bonus)`);
+      if (!toast.includes('20/20')) throw new Error(`completion toast '${toast}' does not mention 20/20`);
+      // Bonus persists: read the store straight from localStorage (no
+      // reload in THIS context — its addInitScript re-seeds the 19-coin
+      // fixture on every navigation, so a reload here would wipe the
+      // 20th coin; that is a fixture trap, not a game bug. Reload
+      // persistence itself is proven for real in phase A: 12 coins
+      // survive a plain reload). The store is the persistence
+      // mechanism — if the flag + 20 coins are in the JSON, a fresh
+      // page loads them.
+      const stored = await b.page.evaluate(() => JSON.parse(localStorage.getItem('azzura-side-v1') || '{}'));
+      evidence.completionPersisted = { coinsBonusClaimed: stored.coinsBonusClaimed, storedCount: (stored.collectiblesDone || []).length, hasC20: (stored.collectiblesDone || []).includes('C20') };
+      if ((stored.collectiblesDone || []).length !== 20) throw new Error(`stored collectibles ${stored.collectiblesDone.length}, expected 20`);
+      if (!(stored.collectiblesDone || []).includes('C20')) throw new Error('stored collectibles missing C20');
+      if (!stored.coinsBonusClaimed) throw new Error('coinsBonusClaimed not persisted');
+      if (b.errors.length) throw new Error('page errors: ' + b.errors.slice(0, 3).join(' | '));
+      console.log('[coins] phase B OK: 20/20 bonus +S 500, persists');
+    } finally {
+      await b.ctx.close();
+    }
+    const rec = { result: 'PASS', how: 'human-like', ms: Date.now() - started, evidence };
+    await saveResult(label, rec);
+    return rec;
+  } catch (e) {
+    const rec = { result: 'FAIL', how: 'human-like', ms: Date.now() - started, error: String(e.message || e), evidence };
+    await saveResult(label, rec);
+    return rec;
+  }
+}
+
 // --- Runner ---
-const TESTS = { shops: testShops, 'shops-near': testShopsNear };
+const TESTS = { shops: testShops, 'shops-near': testShopsNear, coins: testCoins };
 const selected = ONLY ? [ONLY] : Object.keys(TESTS);
 let allPass = true;
 for (const label of selected) {
