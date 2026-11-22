@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T03:50:39.479Z",
+  "generated": "2026-11-22T03:56:51.832Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -102,18 +102,15 @@
     },
     "M11": {
       "mission": "M11",
-      "result": "TIMEOUT",
+      "result": "PASS",
       "attempts": 1,
       "fails": 0,
-      "maxStage": 4,
-      "ms": 244949,
-      "abortReason": "hard cap 240s reached",
-      "trace": [
-        "[trace] M11 stage=0 CONFRONT player=(-2.0,-1.5) car=(-8.0,-0.7) target=(35,30) distPlayer=48.6u distCar=52.8u wanted=0 onFoot=true",
-        "[trace] M11 stage=3 EPILOGUE player=(35.0,30.0) car=(-8.0,-0.7) target=(5,20) distPlayer=31.6u distCar=24.5u wanted=3 onFoot=true"
-      ],
-      "lastTrace": "[trace] M11 stage=3 EPILOGUE player=(35.0,30.0) car=(-8.0,-0.7) target=(5,20) distPlayer=31.6u distCar=24.5u wanted=3 onFoot=true",
+      "maxStage": 3,
+      "ms": 176781,
+      "money": 3750,
+      "xp": 2232.2991693290246,
       "errors": 0,
+      "how": "human-like",
       "commit": "unknown"
     },
     "M12": {
