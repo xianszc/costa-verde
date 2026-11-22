@@ -679,15 +679,25 @@ async function followTail(page, timeoutMs) {
 // (M5 trace: player 26.6u from target, car 26.9u, onFoot=true).
 // If the car is further than 20u, or the walk fails, return false —
 // the caller records an honest fail. No teleport anywhere.
+// HUMAN-LIKE boarding (23 Nov): walk right up to the car door
+// (1.5u) before pressing E — a human does not board from 3.5u away.
+// The old 3.5u stop left the player standing at a shop door when the
+// car was parked behind a shop (M1 re-run 3: car (-2.8,-9.6) behind
+// the pharmacy, player stopped 3.4u from the car but 0.8u from the
+// door, so E opened the shop instead of boarding). If 1.5u proves
+// unreachable, fall back to the old 3.5u stop (no worse than before).
 async function boardCar(page) {
   for (let tries = 0; tries < 2; tries++) {
     const s = await readState(page);
     if (!s.onFoot) return true;
     const d = Math.hypot(s.px - s.cx, s.pz - s.cz);
-    if (d > 3.5) {
+    if (d > 1.5) {
       if (d > 20) return false; // car too far to reach on foot
-      const ok = await walkToPoint(page, s.cx, s.cz, 3.5, 60000);
-      if (!ok) return false;
+      const ok = await walkToPoint(page, s.cx, s.cz, 1.5, 60000);
+      if (!ok) {
+        const ok2 = await walkToPoint(page, s.cx, s.cz, 3.5, 20000);
+        if (!ok2) return false;
+      }
     }
     await page.keyboard.press('KeyE');
     await sleep(700);
