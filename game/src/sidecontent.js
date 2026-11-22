@@ -19,6 +19,7 @@ import { SIDE_JUMPS } from './side-jumps.js';
 import { COLLECTIBLES } from './side-collectibles.js';
 import { SHOP_SECTIONS, OUTFITS, STOCK_PAINT } from './side-shops.js';
 import { SIDE_SPOTS } from './anchors-side.js';
+import { xform, colored, mergedMesh } from './world.js';
 
 const STORE_KEY = 'azzura-side-v1';
 const ACTIVITIES = [...SIDE_JOBS, ...SIDE_RACES];
@@ -405,6 +406,33 @@ function buildMarkers() {
     if (j.dir === 'ew') ring.rotation.y = Math.PI / 2;
     scene.add(ring);
     markers.gates.push({ def: j, mesh: ring });
+  }
+  // Launch-pad chevrons (3c.4): flat gold arrowheads on the road on
+  // BOTH approaches of every ring, pointing at it — there is no
+  // physical ramp (the car stays on the flat plane), so the chevrons
+  // are what sells "launch pad" to the player. All 48 triangles in
+  // ONE merged mesh (1 draw call). The triangle is built flat in the
+  // XZ plane pointing +X, then yawed: ry = atan2(-dz, dx).
+  {
+    const shape = new THREE.Shape();
+    shape.moveTo(0.9, 0); shape.lineTo(-0.6, 0.7); shape.lineTo(-0.6, -0.7); shape.closePath();
+    const triFlat = new THREE.ShapeGeometry(shape);
+    triFlat.rotateX(-Math.PI / 2);
+    const geos = [];
+    for (const j of SIDE_JUMPS) {
+      const a = anchorXZ(j.anchor);
+      const cx = a.x + (j.dx || 0), cz = a.z + (j.dz || 0);
+      // [offset along the road, pointing toward the ring]
+      const sides = j.dir === 'ew'
+        ? [[-3.5, 1, 0], [-5, 1, 0], [-6.5, 1, 0], [3.5, -1, 0], [5, -1, 0], [6.5, -1, 0]]
+        : [[-3.5, 0, 1], [-5, 0, 1], [-6.5, 0, 1], [3.5, 0, -1], [5, 0, -1], [6.5, 0, -1]];
+      for (const [off, dx, dz] of sides) {
+        const px = j.dir === 'ew' ? cx + off : cx;
+        const pz = j.dir === 'ew' ? cz : cz + off;
+        geos.push(colored(xform(triFlat, px, 0.03, pz, Math.atan2(-dz, dx), 1), 0xf2a541));
+      }
+    }
+    scene.add(mergedMesh(geos, new THREE.MeshBasicMaterial({ vertexColors: true })));
   }
   // Job start markers: a small teal beacon at each job's first stage
   // target. Press E on foot nearby to start the job (see onKeyDown).
@@ -988,6 +1016,13 @@ function loop(now) {
         addStanding(g.def.district, 2);
         persist();
         toast(`STUNT JUMP — ${g.def.name} landed! +S 150 · +100 XP.`);
+        // Completion bonus (3c.4, mirrors the 20/20 coins bonus): all 8 jumps, once.
+        if (store.jumpsDone.length === SIDE_JUMPS.length && !store.jumpsBonusClaimed) {
+          store.jumpsBonusClaimed = true;
+          game.state.money += 500;
+          persist();
+          toast(`ALL STUNT JUMPS — 8/8! Completion bonus +S 500.`);
+        }
       }
     }
   }
