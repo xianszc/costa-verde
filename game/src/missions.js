@@ -213,6 +213,21 @@ export function createMissionEngine(LIST = MISSIONS) {
     raceLast = null;
     return mission();
   }
+  // AUDIT M-10: silent stage restore for save/load. Sets the stage
+  // without firing any event — no stage heat, no reward, no duel
+  // spawn, no race grid snap (the caller, game.js doLoad, handles the
+  // duel/race entry side effects a real stage advance would do).
+  // Dialogue restarts at the restored stage's lines; the tail timer
+  // and checkpoint list restart for the stage; the race clock restarts.
+  function setStage(n) {
+    stage = Math.max(0, Math.min(mission().stages.length - 1, n | 0));
+    tailTimer = 0;
+    deliverTargets = [];
+    deliverLeft = 0;
+    dialogueQueue = [...(stageDef().dialogue || [])];
+    elapsed = 0;
+    return stage;
+  }
   function objective() {
     const s = stageDef();
     if (!s) return null;
@@ -326,6 +341,6 @@ export function createMissionEngine(LIST = MISSIONS) {
     get raceBest() { return raceTimes; },
     get raceLast() { return raceLast; },
     setRaceBest(t) { raceTimes = { ...(t || {}) }; },
-    mission, stageDef, objective, start, update, interact, advance, nextDialogue, peekDialogue,
+    mission, stageDef, objective, start, setStage, update, interact, advance, nextDialogue, peekDialogue,
   };
 }

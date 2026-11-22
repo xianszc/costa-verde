@@ -5,7 +5,7 @@
 // interceptors, heli spotlight, roadblocks, ramming, lose-the-heat,
 // busted/wasted), combat (5 weapon slots + cover), the Captain's
 // Logbook hub (6 tabs), 3 procedural radio stations, pause menu, 3
-// offline save slots, and story missions 1–4 with stages, dialogue
+// offline save slots, and story missions M1–M12 (M10 was cut) with stages, dialogue
 // scenes and rewards. Everything procedural, zero network.
 import * as THREE from '../vendor/three.module.min.js';
 import { buildDistrict4, windowMat } from './city.js';
@@ -35,6 +35,15 @@ const RANKS = [
   { xp: 1500, name: 'WHEELMAN' }, { xp: 3000, name: 'FIXER' },
   { xp: 6000, name: 'CAPO' }, { xp: 10000, name: 'KING OF THE RIVIERA' },
 ];
+// Short unlock text per rank for the live "Next rank" HUD line (AUDIT m-6).
+// The full reward texts live in side-data.js RANK_REWARDS.
+const RANK_UNLOCK_TEXT = {
+  DECKHAND: 'Harbor Stripes outfit',
+  WHEELMAN: 'Harbor Teal paint',
+  FIXER: 'Casino Sharp outfit + 48 Tamburo rounds',
+  CAPO: 'Bright Lights paint',
+  'KING OF THE RIVIERA': 'King outfit',
+};
 function rankForXp(xp) {
   let r = RANKS[0].name;
   for (const k of RANKS) if (xp >= k.xp) r = k.name;
@@ -179,17 +188,17 @@ export function createGame(container) {
     { lane: 2, color: 0xc93a6b, kind: 'sedan' },
     { lane: laneIdx('oldtown-main'), color: 0x3e7cb1, kind: 'sedan' },
     { lane: laneIdx('oldtown-plaza'), color: 0xf2f0ea, kind: 'van' },
-    { lane: laneIdx('promenade-boulevard'), color: 0xe8a33d, kind: 'sedan' },
+    { lane: laneIdx('promenade-walk'), color: 0xe8a33d, kind: 'sedan' },
     { lane: laneIdx('promenade-west'), color: 0x3e7cb1, kind: 'van' },
     // NEW PLAN 2a: one car on each ring-ext loop so the new streets
     // read as driven, not empty (9 loop cars total now).
     { lane: laneIdx('ringext-north'), color: 0x2e7f8f, kind: 'sedan' },
     { lane: laneIdx('ringext-east'), color: 0xe8b93c, kind: 'pickup' },
     { lane: laneIdx('ringext-west'), color: 0xd9553a, kind: 'van' },
-    // NEW PLAN 2b: one car on each new loop. (The 'promenade-west'
-    // van above now drives the new west promenade loop — its name
-    // fell back to lane 0 ever since the GRID REBUILD deleted the
-    // old boulevard lanes; the 'promenade-boulevard' sedan still does.)
+    // NEW PLAN 2b: one car on each new loop. (AUDIT m-18: the sedan
+    // above used to name the deleted 'promenade-boulevard' lane and
+    // fell back to lane 0 — it now drives 'promenade-walk', the
+    // walkway loop x 10..58, z 28.5..30.5 in districts.js.)
     { lane: laneIdx('promenade-east'), color: 0x3a6fd9, kind: 'sedan' },
     { lane: laneIdx('oldtown-west'), color: 0xf2f0ea, kind: 'van' },
     // TRAFFIC (Xian 22 Nov 09:30 brief item B): the res/outer lanes
@@ -280,6 +289,9 @@ export function createGame(container) {
     const path = allPedPaths[Math.floor((i * allPedPaths.length) / walkers.length)];
     peds.push({
       mesh: fig, path, t: (i * 0.13) % 1, dir: 1,
+      // AUDIT M-5: the path length, so stepPeds can advance t by
+      // speed*dt/pathLen instead of assuming every path is 60u.
+      pathLen: Math.hypot(path.b.x - path.a.x, path.b.z - path.a.z) || 1,
       speed: 1.1 + (i % 3) * 0.35, phase: i * 1.7, spec: c,
       hp: 50, fallen: false, kind: 'ped',
       damage(d) {
@@ -347,6 +359,10 @@ export function createGame(container) {
   scene.add(smugglerMesh);
 
   // --- game state ---
+  // AUDIT M-4: the HUD mission clock starts at 04:32 on every mission
+  // start (see the resets in handleMissionEvent / doLoad /
+  // respawnAfterEnd) — it used to keep the previous mission's leftover.
+  const MISSION_TIME_START = 272; // 04:32
   const state = {
     mode: 'title', // title | play | paused | shot
     onFoot: true,
@@ -357,10 +373,12 @@ export function createGame(container) {
     health: 100,
     armour: 60,
     xp: 1240,
-    xpMax: 2000,
+    xpMax: 10000, // AUDIT m-7: the ladder tops out at KING (10,000 XP) —
+    // the old 2000 made the bar read 500% at CAPO and the "1,240 / 2,000"
+    // label lie about the real goal.
     radio: 0,
     weapon: 1,
-    missionTime: 272, // 04:32
+    missionTime: MISSION_TIME_START,
     dialogueVisible: true,
     scriptedAccel: false,
     volume: 0.7,
@@ -542,6 +560,7 @@ export function createGame(container) {
       wantedForMission = -1;
       clearDuelTarget();
       missions.start(missions.missionId);
+      state.missionTime = MISSION_TIME_START; // AUDIT M-4
       showNextDialogue();
     } else if (ev.type === 'complete') {
       state.money += ev.reward.money;
@@ -553,6 +572,7 @@ export function createGame(container) {
       clearDuelTarget();
       if (missions.missionId + 1 < MISSIONS.length) {
         missions.start(missions.missionId + 1);
+        state.missionTime = MISSION_TIME_START; // AUDIT M-4
         audio.ui('mission_start');
         showNextDialogue();
       } else {
@@ -569,6 +589,7 @@ export function createGame(container) {
       weapon: combat.selected,
       ammo: combat.ammo.map((a) => ({ mag: a.mag, reserve: a.reserve })),
       radio: radio.index, missionId: missions.missionId,
+      stage: missions.stage, // AUDIT M-10: the stage restores on load
       raceBest: missions.raceBest,
       hour: state.time, day: state.day,
       player: { x: player.x, z: player.z, angle: player.angle, onFoot: state.onFoot },
@@ -603,6 +624,12 @@ export function createGame(container) {
       });
     }
     missions.start(s.missionId || 0);
+    state.missionTime = MISSION_TIME_START; // AUDIT M-4
+    // AUDIT M-10: restore the stage the save was taken at — setStage
+    // is silent (no heat / reward / dialogue re-trigger), unlike
+    // replaying advance(). Old saves have no stage field → stage 0.
+    if (typeof s.stage === 'number') missions.setStage(s.stage);
+    if (missions.stageDef() && missions.stageDef().type === 'duel') spawnDuelTarget();
     missions.setRaceBest(s.raceBest);
     player.x = s.player.x; player.z = s.player.z; player.angle = s.player.angle;
     state.onFoot = s.player.onFoot;
@@ -610,6 +637,16 @@ export function createGame(container) {
     car.fuel = s.car.fuel; car.damage = s.car.damage;
     car.mesh.position.set(car.x, 0, car.z);
     car.mesh.rotation.y = car.angle;
+    // AUDIT M-10: a save taken mid-race restores onto the start line,
+    // the way a real race-stage entry does (handleMissionEvent).
+    if (missions.stageDef() && missions.stageDef().type === 'race') {
+      car.x = ANCHORS.race_start_1.x;
+      car.z = ANCHORS.race_start_1.z;
+      car.angle = Math.PI;
+      car.speed = 0;
+      car.mesh.position.set(car.x, 0, car.z);
+      car.mesh.rotation.y = car.angle;
+    }
     playerMesh.visible = state.onFoot;
     wanted.reset();
     state.busted = false; state.wasted = false;
@@ -676,6 +713,7 @@ export function createGame(container) {
       wantedForMission = -1;
       clearDuelTarget();
       missions.start(missions.missionId);
+      state.missionTime = MISSION_TIME_START; // AUDIT M-4
       toast(`MISSION FAILED — ${why}. Try again.`);
       showNextDialogue();
     }
@@ -895,6 +933,12 @@ export function createGame(container) {
     for (const tr of traffic) {
       if (tr.mesh.userData.headMat) tr.mesh.userData.headMat.emissiveIntensity = head;
     }
+    // AUDIT m-9: the CBD graph cars (and the M2 smuggler) drive the
+    // same roads — their headlights follow the same day/night rule.
+    for (const c of cbdTraffic) {
+      if (c.mesh.userData.headMat) c.mesh.userData.headMat.emissiveIntensity = head;
+    }
+    if (smugglerMesh.userData.headMat) smugglerMesh.userData.headMat.emissiveIntensity = head;
   }
 
   // --- storm ---
@@ -956,7 +1000,12 @@ export function createGame(container) {
         // the old town (z -86) and the skyline landmass (z 104) — the
         // bay-water colliders keep them off the water except on the
         // bridge corridor (x ±4.5).
-        player.x = Math.max(-58, Math.min(58, res.x));
+        // AUDIT M-12: the player can walk the built waterfront east–west
+        // now — the promenade walkway surface runs x -96..108 and the
+        // bay-water colliders (z >= 35, full width) keep them off the
+        // water; the ground apron covers x +/-120. The old +/-58 clamp
+        // locked out the whole promenade extension + west ring-ext.
+        player.x = Math.max(-96, Math.min(108, res.x));
         player.z = Math.max(-86, Math.min(104, res.z));
         player.speed = speed;
         player.walkPhase += dt * speed * 2.4;
@@ -975,10 +1024,13 @@ export function createGame(container) {
       // Crouch reads as cover-ready (the figure lowers).
       playerMesh.scale.y = player.crouched ? 0.82 : 1;
       // Bump a pedestrian while running fast: wanted +heat (M1 rule, M2 heat).
+      // AUDIT C-1: one bump per ped per 1.5 s — without a cooldown the
+      // loop added +10 heat PER FRAME (~+180 in a 0.3 s brush).
       if (player.speed > 5) {
         for (const p of peds) {
-          if (!p.fallen && Math.hypot(p.mesh.position.x - player.x, p.mesh.position.z - player.z) < 1.0) {
+          if (!p.fallen && (p.bumpCooldown || 0) <= 0 && Math.hypot(p.mesh.position.x - player.x, p.mesh.position.z - player.z) < 1.0) {
             wanted.addHeat(10);
+            p.bumpCooldown = 1.5;
           }
         }
       }
@@ -1001,7 +1053,11 @@ export function createGame(container) {
   function stepPeds(dt) {
     for (const p of peds) {
       if (p.fallen) continue;
-      p.t += (p.dir * p.speed * dt) / 60;
+      if (p.bumpCooldown > 0) p.bumpCooldown -= dt; // AUDIT C-1
+      // AUDIT M-5: advance t by speed*dt/pathLen — the old /60 assumed
+      // every path was 60u, so a 4.4u zebra crossing took ~40-55 s.
+      // (The 2 CBD zebra crossers stay where Xian put them.)
+      p.t += (p.dir * p.speed * dt) / (p.pathLen || 60);
       if (p.t >= 1) { p.t = 1; p.dir = -1; }
       if (p.t <= 0) { p.t = 0; p.dir = 1; }
       const x = p.path.a.x + (p.path.b.x - p.path.a.x) * p.t;
@@ -1139,6 +1195,15 @@ export function createGame(container) {
     setText('hud-health-num', String(Math.round(state.health)));
     setText('hud-armour-num', String(Math.round(state.armour)));
     setText('hud-xp-num', `${Math.floor(state.xp).toLocaleString('en-US')} / ${state.xpMax.toLocaleString('en-US')}`);
+    // AUDIT m-6: the "Next rank" line is live — the next ladder rung
+    // above the current XP, with its short unlock text.
+    const nextRank = RANKS.find((k) => k.xp > state.xp);
+    const nextEl = $('hud-next-rank');
+    if (nextEl) {
+      nextEl.innerHTML = nextRank
+        ? `Next rank: <b>${nextRank.name}</b> &middot; unlocks ${RANK_UNLOCK_TEXT[nextRank.name]}`
+        : 'Max rank — King of the Riviera';
+    }
     setWidth('hud-health-bar', state.health);
     setWidth('hud-armour-bar', state.armour);
     setWidth('hud-xp-bar', (state.xp / state.xpMax) * 100);
@@ -1163,29 +1228,43 @@ export function createGame(container) {
       stageNames.innerHTML = m.stages.map((st, i) =>
         `<span>${i + 1} · ${st.name}</span>`).join('');
     }
-    for (let i = 1; i <= 3; i++) {
+    // AUDIT m-5: missions have up to 4 stages — the 4th dot exists in
+    // the DOM now; hide dots past this mission's stage count.
+    for (let i = 1; i <= 4; i++) {
       const el = $(`hud-stage-${i}`);
-      if (el) el.className = 'stage' + (i - 1 < missions.stage ? ' done' : i - 1 === missions.stage ? ' active' : '');
+      if (!el) continue;
+      el.style.display = i <= m.stages.length ? '' : 'none';
+      el.className = 'stage' + (i - 1 < missions.stage ? ' done' : i - 1 === missions.stage ? ' active' : '');
     }
     setText('hud-mission-objective', s ? s.text : '');
     // Police panel: live dispatch rows from the wanted system.
+    // AUDIT m-3: rows past the live count are hidden, not left stale.
     const rows = wanted.unitRows();
-    rows.forEach((r, i) => {
+    for (let i = 0; i < 3; i++) {
+      const row = $(`hud-police-row-${i + 1}`);
+      if (row) row.style.display = i < rows.length ? '' : 'none';
+      if (i >= rows.length) continue;
+      const r = rows[i];
       setText(`hud-police-${i + 1}-name`, r.name);
       setText(`hud-police-${i + 1}-dist`, `${r.dist} m`);
       const st = $(`hud-police-${i + 1}-st`);
       if (st) {
         st.textContent = r.st;
-        st.className = 'st ' + (r.st === 'IN PURSUIT' || r.st === 'INBOUND' ? 'hot' : 'warm');
+        // AUDIT m-4: unitRows returns 'PURSUIT', not 'IN PURSUIT' —
+        // the hot class never fired before this.
+        st.className = 'st ' + (r.st === 'PURSUIT' || r.st === 'IN PURSUIT' || r.st === 'INBOUND' ? 'hot' : 'warm');
       }
-    });
+    }
     // Minimap: player arrow + objective dot + police dots.
     const px = state.onFoot ? player.x : car.x;
     const pz = state.onFoot ? player.z : car.z;
     const arrow = $('hud-player-arrow');
     if (arrow) {
-      const sx = ((px + 60) / 120) * 150;
-      const sy = ((pz + 42) / 55) * 150;
+      // AUDIT M-6: the minimap art covers x ±60, z -42..13 only — clamp
+      // the dots to the circle edge instead of letting them vanish
+      // outside it (promenade east, skyline, old town north).
+      const sx = clamp(((px + 60) / 120) * 150, 0, 150);
+      const sy = clamp(((pz + 42) / 55) * 150, 0, 150);
       const heading = state.onFoot ? player.angle : car.angle;
       arrow.setAttribute('transform', `translate(${sx.toFixed(1)},${sy.toFixed(1)}) rotate(${(-heading * 180 / Math.PI).toFixed(1)})`);
     }
@@ -1193,8 +1272,8 @@ export function createGame(container) {
     const odot = $('hud-objective-dot');
     if (odot) {
       if (obj && state.mode === 'play') {
-        const sx = ((obj.x + 60) / 120) * 150;
-        const sy = ((obj.z + 42) / 55) * 150;
+        const sx = clamp(((obj.x + 60) / 120) * 150, 0, 150);
+        const sy = clamp(((obj.z + 42) / 55) * 150, 0, 150);
         odot.setAttribute('cx', sx.toFixed(1));
         odot.setAttribute('cy', sy.toFixed(1));
         odot.style.display = 'block';
@@ -1206,8 +1285,8 @@ export function createGame(container) {
     if (pdot) {
       if (wanted.units.length) {
         const u = wanted.units[0];
-        const sx = ((u.car.x + 60) / 120) * 150;
-        const sy = ((u.car.z + 42) / 55) * 150;
+        const sx = clamp(((u.car.x + 60) / 120) * 150, 0, 150);
+        const sy = clamp(((u.car.z + 42) / 55) * 150, 0, 150);
         pdot.setAttribute('cx', sx.toFixed(1));
         pdot.setAttribute('cy', sy.toFixed(1));
         pdot.style.display = 'block';
@@ -1229,7 +1308,9 @@ export function createGame(container) {
     if (dlg) {
       dlg.style.display = dialogueLine ? 'flex' : 'none';
       if (dialogueLine) {
-        const whoName = { ELIO: 'ELIO SANTORO', VI: 'VI ROMANO', LIDIA: 'CAPTAIN LIDIA COSTA', DOM: 'DOM SERRA' }[dialogueLine.who] || dialogueLine.who;
+        // AUDIT m-21: every PORTRAITS speaker gets their full name —
+        // FELIX, ALDO, BIANCA, IRIS and GUS showed as bare first names.
+        const whoName = { ELIO: 'ELIO SANTORO', VI: 'VI ROMANO', LIDIA: 'CAPTAIN LIDIA COSTA', DOM: 'DOM SERRA', FELIX: 'FÉLIX MOREAU', ALDO: 'ALDO MORETTI', BIANCA: 'BIANCA FERRANTE', IRIS: 'IRIS NOVAK', GUS: 'GUS BIANCHI' }[dialogueLine.who] || dialogueLine.who;
         setText('hud-dialogue-who', whoName);
         setText('hud-dialogue-line', '\u201C' + dialogueLine.line + '\u201D');
         const portrait = $('hud-dialogue-portrait');
@@ -1263,8 +1344,11 @@ export function createGame(container) {
     const tailStage = !missions.done && missions.stageDef() && missions.stageDef().type === 'tail';
     smugglerMesh.visible = !!tailStage;
     if (tailStage) {
-      smugglerMesh.position.set(missions.tailPos.x, 0, missions.tailPos.z);
-      smugglerMesh.rotation.y = Math.PI / 2;
+      // AUDIT M-7: y = ROAD_Y (the road top, not 0) and the smuggler
+      // faces along the boulevard (rotation.y = PI), like the other
+      // traffic cars — PI/2 drove it sideways across the lane.
+      smugglerMesh.position.set(missions.tailPos.x, ROAD_Y, missions.tailPos.z);
+      smugglerMesh.rotation.y = Math.PI;
     }
   }
 
