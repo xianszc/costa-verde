@@ -1,11 +1,11 @@
 {
-  "generated": "2026-11-22T03:56:51.832Z",
+  "generated": "2026-11-22T05:16:42.234Z",
   "commit": "unknown",
   "missions": {
     "M1": {
       "mission": "M1",
       "result": "PASS",
-      "how": "human-like",
+      "how": "workaround",
       "ms": 134000,
       "attempts": 1,
       "fails": 0,
@@ -15,7 +15,7 @@
     "M3": {
       "mission": "M3",
       "result": "PASS",
-      "how": "human-like",
+      "how": "workaround",
       "ms": 61000,
       "attempts": 1,
       "fails": 0,
@@ -32,7 +32,7 @@
       "money": 2050,
       "xp": 1758.2712998803472,
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     },
     "M5": {
@@ -45,7 +45,7 @@
       "money": 2150,
       "xp": 1819.4107929830957,
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     },
     "M6": {
@@ -58,7 +58,7 @@
       "money": 2250,
       "xp": 1917.5639161910967,
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     },
     "M7": {
@@ -67,9 +67,14 @@
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "ms": 13099,
+      "ms": 398441,
       "money": 2350,
-      "xp": 1890,
+      "xp": 2171.3588081121225,
+      "stages": {
+        "0": "CROSS: reached by driving (human-like)",
+        "1": "SCAN: drive 0.0u + walk 0.0u (human-like)",
+        "2": "RETURN: drive 11.6u + walk 16.0u (human-like)"
+      },
       "errors": 0,
       "how": "human-like",
       "commit": "unknown"
@@ -84,7 +89,7 @@
       "money": 2450,
       "xp": 2001.1630576788257,
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     },
     "M9": {
@@ -97,7 +102,7 @@
       "money": 2750,
       "xp": 2040,
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     },
     "M11": {
@@ -110,7 +115,7 @@
       "money": 3750,
       "xp": 2232.2991693290246,
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     },
     "M12": {
@@ -123,7 +128,7 @@
       "money": 6250,
       "xp": 2740,
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     },
     "M2": {
@@ -136,7 +141,7 @@
       "money": 1850,
       "xp": 1710.8131157090909,
       "errors": 0,
-      "how": "human-like",
+      "how": "workaround",
       "commit": "unknown"
     }
   },
