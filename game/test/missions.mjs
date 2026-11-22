@@ -653,6 +653,21 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
       if (lastFailWp && Math.hypot(failedWp.x - lastFailWp.x, failedWp.z - lastFailWp.z) < 0.5
         && Math.hypot(c2.x - lastFailPos.x, c2.z - lastFailPos.z) < 1.5) {
         if (blacklists < 2) {
+          // DRIVER fix (23 Nov ~05:05, M9): do NOT blacklist when the
+          // CAR is immobilised. M9's car froze at (-12.8,-3.6) on the
+          // first leg and never moved again (backtrack + 5 re-plans,
+          // position identical to 0.1u); the guard then blacklisted
+          // two GOOD boulevard nodes ((-11.2,0), (-11.2,-11.2)) while
+          // the police shot the player dead in the meantime. A
+          // blacklist is only valid when the car demonstrably moved
+          // during the plan (M4: ~10u to the corner and back) — i.e.
+          // the WAYPOINT is unreachable, not the car. If the car has
+          // not moved at all since the plan started, it is wrecked
+          // or wedged: report that and stop, do not re-route.
+          if (Math.hypot(c2.x - planStart.x, c2.z - planStart.z) < 1.0) {
+            console.log(`[routeDrive] car IMMOBILIZED at (${c2.x.toFixed(1)},${c2.z.toFixed(1)}) since plan start — not blacklisting, giving up`);
+            return false;
+          }
           const bn = roadGraph.nearestNode(failedWp.x, failedWp.z).node;
           blocked.add(bn);
           blacklists++;
