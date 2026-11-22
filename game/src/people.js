@@ -1,4 +1,4 @@
-// AZZURRA — characters.
+// AZZURA — characters.
 // Stylized fashion-illustration proportions: slightly elongated, small heads,
 // confident posture, strong silhouettes. Flat color blocks + one accent color.
 // Limbs are built as pivoted groups (shoulder / hip / elbow) so walk, run,

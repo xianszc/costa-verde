@@ -189,7 +189,7 @@ export function cbdGridLanes() {
     // The boulevard loop (the main east-west avenue, both directions
     // on the centreline — slice B splits it into directed lanes).
     { name: 'boulevard', pts: loopPath(-56, -0.825, 56, 0.825, 4), speed: 9 },
-    // The N-S avenue loop (Corso Azzurra, x 0).
+    // The N-S avenue loop (Corso Azzura, x 0).
     { name: 'cbd-avenue', pts: loopPath(-0.825, -44, 0.825, 11, 1.2), speed: 8 },
     // Outer grid loop: the boundary streets (x +/-33.6, z -44.8/11.2).
     { name: 'cbd-outer', pts: loopPath(-33.6, -44.8, 33.6, 11.2, 1.2), speed: 7 },

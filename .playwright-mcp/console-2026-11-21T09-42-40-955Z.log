@@ -1,0 +1,2 @@
+[     480ms] [WARNING] [city] plot violations: [bell-tower: overlaps sidewalk, bell-tower: overlaps sidewalk] @ http://127.0.0.1:8941/src/city.js:232
+[    7174ms] [WARNING] [.WebGL-0x3f24000d9500]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://127.0.0.1:8941/index.html?shot=ring:1

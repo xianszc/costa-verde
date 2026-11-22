@@ -1,0 +1,10 @@
+[     378ms] [WARNING] [city] plot violations: [bell-tower: overlaps sidewalk, bell-tower: overlaps sidewalk] @ http://127.0.0.1:8941/src/city.js:232
+[    1411ms] [WARNING] THREE.Color: Unknown color sedan @ http://127.0.0.1:8941/vendor/three.module.min.js:6
+[    1412ms] [WARNING] THREE.Color: Unknown color sedan @ http://127.0.0.1:8941/vendor/three.module.min.js:6
+[    1415ms] [WARNING] THREE.Color: Unknown color van @ http://127.0.0.1:8941/vendor/three.module.min.js:6
+[    1415ms] [WARNING] THREE.Color: Unknown color van @ http://127.0.0.1:8941/vendor/three.module.min.js:6
+[    1419ms] [WARNING] THREE.Color: Unknown color sedan @ http://127.0.0.1:8941/vendor/three.module.min.js:6
+[    1419ms] [WARNING] THREE.Color: Unknown color sedan @ http://127.0.0.1:8941/vendor/three.module.min.js:6
+[    1422ms] [WARNING] THREE.Color: Unknown color pickup @ http://127.0.0.1:8941/vendor/three.module.min.js:6
+[    1422ms] [WARNING] THREE.Color: Unknown color pickup @ http://127.0.0.1:8941/vendor/three.module.min.js:6
+[    7163ms] [WARNING] [.WebGL-0x4c000cf100]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://127.0.0.1:8941/index.html?shot=cbd&view=top:1

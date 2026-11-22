@@ -1,0 +1,86 @@
+- generic [active]:
+  - generic:
+    - generic:
+      - generic:
+        - generic: AZZURA HEIST
+        - text: PORTO AZZURA · EST. 1962
+      - generic:
+        - generic: 18:41
+        - text: GOLDEN HOUR · DAY 1
+      - generic:
+        - generic: S 1,250
+        - generic: ☆☆☆☆☆
+        - generic: CLEAN
+    - generic:
+      - generic: Mission · Chapter 1
+      - heading "M1THE FERRY JOB" [level=2]
+      - generic:
+        - generic: 1 · RECON
+        - generic: 2 · STEAL
+        - generic: 3 · ESCAPE
+      - paragraph: Steal the ferry manifest from the harbormaster’s office, then lose the Guard on the promenade.
+      - paragraph: Reach the harbormaster pavilion at the east end of the quay.
+      - generic: TIME LEFT 04:30
+    - generic:
+      - generic: Radio
+      - heading "RADIO LUME" [level=3]
+      - generic: Notte di Luce — Solmar Five · Italo Disco
+      - generic: LUMEONDACAVA
+    - generic:
+      - generic: Guardia del Porto
+      - heading "DISPATCH · RESPONSE" [level=3]
+      - generic:
+        - generic: Beacon-3 · BOAT
+        - generic: 240 m
+        - generic: PATROL
+      - generic:
+        - generic: Tide-4 · BOAT
+        - generic: 310 m
+        - generic: PATROL
+      - generic:
+        - generic: Lighthouse-5 · TOWER
+        - generic: 420 m
+        - generic: PATROL
+    - generic:
+      - generic:
+        - img "minimap":
+          - generic: "N"
+      - generic:
+        - generic: VIA DEL PORTO
+        - text: OLD QUARTER · DISTRICT 4
+    - generic:
+      - generic:
+        - generic: STELLA ROADSTER · 0 KM/H
+        - generic: FUEL 100% · DAMAGE 0%
+      - generic:
+        - generic:
+          - generic: "1"
+          - generic: FISTS
+          - generic: ∞
+        - generic:
+          - generic: "2"
+          - generic: LUPO P9
+          - generic: 12 / 48
+        - generic:
+          - generic: "3"
+          - generic: DOPPIETTA
+          - generic: 2 / 8
+        - generic:
+          - generic: "4"
+          - generic: TAMBURO
+          - generic: 24 / 96
+        - generic:
+          - generic: "5"
+          - generic: FUCILE
+          - generic: 5 / 20
+    - generic:
+      - generic:
+        - generic: HEALTH
+        - generic: "100"
+      - generic:
+        - generic: ARMOUR
+        - generic: "60"
+      - generic:
+        - generic: WHEELMAN · XP
+        - generic: 1,240 / 2,000
+      - generic: "Next rank: FIXER · unlocks Tamburo SMG"

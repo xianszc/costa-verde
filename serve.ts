@@ -1,4 +1,4 @@
-// AZZURRA — tiny static server for game/ (Node 22, standard library only).
+// AZZURA — tiny static server for game/ (Node 22, standard library only).
 // A development convenience, not a web server for the internet:
 //   node serve.ts [--port 8933]
 // serves game/ on http://localhost:8080 (or the given port) so the game can be
