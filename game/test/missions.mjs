@@ -357,7 +357,12 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
     // — M10 run 4 arrived 2.8u off the (-22.4,-22.4) node, inside a
     // block, and wedged on the next leg. Big turns (>2.2 rad) are
     // handled by the 3-point turn at leg start.
-    const approachCap = d < 10 ? Math.max(3, d * 0.8) : cap;
+    // DRIVER fix (M10 run 7, 22 Nov ~09:45): start braking 20u out
+    // (was 10u) — the car at 12 u/s needs the distance to shed
+    // speed before a 90 deg turn (run 7 overshot the (-54,0) south
+    // turn to (-56.9,-1.1) because it arrived at the corner too
+    // fast to turn).
+    const approachCap = d < 20 ? Math.max(4, d * 0.6) : cap;
     const effCap = Math.min(approachCap, Math.abs(diff) > 1.5 ? 4 : Math.abs(diff) > 0.7 ? 6 : cap);
     await setKeys(page, carSteerKeys(diff, c.speed, effCap));
     await sleep(300);
@@ -376,34 +381,44 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
 // there is deliberately NO straight-line fallback through buildings.
 async function routeDrive(page, tx, tz, cap, perWpMs) {
   if (!roadGraph) { console.log('[routeDrive] no road graph'); return false; }
-  const c = await readCar(page);
-  const from = roadGraph.nearestNode(c.x, c.z);
-  const to = roadGraph.nearestNode(tx, tz);
-  const pathIdx = roadGraph.bfs(from.node, to.node);
-  if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz})`); return false; }
-  const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
-  // Thin to >3u apart (was 6u): a 6u thinning dropped the (-44,0)
-  // node and made the driver steer diagonally from (-40,0) straight
-  // to (-47.5,-26), cutting across city blocks. Junction nodes 3-6u
-  // apart are real turns and must be driven through.
-  const thin = [wps[0]];
-  for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 3) thin.push(p);
-  // PROBE logging (M10, 22 Nov 07:20): full BFS path + thinned
-  // waypoints + per-waypoint outcome, so a wedge can be traced to
-  // the exact waypoint that cut a corner through buildings.
-  console.log(`[routeDrive] to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
-  console.log(`[routeDrive] thinned ${thin.length} wps: ` + thin.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
-  for (const wp of thin) {
-    const ok = await driveToPoint(page, wp.x, wp.z, 2.5, cap, perWpMs);
-    const cc = await readCar(page);
-    console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
-    if (!ok) break;
+  // DRIVER fix (M10 run 7, 22 Nov ~09:45): RE-PLAN on a missed
+  // waypoint instead of aborting. A human who overshoots a turn
+  // turns around and re-routes from where they are; the old code
+  // abandoned the whole route after one missed waypoint (run 7:
+  // overshot the (-54,0) south turn to (-56.9,-1.1) and gave up
+  // 39u from the plaza). Up to 3 re-plans per call, each a fresh
+  // BFS from the car's actual position.
+  for (let plan = 0; plan < 4; plan++) {
+    const c = await readCar(page);
+    const from = roadGraph.nearestNode(c.x, c.z);
+    const to = roadGraph.nearestNode(tx, tz);
+    const pathIdx = roadGraph.bfs(from.node, to.node);
+    if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz})`); return false; }
+    const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
+    const thin = [wps[0]];
+    for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 3) thin.push(p);
+    if (plan === 0) {
+      console.log(`[routeDrive] to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
+      console.log(`[routeDrive] thinned ${thin.length} wps: ` + thin.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
+    } else {
+      console.log(`[routeDrive] RE-PLAN ${plan} to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
+    }
+    let failed = false;
+    for (const wp of thin) {
+      const ok = await driveToPoint(page, wp.x, wp.z, 2.5, cap, perWpMs);
+      const cc = await readCar(page);
+      console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
+      if (!ok) { failed = true; break; }
+    }
+    const c2 = await readCar(page);
+    const last = thin[thin.length - 1];
+    const d = Math.hypot(c2.x - last.x, c2.z - last.z);
+    console.log(`[routeDrive] to (${tx},${tz}) car now (${c2.x.toFixed(1)},${c2.z.toFixed(1)}) ${d.toFixed(1)}u from road node (${last.x},${last.z})`);
+    if (d < 6) return true;
+    if (!failed) return false; // drove the whole plan but still far — no re-plan helps
+    // else: missed a waypoint — loop and re-plan from the car's actual position
   }
-  const c2 = await readCar(page);
-  const last = thin[thin.length - 1];
-  const d = Math.hypot(c2.x - last.x, c2.z - last.z);
-  console.log(`[routeDrive] to (${tx},${tz}) car now (${c2.x.toFixed(1)},${c2.z.toFixed(1)}) ${d.toFixed(1)}u from road node (${last.x},${last.z})`);
-  return d < 6;
+  return false;
 }
 
 // Walk the ON-FOOT player toward (tx, tz) with W + A/D. The player
