@@ -306,3 +306,113 @@ html, body {
 }
 .hub-save button:disabled, .hub-row button:disabled { opacity: 0.4; cursor: default; }
 .hub-body input[type="range"] { width: 200px; accent-color: var(--gold); vertical-align: middle; }
+
+/* ---- side content (3c wiring, 22 Nov) ---- */
+/* Toast: transient side-activity messages, bottom centre. */
+#side-toast {
+  position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%);
+  background: var(--panel-dark); color: #f7ebd7; border: 1px solid var(--gold);
+  border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.5px; z-index: 40; opacity: 0; transition: opacity 0.3s;
+  pointer-events: none; max-width: 80vw; text-align: center;
+}
+/* Active side job/race panel, top-left under the clock. */
+#side-job-panel {
+  position: fixed; top: 108px; left: 16px; width: 300px; z-index: 30;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+}
+.side-label { font-size: 10px; font-weight: 800; letter-spacing: 2px; color: var(--sea); }
+.side-title { font-size: 15px; font-weight: 800; margin: 4px 0; }
+.side-chip {
+  display: inline-block; background: var(--ink); color: var(--gold);
+  border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-right: 4px;
+}
+.side-stage { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--terra); }
+.side-objective { font-size: 12px; line-height: 1.45; margin: 6px 0; }
+.side-timer, .side-prog { font-size: 12px; font-weight: 800; color: var(--ink); }
+.side-timer b { color: var(--terra); }
+.side-abandon {
+  margin-top: 8px; padding: 6px 12px; background: var(--ink); color: var(--gold);
+  border: 0; border-radius: 6px; font-size: 11px; font-weight: 800;
+  letter-spacing: 1px; cursor: pointer;
+}
+/* Proximity prompt (shop door / job start marker), bottom centre above the toast. */
+#side-prompt {
+  position: fixed; left: 50%; bottom: 148px; transform: translateX(-50%);
+  background: var(--panel); border: 1px solid var(--gold); border-radius: 8px;
+  padding: 8px 14px; font-size: 13px; font-weight: 800; letter-spacing: 0.5px;
+  z-index: 39; display: none; box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+  white-space: nowrap;
+}
+#side-prompt b { color: var(--terra); }
+/* Side HUD chip: coins / jumps / jobs / rank, bottom-left. */
+#side-hud {
+  position: fixed; left: 16px; bottom: 16px; z-index: 30;
+  background: var(--panel-dark); color: #f7ebd7; border: 1px solid rgba(242,165,65,0.5);
+  border-radius: 8px; padding: 7px 12px; font-size: 11px; font-weight: 800;
+  letter-spacing: 1px; display: none;
+}
+#side-hud b { color: var(--gold); }
+/* Full-screen map overlay (M key). */
+#map-overlay {
+  position: fixed; inset: 0; z-index: 50; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(30, 42, 50, 0.72);
+}
+.map-card {
+  width: min(980px, 94vw); max-height: 92vh; overflow: auto;
+  background: var(--panel); border: 2px solid var(--gold); border-radius: 12px;
+  padding: 16px 18px; box-shadow: 0 8px 40px rgba(0,0,0,0.45);
+}
+.map-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.map-title { font-size: 20px; font-weight: 800; letter-spacing: 3px; }
+.map-sub { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--terra); margin-top: 4px; }
+.map-close { background: none; border: 0; font-size: 30px; line-height: 1; cursor: pointer; color: var(--ink); }
+.map-body { display: flex; gap: 14px; margin-top: 10px; }
+.map-svg-wrap { flex: 1; min-width: 0; }
+.map-svg { width: 100%; height: auto; display: block; border: 1px solid rgba(30,42,50,0.3); border-radius: 6px; }
+.map-marker { cursor: pointer; }
+.map-list { width: 220px; flex: none; overflow-y: auto; max-height: 460px; }
+.map-list h3 { margin: 2px 0 8px; font-size: 12px; letter-spacing: 2px; }
+.map-wp {
+  display: block; width: 100%; text-align: left; margin-bottom: 5px;
+  padding: 7px 9px; background: rgba(30,42,50,0.08); border: 1px solid rgba(30,42,50,0.2);
+  border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--ink);
+}
+.map-wp:hover { background: rgba(242,165,65,0.25); }
+.map-foot { margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--ink); }
+/* Shop overlay (shared menu, opened with E at a shop door). */
+#shop-overlay {
+  position: fixed; inset: 0; z-index: 50; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(30, 42, 50, 0.72);
+}
+.shop-card {
+  width: min(620px, 92vw); max-height: 88vh; overflow-y: auto;
+  background: var(--panel); border: 2px solid var(--gold); border-radius: 12px;
+  padding: 18px 20px; box-shadow: 0 8px 40px rgba(0,0,0,0.45);
+}
+.shop-title { font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+.shop-sub { font-size: 12px; color: #6b5d4f; margin: 4px 0 2px; line-height: 1.45; }
+.shop-money { font-size: 15px; font-weight: 800; color: var(--gold); background: var(--ink); display: inline-block; border-radius: 6px; padding: 3px 10px; margin: 8px 0; }
+.shop-item {
+  display: flex; gap: 10px; align-items: center;
+  border: 1px solid rgba(30,42,50,0.2); border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 8px;
+}
+.shop-item.locked { opacity: 0.55; }
+.shop-item .shop-info { flex: 1; min-width: 0; }
+.shop-item b { font-size: 13px; }
+.shop-item p { margin: 3px 0 0; font-size: 11px; line-height: 1.4; color: #6b5d4f; }
+.shop-item .shop-price { font-size: 13px; font-weight: 800; white-space: nowrap; }
+.shop-item button {
+  padding: 7px 14px; background: var(--ink); color: var(--gold); border: 0;
+  border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: 1px; cursor: pointer;
+}
+.shop-item button:disabled { opacity: 0.4; cursor: default; }
+.shop-msg { font-size: 12px; font-weight: 700; color: var(--terra); min-height: 16px; }
+.shop-close {
+  margin-top: 6px; padding: 7px 14px; background: none; border: 1px solid var(--ink);
+  border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: 1px; cursor: pointer;
+}

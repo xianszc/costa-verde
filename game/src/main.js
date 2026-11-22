@@ -23,6 +23,12 @@
 // visible spoke angle (slight front steer on front34), the camera placed
 // by hand, and the scene rendered twice with __shotReady set.
 import { createGame } from './game.js';
+// 3c SIDE CONTENT WIRING (22 Nov): sidecontent.js self-boots by polling
+// for window.__game — but it was never imported, so it never ran (dead
+// code since M4). This side-effect import wires the full-screen map
+// (M), side jobs/races, shops, collectibles, stunt jumps, standing and
+// rank unlocks into the game.
+import './sidecontent.js';
 import { ANCHORS } from './anchors.js';
 import {
   buildTrafficCar, buildPoliceCruiser, createCar, ROAD_Y,

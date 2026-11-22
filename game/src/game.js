@@ -1919,7 +1919,7 @@ export function createGame(container) {
 
   return {
     state, car, player, traffic, cbdTraffic, peds, renderer, scene, camera,
-    stageShot, setStorm, startPlay, district,
+    stageShot, setStorm, startPlay, district, setPaused,
     wanted, combat, missions, hub, radio, saveSystem,
     get duelTarget() { return duelTarget; },
     // Test-only fast simulation (see ?fastsim in main.js): steps the
