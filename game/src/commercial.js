@@ -265,7 +265,9 @@ export function buildCommercialRing() {
       spots.push({ x: b.x0 + 2.2, z, ry: -Math.PI / 2, edge: 'west' });
       spots.push({ x: b.x1 - 2.2, z, ry: Math.PI / 2, edge: 'east' });
     }
-    // The market hall + the garage replace the perimeter fill.
+    // The market hall replaces the perimeter fill. (AUDIT m-30: the
+    // old 'garage' branch below it was dead — no BLOCKS entry has
+    // kind 'garage' — and is deleted.)
     if (b.kind === 'market') {
       const cx = (b.x0 + b.x1) / 2;
       const cz = (b.z0 + b.z1) / 2;
@@ -284,26 +286,6 @@ export function buildCommercialRing() {
       hall.position.set(cx, 0, cz);
       group.add(hall);
       colliders.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, id: 'market-hall' });
-      buildingCount += 1;
-      continue;
-    }
-    if (b.kind === 'garage') {
-      const cx = (b.x0 + b.x1) / 2;
-      const cz = (b.z0 + b.z1) / 2;
-      const gar = new THREE.Group();
-      for (let level = 0; level < 3; level++) {
-        gar.add(box(bw - 1, 0.4, bd - 1, 0x8f8880, 0, level * 3 + 0.2, 0));
-        for (let i = 0; i < 3; i++) {
-          const car = box(1.8, 0.7, 4.2, [0xe4572e, 0x2e7f8f, 0xe8c33d][i], -bw / 4 + i * (bw / 4), level * 3 + 0.8, 0);
-          gar.add(car);
-        }
-      }
-      for (const px of [-bw / 2 + 0.5, bw / 2 - 0.5]) {
-        for (const pz of [-bd / 2 + 0.5, bd / 2 - 0.5]) gar.add(box(0.5, 9.4, 0.5, 0x6e6a64, px, 4.7, pz));
-      }
-      gar.position.set(cx, 0, cz);
-      group.add(gar);
-      colliders.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, id: 'parking-garage' });
       buildingCount += 1;
       continue;
     }
@@ -417,13 +399,20 @@ export function buildCommercialRing() {
   // The text is dropped (a merged mesh cannot carry 6 different
   // canvas textures) — the neon is a glowing colour bar, the shop's
   // name already sits on its sign band above the awning.
+  // AUDIT m-19: a neon bar hangs on a shopfront face (z -46.5, just
+  // off the south-facing fronts of the north-band row 2, face ~-47.7).
+  // Four were misplaced: (52,-36) and (50,-7.5) sat INSIDE buildings,
+  // (-51,-7.5) just behind a front, (-51,21.5) floating with no
+  // building behind. All four move onto the same valid strip (the
+  // market block x 47..59.5 has no perimeter shops, so no neon lands
+  // there).
   const neons = [
     { x: -27, z: -46.5, color: 0xff5c8a },
     { x: 3.5, z: -46.5, color: 0x3ed6d6 },
-    { x: 52, z: -36, color: 0xffc46b },
-    { x: 50, z: -7.5, color: 0xff5c8a },
-    { x: -51, z: -7.5, color: 0x3ed6d6 },
-    { x: -51, z: 21.5, color: 0xffc46b },
+    { x: -19, z: -46.5, color: 0xffc46b },
+    { x: 12, z: -46.5, color: 0xff5c8a },
+    { x: 42, z: -46.5, color: 0x3ed6d6 },
+    { x: 63, z: -46.5, color: 0xffc46b },
   ];
   for (const n of neons) {
     const q = colored(new THREE.PlaneGeometry(3.2, 0.8), n.color);

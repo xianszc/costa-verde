@@ -240,7 +240,11 @@ export function addSkidMark(scene, x, z, angle) {
   const slot = pool.marks[pool.next];
   pool.next = (pool.next + 1) % pool.marks.length;
   slot.mesh.position.set(x, 0.23, z);
-  slot.mesh.rotation.z = -angle;
+  // AUDIT m-40: rotation.z = +angle, not -angle. The mark is a flat
+  // plane (long axis X, rotation.x = -PI/2); with Euler order XYZ the
+  // z-rotation applies in-plane first, and +angle lands the long axis
+  // on the car's forward (cos a, -sin a) — -angle mirrored it.
+  slot.mesh.rotation.z = angle;
   slot.mesh.material.opacity = 0.85;
   slot.mesh.visible = true;
   slot.age = 0;

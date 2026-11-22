@@ -67,6 +67,9 @@ export function zoneFor(x, z) {
 }
 export function surfaceFor(x, z) {
   if (z > 35.5) return 'water'; // bay shore / skyline beach
+  // AUDIT m-22: the beach edge (boardwalk end to water) is sand — the
+  // 'sand' footstep existed but no surface ever returned it.
+  if (z > 35 && z <= 35.5) return 'sand';
   if (z >= 28 && z <= 35) return 'wood'; // promenade boardwalk
   if (z >= 12.7 && z <= 14.5) return 'wood'; // quay decking
   if (z < -60 || x > 80) return 'grass'; // hills / countryside
@@ -518,17 +521,6 @@ export function createAudioEngine() {
     g.connect(bus || s.sfx);
     src.start();
     return { src, flt, gain: g };
-  }
-  function loopTone(type, freq, bus) {
-    const osc = s.ctx.createOscillator();
-    osc.type = type;
-    osc.frequency.value = freq;
-    const g = s.ctx.createGain();
-    g.gain.value = 0;
-    osc.connect(g);
-    g.connect(bus || s.sfx);
-    osc.start();
-    return { src: osc, gain: g };
   }
   function ensureLoops() {
     if (!s || loops.ready) return;

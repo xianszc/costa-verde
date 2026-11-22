@@ -45,14 +45,18 @@ export function palmGeometryFull(seed = 7) {
       const green = GREENS[(i + (L.n % 3)) % GREENS.length];
       const r = len * 0.5;
       // Base segment: from the crown out, tilted down by L.tilt.
+      // AUDIT m-31: rotation.y must be PI/2 - a — the frond's long axis
+      // is local Z, so Ry(PI/2 - a) points it radially outward (along
+      // the (cos a, sin a) position); the old -a laid it tangential,
+      // the thin green starburst the M1 palm had.
       const base = new THREE.BoxGeometry(L.w, 0.05, len * 0.62);
-      add(xform(base, Math.cos(a) * r * 0.62, L.y + 0.06, Math.sin(a) * r * 0.62, -a, 1, L.tilt), green);
+      add(xform(base, Math.cos(a) * r * 0.62, L.y + 0.06, Math.sin(a) * r * 0.62, Math.PI / 2 - a, 1, L.tilt), green);
       // Tip segment: continues from the base end, drooping further.
       const tip = new THREE.BoxGeometry(L.w * 0.8, 0.04, len * 0.55);
       const tx = Math.cos(a) * (r + len * 0.22);
       const tz = Math.sin(a) * (r + len * 0.22);
       const ty = L.y - Math.sin(L.tilt) * len * 0.42 - 0.12;
-      add(xform(tip, tx, ty, tz, -a, 1, L.tilt + 0.55), green);
+      add(xform(tip, tx, ty, tz, Math.PI / 2 - a, 1, L.tilt + 0.55), green);
     }
   }
   // Coconut cluster under the crown.

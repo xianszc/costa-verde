@@ -165,6 +165,9 @@ export function createCombat(scene, camera, opts) {
     if (decals.length >= MAX_DECALS) {
       const old = decals.shift();
       scene.remove(old.mesh);
+      // AUDIT m-23: the evicted decal's cloned material leaked — the
+      // expiry path in update() disposes it, the cap path did not.
+      old.mesh.material.dispose();
     }
     const m = new THREE.Mesh(decalGeo, decalMat.clone());
     m.position.copy(point).addScaledVector(normal, 0.02);
@@ -213,6 +216,9 @@ export function createCombat(scene, camera, opts) {
     if (audio) audio.gunshot(w.name);
     const pellets = w.pellets || 1;
     let hitAny = false;
+    // AUDIT m-24: getTargets() built a fresh array per pellet — hoisted.
+    const targets = getTargets();
+    const meshes = targets.map((t) => t.mesh);
     for (let i = 0; i < pellets; i++) {
       const d = dir.clone();
       d.x += (Math.random() - 0.5) * w.spread * 2;
@@ -221,8 +227,6 @@ export function createCombat(scene, camera, opts) {
       d.normalize();
       ray.set(origin, d);
       ray.far = w.range;
-      const targets = getTargets();
-      const meshes = targets.map((t) => t.mesh);
       const hits = ray.intersectObjects(meshes, true);
       let end = origin.clone().addScaledVector(d, w.range);
       let hitPoint = null;

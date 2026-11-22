@@ -148,17 +148,6 @@ function bakeRearDiscs(g, rigs, parts) {
   }
 }
 
-// Rectangular headlamp: a slim emissive box, not a white sphere.
-function headlamp(g, x, y, z) {
-  const m = new THREE.Mesh(
-    new THREE.BoxGeometry(0.1, 0.16, 0.36),
-    new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 }),
-  );
-  m.position.set(x, y, z);
-  g.add(m);
-  return m;
-}
-
 // ---------- car models ----------
 export function buildStella() {
   // Stella roadster — coral hero car, low and long, cream interior.
@@ -481,8 +470,9 @@ export function stepTraffic(cars, dt, obstacles = [], nowSec) {
     car.speed += (targetSpeed - car.speed) * Math.min(1, dt * 1.5);
     car.x += Math.cos(car.angle) * car.speed * dt;
     car.z -= Math.sin(car.angle) * car.speed * dt;
-    // Skyline lanes sit on the 0.75 landmass: the car's ground level
-    // follows groundHeightAt (M3 (c)), everywhere else it is 0.
+    // AUDIT m-38: the ground is FLAT in stage 1 (groundHeightAt
+    // returns 0 everywhere — the old skyline landmass is gone), so
+    // this is just ROAD_Y; the call stays for stage 2 terrain.
     car.mesh.position.set(car.x, ROAD_Y + groundHeightAt(car.x, car.z), car.z);
     car.mesh.rotation.y = car.angle;
     // Wheels spin with speed; front wheels steer into the turn.

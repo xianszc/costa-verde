@@ -43,6 +43,12 @@ async function buildDossier(outDir: string, wanted: string[]) {
   const dir = path.join(outDir, 'screenshots');
   const files = existsSync(dir) ? (await readdir(dir)).filter((f) => /\.(png|jpe?g)$/i.test(f)).sort() : [];
   if (!files.length) throw new Error(`dossier needs at least 1 screenshot in ${dir}`);
+  // AUDIT m-25: --shot names are validated — an unknown name used to
+  // sail into dossier.json unchecked. A name matches a screenshot file
+  // exactly, or by its basename without the extension.
+  const known = new Set([...files, ...files.map((f) => f.replace(/\.(png|jpe?g)$/i, ''))]);
+  const unknown = wanted.filter((w) => !known.has(w));
+  if (unknown.length) throw new Error(`unknown --shot name(s): ${unknown.join(', ')} (screenshots in ${dir}: ${files.join(', ') || '(none)'})`);
   const caps = { maxShots: 4, maxShotKiB: 256, maxSide: 1280, minSide: 480 };
   const dossier = { game: 'Azzura Heist', missions: 11, shots: wanted.length ? wanted : files, files, caps, builtAt: new Date().toISOString() };
   await writeFile(path.join(outDir, 'dossier.json'), JSON.stringify(dossier, null, 2));

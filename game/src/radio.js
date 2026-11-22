@@ -156,7 +156,10 @@ export function createRadio() {
     if (timer) clearInterval(timer);
     timer = null;
     started = false;
-    if (ctx) ctx.close().catch(() => {});
+    // AUDIT m-26: the AudioContext is SHARED with audio.js — never
+    // close it here (a stale stop() would silence the whole game).
+    // Dropping the local handles is enough; start() re-ensures them.
+    master = null;
     ctx = null;
   }
   return {
