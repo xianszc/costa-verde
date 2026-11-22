@@ -1359,10 +1359,11 @@ async function driveThroughGate(page, gate, before, slow, reverse = false) {
   const dz = gate.dir === 'ew' ? 0 : 1;
   const started = Date.now();
   let maxSpeedAtGate = 0;
+  let registered = false;
   while (Date.now() - started < 60000) {
     const c = await readCar(page);
     const s = await readState(page);
-    if (s.side.jumpsDone > before) { await releaseKeys(page); return { ok: true, maxSpeed: maxSpeedAtGate }; }
+    if (s.side.jumpsDone > before) { registered = true; break; }
     const d = Math.hypot(c.x - gate.x, c.z - gate.z);
     if (d < 5) maxSpeedAtGate = Math.max(maxSpeedAtGate, Math.abs(c.speed));
     const beyond = (c.x - gate.x) * dx + (c.z - gate.z) * dz;
@@ -1374,6 +1375,11 @@ async function driveThroughGate(page, gate, before, slow, reverse = false) {
   }
   await releaseKeys(page);
   if (reverse) return { ok: false, maxSpeed: maxSpeedAtGate }; // drag stops the car; next leg re-places it
+  // Brake to a stop in every case (registered or overshot): a car
+  // released at ~19 m/s coasts ~45u on drag alone — the SJ4 leg
+  // coasted straight through the SJ8 gate at (57,32) and registered
+  // it. A human player brakes after landing a jump; so does this
+  // driver. Braking from ~19 stops in ~8u.
   for (let i = 0; i < 15; i++) {
     const c = await readCar(page);
     if (Math.abs(c.speed) < 0.5) break;
@@ -1381,7 +1387,7 @@ async function driveThroughGate(page, gate, before, slow, reverse = false) {
     await sleep(200);
   }
   await releaseKeys(page);
-  return { ok: false, maxSpeed: maxSpeedAtGate };
+  return { ok: registered, maxSpeed: maxSpeedAtGate };
 }
 async function testJumps() {
   const label = 'jumps';
