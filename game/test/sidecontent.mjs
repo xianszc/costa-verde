@@ -1612,16 +1612,27 @@ async function testJobs() {
     try {
       const active = await startJobAt(f.page, -50, 1, -45, 0);
       if (active !== 'J1') throw new Error(`J1 fail: did not start, active=${active}`);
-      // Poll the toast (it fades after 3.6 s — poll every 1 s).
-      // At fastsim 2 the 90 game-s timer is ~45-90 wall-s.
+      // Poll the toast (it fades after 3.6 s — poll every 2 s).
+      // NOTE: the headless sim runs far below fastsim 2 in wall time
+      // (each evaluate stalls the main thread, so the effective rate
+      // is ~0.5-1 game-s per wall-s) — the 90 game-s timer needs
+      // ~90-180 wall-s. Timeout 300 s; the panel's TIME LEFT timer
+      // is logged every ~30 s so a stuck timer is visible.
       let failed = false;
+      let lastTimer = '';
+      let polls = 0;
       const failStart = Date.now();
-      while (Date.now() - failStart < 150000) {
+      while (Date.now() - failStart < 300000) {
         const t = await toastText(f.page);
         if (t.includes('TIME UP')) { failed = true; break; }
-        await sleep(1000);
+        if (++polls % 15 === 0) {
+          const p = await jobPanel(f.page);
+          const m = p.match(/TIME LEFT[^0-9]*([0-9:]+)/);
+          if (m) { lastTimer = m[1]; console.log(`[jobs] J1 fail wait: TIME LEFT ${lastTimer} (${Math.round((Date.now() - failStart) / 1000)}s wall)`); }
+        }
+        await sleep(2000);
       }
-      if (!failed) throw new Error('J1 fail: no TIME UP toast within 150 s');
+      if (!failed) throw new Error(`J1 fail: no TIME UP toast within 300 s (panel timer last read: '${lastTimer}')`);
       const s2 = await readState(f.page);
       const j1 = s2.side.jobs.find((j) => j.id === 'J1');
       evidence.j1fail = { activeAfter: s2.side.active, status: j1 ? j1.status : null, money: s2.money, xp: s2.xp };

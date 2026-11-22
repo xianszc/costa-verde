@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T10:46:39.049Z",
+  "generated": "2026-11-22T10:51:20.959Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -435,15 +435,9 @@
     "jobs": {
       "result": "FAIL",
       "how": "human-like",
-      "ms": 266374,
-      "error": "J1: routeDrive to (44,13.6) failed",
-      "evidence": {
-        "start": {
-          "money": 1500,
-          "xp": 1240,
-          "rank": "DECKHAND"
-        }
-      }
+      "ms": 197503,
+      "error": "J1 fail: no TIME UP toast within 150 s",
+      "evidence": {}
     }
   }
 }
