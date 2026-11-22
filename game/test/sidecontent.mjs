@@ -493,7 +493,7 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
       // radius still keeps the car on the road, and the car cannot
       // jump over it in one step. Narrow (w=2) streets keep 2.5u
       // (M10 run 9: a loose radius on 1u asphalt scrapes houses).
-      let r = wp.w >= 4 ? 4 : 2.5;
+      let r = wp.w >= 4 ? 6 : 2.5;
       if (wi > 0 && wi < thin.length - 1) {
         const a = thin[wi - 1], b = thin[wi], c = thin[wi + 1];
         const v1 = Math.atan2(-(b.z - a.z), b.x - a.x);
@@ -501,7 +501,11 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
         let turn = v2 - v1;
         while (turn > Math.PI) turn -= 2 * Math.PI;
         while (turn < -Math.PI) turn += 2 * Math.PI;
-        if (Math.abs(turn) > 0.7) r = 5;
+        if (Math.abs(turn) > 0.7) r = 8; // was 5 (M10 run 9): the
+        // car jumps ~10u per headless control step at the approach
+        // speed, so a 5u turn radius is overshot before the turn
+        // starts — the J1 run blew past (43.5,0) to (47.6,-0.7),
+        // east of the x=44 street, and wedged in the block.
       }
       const ok = await driveToPoint(page, wp.x, wp.z, r, cap, perWpMs);
       const cc = await readCar(page);
