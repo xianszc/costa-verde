@@ -1,0 +1,88 @@
+--only: running M1,M5,M2
+save/load: PASS (money=7777 xp=1234 missionId=4)
+road graph: 302 nodes, 718 segments
+[trace] M1 stage=0 RECON player=(-2.0,-1.5) car=(-8.0,-0.7) target=(5,20) distPlayer=22.6u distCar=24.5u wanted=0 onFoot=true
+[routeDrive] to (5,20) from (-8.0,-0.7) BFS 3 nodes: (-11.2,0.0) (0.0,0.0) (0.0,11.2)
+[routeDrive] thinned 3 wps: (-11.2,0.0) (0.0,0.0) (0.0,11.2)
+[routeDrive] wp (-11.2,0.0) r=2.5 FAIL car now (-4.0,-3.6)
+[routeDrive] to (5,20) car now (-4.0,-3.6) 15.3u from road node (0,11.2)
+[routeDrive] RE-PLAN 1 to (5,20) from (-4.0,-3.6) BFS 2 nodes: (0.0,0.0) (0.0,11.2)
+[routeDrive] wp (0.0,0.0) r=2.5 OK car now (0.5,2.7)
+[routeDrive] wp (0.0,11.2) r=2.5 OK car now (0.1,12.4)
+[routeDrive] to (5,20) car now (0.1,12.4) 1.2u from road node (0,11.2)
+[trace] M1 stage=1 STEAL player=(-7.0,-1.5) car=(0.0,12.4) target=(5,20) distPlayer=24.6u distCar=9.1u wanted=0 onFoot=false
+[routeDrive] to (5,20) from (0.0,12.4) BFS 1 nodes: (0.0,11.2)
+[routeDrive] thinned 1 wps: (0.0,11.2)
+[routeDrive] wp (0.0,11.2) r=2.5 OK car now (0.0,12.4)
+[routeDrive] to (5,20) car now (0.0,12.4) 1.2u from road node (0,11.2)
+[trace] M1 stage=2 ESCAPE player=(-7.0,-1.5) car=(3.0,19.6) target=(0,0) distPlayer=7.2u distCar=19.9u wanted=0 onFoot=false
+[routeDrive] to (0,0) from (3.0,19.6) BFS 2 nodes: (0.0,11.2) (0.0,0.0)
+[routeDrive] thinned 2 wps: (0.0,11.2) (0.0,0.0)
+[routeDrive] wp (0.0,11.2) r=2.5 OK car now (1.0,12.4)
+[routeDrive] wp (0.0,0.0) r=2.5 FAIL car now (-6.5,11.8)
+[routeDrive] to (0,0) car now (-6.5,11.8) 13.4u from road node (0,0)
+[routeDrive] RE-PLAN 1 to (0,0) from (-6.5,11.8) BFS 3 nodes: (-11.2,11.2) (-11.2,0.0) (0.0,0.0)
+[routeDrive] wp (-11.2,11.2) r=2.5 OK car now (-9.0,10.3)
+[routeDrive] wp (-11.2,0.0) r=5 FAIL car now (-10.3,8.7)
+[routeDrive] to (0,0) car now (-10.3,8.7) 13.4u from road node (0,0)
+[routeDrive] RE-PLAN 2 to (0,0) from (-10.3,8.7) BFS 3 nodes: (-11.2,11.2) (-11.2,0.0) (0.0,0.0)
+[routeDrive] wp (-11.2,11.2) r=2.5 FAIL car now (-10.9,4.0)
+[routeDrive] to (0,0) car now (-10.9,4.0) 11.6u from road node (0,0)
+[routeDrive] RE-PLAN 3 to (0,0) from (-10.9,4.0) BFS 2 nodes: (-11.2,0.0) (0.0,0.0)
+[routeDrive] wp (-11.2,0.0) r=2.5 FAIL car now (-22.1,-3.5)
+[routeDrive] to (0,0) car now (-22.1,-3.5) 22.4u from road node (0,0)
+M1: PASS (attempts=1 fails=0 maxStage=2 223s)
+[saved] M1 -> reports/missions-run.json
+[committed] M1 c8e66f8
+road graph: 302 nodes, 718 segments
+[trace] M5 stage=0 RECON player=(-2.0,-1.5) car=(-8.0,-0.7) target=(-47,-39) distPlayer=58.6u distCar=54.6u wanted=0 onFoot=true
+[routeDrive] to (-47,-39) from (-8.0,-0.7) BFS 11 nodes: (-11.2,0.0) (-22.4,0.0) (-33.6,0.0) (-40.0,0.0) (-44.0,0.0) (-54.0,0.0) (-54.0,-6.0) (-54.0,-16.0) (-54.0,-26.0) (-47.5,-26.0) (-47.5,-39.0)
+[routeDrive] thinned 11 wps: (-11.2,0.0) (-22.4,0.0) (-33.6,0.0) (-40.0,0.0) (-44.0,0.0) (-54.0,0.0) (-54.0,-6.0) (-54.0,-16.0) (-54.0,-26.0) (-47.5,-26.0) (-47.5,-39.0)
+[routeDrive] wp (-11.2,0.0) r=2.5 FAIL car now (-22.7,-3.1)
+[routeDrive] to (-47,-39) car now (-22.6,-2.8) 43.9u from road node (-47.5,-39)
+[routeDrive] RE-PLAN 1 to (-47,-39) from (-22.6,-2.8) BFS 10 nodes: (-22.4,0.0) (-33.6,0.0) (-40.0,0.0) (-44.0,0.0) (-54.0,0.0) (-54.0,-6.0) (-54.0,-16.0) (-54.0,-26.0) (-47.5,-26.0) (-47.5,-39.0)
+[routeDrive] wp (-22.4,0.0) r=2.5 OK car now (-21.5,2.4)
+[routeDrive] wp (-33.6,0.0) r=2.5 FAIL car now (-22.2,7.8)
+[routeDrive] to (-47,-39) car now (-22.2,7.8) 53.2u from road node (-47.5,-39)
+[routeDrive] RE-PLAN 2 to (-47,-39) from (-22.1,8.0) BFS 11 nodes: (-22.4,11.2) (-22.4,0.0) (-33.6,0.0) (-40.0,0.0) (-44.0,0.0) (-54.0,0.0) (-54.0,-6.0) (-54.0,-16.0) (-54.0,-26.0) (-47.5,-26.0) (-47.5,-39.0)
+[routeDrive] wp (-22.4,11.2) r=2.5 OK car now (-22.8,13.2)
+[routeDrive] wp (-22.4,0.0) r=5 OK car now (-22.0,-0.5)
+[routeDrive] wp (-33.6,0.0) r=2.5 FAIL car now (-24.8,2.0)
+[routeDrive] to (-47,-39) car now (-24.8,2.0) 46.9u from road node (-47.5,-39)
+[routeDrive] RE-PLAN 3 to (-47,-39) from (-24.8,2.0) BFS 10 nodes: (-22.4,0.0) (-33.6,0.0) (-40.0,0.0) (-44.0,0.0) (-54.0,0.0) (-54.0,-6.0) (-54.0,-16.0) (-54.0,-26.0) (-47.5,-26.0) (-47.5,-39.0)
+[routeDrive] wp (-22.4,0.0) r=2.5 FAIL car now (-24.5,-3.2)
+[routeDrive] to (-47,-39) car now (-24.5,-3.2) 42.6u from road node (-47.5,-39)
+[fail-drive] M5 RECON: could not exit car for final walk
+[fail-event] M5 mode=paused stage=0 wanted=0 player=(-6.6,-1.5) car=(-24.5,-3.2)
+M5: FAIL (attempts=2 fails=2 maxStage=0 128s)
+[saved] M5 -> reports/missions-run.json
+[committed] M5 db4bcca
+road graph: 302 nodes, 718 segments
+[trace] M2 stage=0 MEET player=(-2.0,-1.5) car=(-8.0,-0.7) target=(5,20) distPlayer=22.6u distCar=24.5u wanted=0 onFoot=true
+[routeDrive] to (5,20) from (-8.0,-0.7) BFS 3 nodes: (-11.2,0.0) (0.0,0.0) (0.0,11.2)
+[routeDrive] thinned 3 wps: (-11.2,0.0) (0.0,0.0) (0.0,11.2)
+[routeDrive] wp (-11.2,0.0) r=2.5 OK car now (-8.5,1.6)
+[routeDrive] wp (0.0,0.0) r=5 OK car now (-2.3,1.0)
+[routeDrive] wp (0.0,11.2) r=2.5 FAIL car now (12.5,5.8)
+[routeDrive] to (5,20) car now (12.5,5.8) 13.7u from road node (0,11.2)
+[routeDrive] RE-PLAN 1 to (5,20) from (12.5,5.8) BFS 2 nodes: (11.2,11.2) (0.0,11.2)
+[routeDrive] wp (11.2,11.2) r=2.5 FAIL car now (2.5,18.4)
+[routeDrive] to (5,20) car now (2.5,18.4) 7.6u from road node (0,11.2)
+[routeDrive] RE-PLAN 2 to (5,20) from (2.7,18.2) BFS 1 nodes: (0.0,11.2)
+[routeDrive] wp (0.0,11.2) r=2.5 OK car now (0.5,11.8)
+[routeDrive] to (5,20) car now (0.5,11.8) 0.8u from road node (0,11.2)
+[trace] M2 stage=1 TAIL player=(-6.8,-1.5) car=(-0.3,11.8) target=(48.9999999999999,-0.725) distPlayer=55.8u distCar=50.8u wanted=0 onFoot=false
+[trace] M2 stage=1 TAIL player=(-6.8,-1.5) car=(2.0,-3.6) target=(-44.60000000000089,-0.725) distPlayer=37.8u distCar=46.7u wanted=0 onFoot=false
+[trace] M2 stage=2 DOCK player=(-6.8,-1.5) car=(6.4,-1.6) target=(5,20) distPlayer=24.5u distCar=21.6u wanted=0 onFoot=false
+[routeDrive] to (5,20) from (5.4,-1.8) BFS 2 nodes: (0.0,0.0) (0.0,11.2)
+[routeDrive] thinned 2 wps: (0.0,0.0) (0.0,11.2)
+[routeDrive] wp (0.0,0.0) r=2.5 FAIL car now (9.7,7.3)
+[routeDrive] to (5,20) car now (9.7,7.3) 10.4u from road node (0,11.2)
+[routeDrive] RE-PLAN 1 to (5,20) from (9.7,7.3) BFS 2 nodes: (11.2,11.2) (0.0,11.2)
+[routeDrive] wp (11.2,11.2) r=2.5 OK car now (12.1,13.5)
+[routeDrive] wp (0.0,11.2) r=2.5 OK car now (-2.6,10.2)
+[routeDrive] to (5,20) car now (-2.6,10.2) 2.8u from road node (0,11.2)
+M2: PASS (attempts=1 fails=0 maxStage=2 292s)
+[saved] M2 -> reports/missions-run.json
+[committed] M2 51f379b
+MISSIONS NOT ALL PASS — failing/open: M5 — see reports/missions-run.json
