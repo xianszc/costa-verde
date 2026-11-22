@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T00:11:09.910Z",
+  "generated": "2026-11-22T00:22:51.495Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -102,20 +102,12 @@
     },
     "M10": {
       "mission": "M10",
-      "result": "TIMEOUT",
-      "attempts": 2,
-      "fails": 1,
-      "maxStage": 1,
-      "ms": 450763,
-      "abortReason": "hard cap 240s reached",
-      "trace": [
-        "[trace] M10 stage=0 LINE UP player=(-8.0,-0.7) car=(-35.0,-19.5) target=(-30,-0.725) distPlayer=22.0u distCar=19.4u wanted=0 onFoot=false",
-        "[trace] M10 stage=1 RACE player=(-35.0,-19.5) car=(-38.0,-35.3) target=(-47,-39) distPlayer=23.0u distCar=9.7u wanted=0 onFoot=false",
-        "[trace] M10 stage=1 RACE player=(-35.0,-19.5) car=(-52.4,-40.2) target=(35,30) distPlayer=85.7u distCar=112.1u wanted=0 onFoot=false",
-        "[trace] M10 stage=1 RACE player=(-35.0,-19.5) car=(-60.1,-33.0) target=(35,30) distPlayer=85.7u distCar=114.1u wanted=0 onFoot=false"
-      ],
-      "lastTrace": "[trace] M10 stage=1 RACE player=(-35.0,-19.5) car=(-60.1,-33.0) target=(35,30) distPlayer=85.7u distCar=114.1u wanted=0 onFoot=false",
-      "errors": 0,
+      "result": "ERROR",
+      "attempts": 0,
+      "fails": 0,
+      "maxStage": 0,
+      "ms": 0,
+      "error": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8941/?fastsim=2\nCall log:\n  - navigating to \"http://127.0.0.1:8941/?fastsim=2\", waiting until \"load\"\n",
       "commit": "unknown"
     },
     "M11": {
@@ -163,11 +155,11 @@
     }
   },
   "saveLoad": {
-    "saved": true,
-    "loaded": true,
-    "money": 7777,
-    "xp": 1234,
-    "missionId": 4,
-    "pass": true
+    "saved": false,
+    "loaded": false,
+    "money": -1,
+    "xp": -1,
+    "missionId": -1,
+    "pass": false
   }
 }
