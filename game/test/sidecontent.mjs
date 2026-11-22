@@ -1,0 +1,782 @@
+// COSTA VERDE side-content REGRESSION test (Xian 22 Nov 13:02 brief,
+// item 3c). Plays the wired side content like a human: drives the car
+// on the road graph, walks only the final leg, presses real keys, clicks
+// real menu buttons. NO teleport anywhere (the car is never teleported;
+// the player is never teleported).
+//
+// One driver test per 3c sub-item; each proves the REWARD and the SAVE:
+//   map    — M opens the full-screen map (districts, player, mission
+//            markers, shops, collectibles); waypoint click; M closes.
+//   shops  — buy ammo (weapons), armour+medkit (pharmacy), repair+fuel
+//            (garage) through the E menu at each shop door; HUD money
+//            decreases; effects are real; slot save/load restores them.
+//   coins  — collect a ledger coin on foot; counter + reward; persists
+//            across a page reload (side store).
+//   jumps  — drive a stunt-jump gate at >=16 m/s; reward; persists.
+//   jobs   — start J1 at its marker on foot, drive it, complete it
+//            (reward); start J1 again and let the timer expire (fail);
+//            every other job's start marker starts its job.
+//   ranks  — job XP raises rank; rank-up reward fires; Tamburo ammo is
+//            locked below FIXER; the FIXER reward grants the Tamburo.
+//
+// Usage: NODE_PATH=/tmp/node_modules node game/test/sidecontent.mjs
+//   [--only map|shops|coins|jumps|jobs|ranks]
+//   (NODE_PATH must resolve playwright-core from the Playwright
+//   connector; the 8941 server must already be running.)
+// Writes reports/sidecontent-run.json (committed). Exit 0 = all
+// selected tests PASS. Takes ~10-25 min in headless (game runs at
+// ~20% speed there; FASTSIM=2 doubles game time per wall second).
+import { writeFile, readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const RESULTS_PATH = fileURLToPath(new URL('../../reports/sidecontent-run.json', import.meta.url));
+const require = createRequire(import.meta.url);
+const { chromium } = require('playwright-core');
+const BASE = 'http://127.0.0.1:8941';
+const FASTSIM = Math.max(1, Math.min(8, parseInt(process.env.FASTSIM || '2', 10) || 1));
+const PAGE_URL = BASE + '/?fastsim=' + FASTSIM;
+const CHROMIUM = '/home/hatch/.cache/ms-playwright/chromium-1148/chrome-linux/chrome';
+const CHROMIUM_ARGS = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox', '--disable-dev-shm-usage'];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7) || null;
+
+let browser = await chromium.launch({ executablePath: CHROMIUM, args: CHROMIUM_ARGS });
+async function ensureBrowser() {
+  if (browser && browser.isConnected()) return;
+  console.log('[runner] browser is gone — relaunching');
+  browser = await chromium.launch({ executablePath: CHROMIUM, args: CHROMIUM_ARGS });
+}
+
+async function loadResults() {
+  try { return JSON.parse(await readFile(RESULTS_PATH, 'utf8')); }
+  catch { return { generated: new Date().toISOString(), tests: {} }; }
+}
+async function saveResult(label, record) {
+  const data = await loadResults();
+  data.tests[label] = record;
+  data.generated = new Date().toISOString();
+  await writeFile(RESULTS_PATH, JSON.stringify(data, null, 2));
+  console.log(`[saved] ${label} -> reports/sidecontent-run.json`);
+}
+
+// --- Live game + side state (no teleport, read-only) ---
+async function readState(page) {
+  return page.evaluate(() => {
+    const g = window.__game;
+    const s = window.__side;
+    const side = s ? s.getState() : null;
+    return {
+      mode: g.state.mode,
+      onFoot: g.state.onFoot,
+      money: g.state.money, xp: g.state.xp,
+      health: g.state.health, armour: g.state.armour,
+      wanted: g.wanted.level,
+      px: g.player.x, pz: g.player.z, angle: g.player.angle,
+      cx: g.car.x, cz: g.car.z, carAngle: g.car.angle, carSpeed: g.car.speed,
+      fuel: g.car.fuel, damage: g.car.damage,
+      ammo: g.combat.ammo.map((a) => ({ mag: a.mag, reserve: a.reserve })),
+      weapon: g.combat.selected,
+      side,
+      shopOpen: !!document.getElementById('shop-overlay') && document.getElementById('shop-overlay').style.display !== 'none',
+      mapOpen: !!document.getElementById('map-overlay') && document.getElementById('map-overlay').style.display !== 'none',
+      prompt: (document.getElementById('side-prompt') || {}).textContent || '',
+      promptVisible: !!document.getElementById('side-prompt') && document.getElementById('side-prompt').style.display !== 'none',
+    };
+  });
+}
+
+// --- Realistic car autopilot (human-like: keyboard driving, no
+// teleport). Copied from game/test/missions.mjs (same proven driver):
+// steer toward a target, throttle to a cap, reverse out if stuck.
+function normAngle(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+
+async function readCar(page) {
+  return page.evaluate(() => {
+    const g = window.__game;
+    return { x: g.car.x, z: g.car.z, angle: g.car.angle, speed: g.car.speed, onFoot: g.state.onFoot, mode: g.state.mode };
+  });
+}
+async function setKeys(page, { w, a, d, s }) {
+  const want = { KeyW: !!w, KeyA: !!a, KeyD: !!d, KeyS: !!s };
+  for (const [code, down] of Object.entries(want)) {
+    if (down) await page.keyboard.down(code); else await page.keyboard.up(code);
+  }
+}
+async function releaseKeys(page) { await setKeys(page, {}); }
+
+function carSteerKeys(diff, speed, cap) {
+  return { w: Math.abs(speed) < cap, a: diff > 0.15, d: diff < -0.15, s: false };
+}
+
+async function threePointTurn(page, tx, tz) {
+  // Brake to a stop first — a phase measured from a moving car would
+  // overshoot its 1.2u budget in the braking distance.
+  for (let i = 0; i < 10; i++) {
+    const c = await readCar(page);
+    if (c.mode !== 'play') return false;
+    if (Math.abs(c.speed) < 0.5) break;
+    await setKeys(page, { s: true, a: false, d: false, w: false });
+    await sleep(200);
+  }
+  await releaseKeys(page);
+  const started = Date.now();
+  let reverse = true;
+  while (Date.now() - started < 20000) {
+    const c = await readCar(page);
+    if (c.mode !== 'play') { await releaseKeys(page); return false; }
+    const diff = normAngle(Math.atan2(-(tz - c.z), tx - c.x) - c.angle);
+    if (Math.abs(diff) < 0.5) { await releaseKeys(page); return true; }
+    const sx = c.x, sz = c.z;
+    const pStart = Date.now();
+    while (Date.now() - pStart < 2000) {
+      const c2 = await readCar(page);
+      if (Math.hypot(c2.x - sx, c2.z - sz) > 1.0) break;
+      const diff2 = normAngle(Math.atan2(-(tz - c2.z), tx - c2.x) - c2.angle);
+      if (Math.abs(diff2) < 0.5) break;
+      // Cap phase speed at ~2.5 u/s and poll every 150 ms: at
+      // FASTSIM=2 a 300 ms poll is 600 ms of game time, and the car
+      // travels 2-3u per poll — the 1.0u budget would overshoot to
+      // 4u per phase and wedge the car (probe 22 Nov ~09:00: 2
+      // phases put the car 8u off-road). 2.5 u/s is also BELOW the
+      // pedestrian-hit threshold (|speed| > 3), so a drift onto the
+      // sidewalk cannot raise the wanted level (M10 run 5: wanted 4
+      // from ped hits during the turn, police pinned the car).
+      // Forward phases are faster than reverse (0.5x accel), so a
+      // shared 2.5 u/s cap keeps the pair balanced and the net drift
+      // ~1u. Reversing flips the turn-rate sign, so the steering is
+      // inverted vs forward (diff > 0 needs D in reverse, A forward).
+      const drive = Math.abs(c2.speed) < 2.5;
+      if (reverse) await setKeys(page, { s: drive, a: diff2 < -0.15, d: diff2 > 0.15, w: false });
+      else await setKeys(page, { w: drive, a: diff2 > 0.15, d: diff2 < -0.15, s: false });
+      await sleep(150);
+    }
+    await releaseKeys(page);
+    await sleep(200);
+    reverse = !reverse;
+  }
+  await releaseKeys(page);
+  return false;
+}
+
+async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
+  // DRIVER fix (D2 22 Nov 06:10): sidestep. The BFS graph routes on
+  // road CENTERLINES, but the boulevard has a median (x -60..-34.7,
+  // z +/-0.7) whose blunt east nose at (-34.7,0) stops a car steering
+  // exactly at z=0 head-on (D2: stuck (-34.2,-0.5)), and the turn
+  // onto the x -47.5 old-town cross street clips the (-45,-27) house
+  // corner (D2: stuck (-44.9,-25.0)). A human steers around such an
+  // obstacle; the old driver only reversed and retried the same line.
+  // On each stall the driver now also offsets the STEERING target
+  // 4u sideways (left first, then right) so the car goes around
+  // the nose/corner; the arrival check still uses the real target.
+  // 4u (not 2.5u): the median nose needs the car at z<=-1.3 before
+  // x=-34.7, and a 2.5u offset still clips the nose corner (D2).
+  // The reverse is 3 s so the car backs up far enough to turn.
+  // Turn around FIRST when the car faces AWAY from the target
+  // (|diff| > 2.2, >126 deg): a 3-point turn in place (see
+  // threePointTurn) — never a long reverse, never a fast forward arc
+  // into the corner. Moderate turns (1.0..2.2) are driven forward
+  // with the corner braking below — the old 1.0 threshold fired the
+  // 3-point turn for ordinary 90 deg junction turns, and its drift
+  // wedged the car (M10 run 4: (-30.8,-9.6) on the (-40,0) turn and
+  // (-23.7,-26.0) on the x -22.4 turn).
+  // Close target behind the car (<8u, facing away): REVERSE toward
+  // it instead of a 3-point turn — the turn's drift wedges the car
+  // on the narrow boulevard (M5 RECON: car stuck at (4.2,-2.3)
+  // facing east, target (0,0) 4.3u west; the turn wedged it on the
+  // kerb and 3 re-plans never moved it). Far targets still use the
+  // 3-point turn. Reverse steering is inverted (see carSteerKeys),
+  // same convention as the stall-reverse below.
+  {
+    const c0 = await readCar(page);
+    const d0 = Math.hypot(tx - c0.x, tz - c0.z);
+    const desired0 = Math.atan2(-(tz - c0.z), tx - c0.x);
+    if (d0 < 8 && Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
+      const diff0 = normAngle(desired0 - c0.angle);
+      await setKeys(page, { s: true, a: diff0 < 0, d: diff0 >= 0 });
+      await sleep(2000);
+      await releaseKeys(page);
+    } else if (Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
+      await threePointTurn(page, tx, tz);
+    }
+  }
+  let sideStep = 0;
+  const started = Date.now();
+  let lastDist = Infinity, lastProgress = Date.now(), reverses = 0, reversingUntil = 0;
+  while (Date.now() - started < timeoutMs) {
+    const c = await readCar(page);
+    if (c.mode !== 'play') { await releaseKeys(page); return false; }
+    const d = Math.hypot(c.x - tx, c.z - tz);
+    if (d < r) { await releaseKeys(page); return true; }
+    if (d < lastDist - 0.5) { lastDist = d; lastProgress = Date.now(); }
+    if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
+    if (Date.now() < reversingUntil) { await sleep(300); continue; }
+    if (Date.now() - lastProgress > 8000 && reverses < 3) {
+      reverses++;
+      // Sidestep: 1st stall steer left of the travel line, 2nd stall
+      // right, 3rd stall straight again (last chance).
+      sideStep = reverses === 1 ? 1 : reverses === 2 ? -1 : 0;
+      // Steer the REVERSE at the sidestep target, not the original
+      // target (D2): the original target is due west, so the reverse
+      // aligned the nose south-west and the retry re-wedged on the
+      // median nose; aiming at the offset target turns the nose
+      // around the nose while backing up.
+      let rtx = tx, rtz = tz;
+      if (sideStep !== 0) {
+        const dx = tx - c.x, dz = tz - c.z, len = Math.hypot(dx, dz) || 1;
+        rtx = tx + (-dz / len) * 4 * sideStep;
+        rtz = tz + (dx / len) * 4 * sideStep;
+      }
+      const desired = Math.atan2(-(rtz - c.z), rtx - c.x);
+      const diff = normAngle(desired - c.angle);
+      // Backing out: the car moves backward, so the steering is
+      // inverted (see carSteerKeys).
+      await setKeys(page, { s: true, a: diff < 0, d: diff >= 0 });
+      reversingUntil = Date.now() + 3000;
+      lastProgress = Date.now();
+      await sleep(300);
+      continue;
+    }
+    // Near the target, steer straight at it (no sidestep).
+    if (d < 8) sideStep = 0;
+    let stx = tx, stz = tz;
+    if (sideStep !== 0) {
+      const dx = tx - c.x, dz = tz - c.z, len = Math.hypot(dx, dz) || 1;
+      stx = tx + (-dz / len) * 4 * sideStep;
+      stz = tz + (dx / len) * 4 * sideStep;
+    }
+    const desired = Math.atan2(-(stz - c.z), stx - c.x);
+    const diff = normAngle(desired - c.angle);
+    // Brake into corners (M10 22 Nov 07:40, tiered 22 Nov ~08:55)
+    // and for arrival (22 Nov ~09:10): turning radius is v /
+    // turnRate, and turnRate is 1.9 * min(1, v/6) * min(1, v/4+0.2)
+    // — so the radius is ~3.2u for v in 3..12 and GROWS below 3 u/s
+    // (steer authority drops). Slowing to 2.5 does NOT tighten the
+    // turn; the tightest turn is at 4-6 u/s. A human brakes for the
+    // corner and for the turn itself: the approach cap slows the car
+    // as it nears the waypoint, so it can actually hit the 2.5u
+    // arrival radius instead of overshooting it at 12 u/s (7u per
+    // poll at FASTSIM=2) and turning early across a building corner
+    // — M10 run 4 arrived 2.8u off the (-22.4,-22.4) node, inside a
+    // block, and wedged on the next leg. Big turns (>2.2 rad) are
+    // handled by the 3-point turn at leg start.
+    // DRIVER fix (M10 run 7, 22 Nov ~09:45): start braking 20u out
+    // (was 10u) — the car at 12 u/s needs the distance to shed
+    // speed before a 90 deg turn (run 7 overshot the (-54,0) south
+    // turn to (-56.9,-1.1) because it arrived at the corner too
+    // fast to turn).
+    const approachCap = d < 20 ? Math.max(4, d * 0.6) : cap;
+    const effCap = Math.min(approachCap, Math.abs(diff) > 1.5 ? 4 : Math.abs(diff) > 0.7 ? 6 : cap);
+    await setKeys(page, carSteerKeys(diff, c.speed, effCap));
+    await sleep(300);
+  }
+  await releaseKeys(page);
+  return false;
+}
+
+let roadGraph = null;
+async function buildRoadGraph(page) {
+  const segments = await page.evaluate(() => window.__game.district.minimap.map((s) => ({ x1: s.x1, z1: s.z1, x2: s.x2, z2: s.z2, w: s.w || 2 })));
+  const nodes = [];
+  const nodeOf = new Map();
+  function nodeFor(x, z) {
+    const key = x + ',' + z;
+    let ni = nodeOf.get(key);
+    if (ni === undefined) {
+      // Cluster radius 3u (was 4): a 4u radius merged the x -44 /
+      // z -26 corner (-44,-25) with the -47.5 cross-street junction
+      // (-47.5,-26), 3.64u apart, into ONE node — so the BFS routed
+      // diagonally across the block instead of around the corner,
+      // and the M10 race car wedged (run 6). 3u still merges the
+      // VIA DEL NORD / ring-avenue junction (2.8u) and the
+      // (-44,-25)/(-45,-26) corner (1.41u), but keeps the two
+      // junctions 3.5u apart distinct. Keep in sync with
+      // connectivity.mjs CLUSTER_R.
+      ni = nodes.findIndex((n) => Math.hypot(n.x - x, n.z - z) < 3);
+      if (ni < 0) { nodes.push({ x, z, adj: new Map() }); ni = nodes.length - 1; }
+      nodeOf.set(key, ni);
+    }
+    return ni;
+  }
+  // DRIVER fix (M10 run 8, 22 Nov ~10:00): WIDTH-WEIGHTED routing.
+  // The old unweighted BFS picked the shortest hop-count route —
+  // straight through the old-town w=2 streets (1u of asphalt,
+  // houses flush on both sides, car turning radius 3.2u). A 90 deg
+  // turn at (-54,0) cannot stay on a 1u-wide road: the arc exits
+  // 3.2u west of the centreline, into the house row, and the car
+  // wedged at (-56.4,-16.7) against the house at x -58.4..-55.1,
+  // z -21..-17.2 (its east face sits 0.1u INSIDE the road edge).
+  // A human driver would take the wide ring road instead. Cost =
+  // length x width factor, so Dijkstra prefers the w=7 ring road
+  // (z=-39) and the w=4.8 boulevard over w=2 alleys.
+  function widthFactor(w) { return w >= 7 ? 1 : w >= 4 ? 1.5 : w >= 2 ? 3 : 5; }
+  for (const s of segments) {
+    const a = nodeFor(s.x1, s.z1);
+    const b = nodeFor(s.x2, s.z2);
+    if (a !== b) {
+      const len = Math.hypot(s.x2 - s.x1, s.z2 - s.z1);
+      const cost = len * widthFactor(s.w);
+      if (!nodes[a].adj.has(b) || nodes[a].adj.get(b) > cost) nodes[a].adj.set(b, cost);
+      if (!nodes[b].adj.has(a) || nodes[b].adj.get(a) > cost) nodes[b].adj.set(a, cost);
+    }
+  }
+  function route(a, b) {
+    // Dijkstra (weighted shortest path) over the width-weighted graph.
+    const dist = new Array(nodes.length).fill(Infinity);
+    const prev = new Array(nodes.length).fill(-1);
+    const done = new Array(nodes.length).fill(false);
+    dist[a] = 0;
+    for (;;) {
+      let n = -1, bd = Infinity;
+      for (let i = 0; i < nodes.length; i++) if (!done[i] && dist[i] < bd) { bd = dist[i]; n = i; }
+      if (n < 0) break;
+      done[n] = true;
+      if (n === b) break;
+      for (const [m, c] of nodes[n].adj) {
+        if (dist[n] + c < dist[m]) { dist[m] = dist[n] + c; prev[m] = n; }
+      }
+    }
+    if (prev[b] < 0 && a !== b) return null;
+    const path = []; let n = b;
+    while (n !== a) { path.unshift(n); n = prev[n]; }
+    path.unshift(a);
+    return path;
+  }
+  function nearestNode(x, z) {
+    let best = -1, bd = Infinity;
+    nodes.forEach((n, i) => { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = i; } });
+    return { node: best, dist: bd };
+  }
+  return { nodes, route, nearestNode, segments: segments.length };
+}
+
+async function routeDrive(page, tx, tz, cap, perWpMs) {
+  if (!roadGraph) { console.log('[routeDrive] no road graph'); return false; }
+  // DRIVER fix (M10 run 7, 22 Nov ~09:45): RE-PLAN on a missed
+  // waypoint instead of aborting. A human who overshoots a turn
+  // turns around and re-routes from where they are; the old code
+  // abandoned the whole route after one missed waypoint (run 7:
+  // overshot the (-54,0) south turn to (-56.9,-1.1) and gave up
+  // 39u from the plaza). Up to 3 re-plans per call, each a fresh
+  // BFS from the car's actual position.
+  for (let plan = 0; plan < 4; plan++) {
+    const c = await readCar(page);
+    const from = roadGraph.nearestNode(c.x, c.z);
+    const to = roadGraph.nearestNode(tx, tz);
+    const pathIdx = roadGraph.route(from.node, to.node);
+    if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz})`); return false; }
+    const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
+    const thin = [wps[0]];
+    for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 3) thin.push(p);
+    if (plan === 0) {
+      console.log(`[routeDrive] to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
+      console.log(`[routeDrive] thinned ${thin.length} wps: ` + thin.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
+    } else {
+      console.log(`[routeDrive] RE-PLAN ${plan} to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
+    }
+    // NOTE (M10 run 11, 22 Nov ~10:50): a lane offset per re-plan was
+    // tried here and REVERTED — it made things worse. The offset
+    // pushed the N-S waypoints to x=-55.5 on the w=2 old-town street,
+    // INSIDE the west house face (x=-55.1), and the first waypoint of
+    // a re-plan (computed from an off-road car position) sent the car
+    // south into the CBD blocks; run 11 never got west of x=-30.
+    // A lane offset is only safe when clamped to the road half-width
+    // minus the car half-width (1.5u clears the median nose but the
+    // w=2 streets tolerate at most 0.4u) — the graph does not carry
+    // per-waypoint widths, so the offset stays OFF until that lands.
+    // Re-plans run the centreline (runs 8-10 got the car to
+    // (-54.6,-19.1), 21u from the plaza — the furthest so far).
+    let failed = false;
+    for (let wi = 0; wi < thin.length; wi++) {
+      const wp = thin[wi];
+      // DRIVER fix (M10 run 9, 22 Nov ~10:15): arrival radius by TURN
+      // ANGLE, not one radius for all. Run 8's flat 4u backfired on
+      // STRAIGHT legs: the car "arrived" at (-54,-16) while still at
+      // (-51.3,-15.3), aimed diagonally at (-54,-26), and scraped
+      // the west house faces (face at x=-55.1, car body to -55.5)
+      // for 20 s at 0.14 u/s. On a straight leg the car must actually
+      // visit the waypoint (2.5u) to stay on the 1u asphalt. On a
+      // SHARP turn (>0.7 rad) the radius is 5u: the turn must start
+      // 3.2u (turning radius) + ~1.2u (one poll of steering lag at
+      // 4 u/s, FASTSIM=2) before the corner, so the 90 deg arc exits
+      // on the centreline instead of 3.2u off the road. The last
+      // waypoint keeps 2.5u (it IS the target).
+      let r = 2.5;
+      if (wi > 0 && wi < thin.length - 1) {
+        const a = thin[wi - 1], b = thin[wi], c = thin[wi + 1];
+        const v1 = Math.atan2(-(b.z - a.z), b.x - a.x);
+        const v2 = Math.atan2(-(c.z - b.z), c.x - b.x);
+        let turn = v2 - v1;
+        while (turn > Math.PI) turn -= 2 * Math.PI;
+        while (turn < -Math.PI) turn += 2 * Math.PI;
+        if (Math.abs(turn) > 0.7) r = 5;
+      }
+      const ok = await driveToPoint(page, wp.x, wp.z, r, cap, perWpMs);
+      const cc = await readCar(page);
+      console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) r=${r} ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
+      if (!ok) { failed = true; break; }
+    }
+    const c2 = await readCar(page);
+    const last = thin[thin.length - 1];
+    const d = Math.hypot(c2.x - last.x, c2.z - last.z);
+    console.log(`[routeDrive] to (${tx},${tz}) car now (${c2.x.toFixed(1)},${c2.z.toFixed(1)}) ${d.toFixed(1)}u from road node (${last.x},${last.z})`);
+    if (d < 6) return true;
+    if (!failed) return false; // drove the whole plan but still far — no re-plan helps
+    // else: missed a waypoint — loop and re-plan from the car's actual position
+  }
+  return false;
+}
+
+async function walkToPoint(page, tx, tz, r, timeoutMs) {
+  const started = Date.now();
+  let lastDist = Infinity, lastProgress = Date.now();
+  let followSide = 1, followUntil = 0;
+  while (Date.now() - started < timeoutMs) {
+    const s = await readState(page);
+    if (s.mode !== 'play') { await releaseKeys(page); return false; }
+    if (!s.onFoot) { await releaseKeys(page); return false; }
+    const d = Math.hypot(s.px - tx, s.pz - tz);
+    if (d < r) { await releaseKeys(page); return true; }
+    if (d < lastDist - 0.3) { lastDist = d; lastProgress = Date.now(); }
+    if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
+    if (Date.now() < followUntil) { await sleep(300); continue; }
+    if (Date.now() - lastProgress > 6000) {
+      // Blocked by a wall — strafe along it toward the TARGET's side
+      // (DRIVER fix, M11 22 Nov ~08:45): the old code flipped the
+      // strafe side every episode, so the player slid east 3 s then
+      // west 3 s and never reached the promenade gap (x 3.5..8) from
+      // x=-6.7 (M11 TIMEOUT 317 s). The side is recomputed from the
+      // live bearing each episode, so the slide stays consistent
+      // toward the gap. diff > 0 = target left of heading = strafe
+      // left (A); diff < 0 = target right = strafe right (D).
+      const desiredB = Math.atan2(-(tz - s.pz), tx - s.px);
+      const diffB = normAngle(desiredB - s.angle);
+      followSide = diffB >= 0 ? -1 : 1;
+      await setKeys(page, { w: true, a: followSide < 0, d: followSide > 0, s: false });
+      followUntil = Date.now() + 3000;
+      lastProgress = Date.now();
+      await sleep(300);
+      continue;
+    }
+    const desired = Math.atan2(-(tz - s.pz), tx - s.px);
+    const diff = normAngle(desired - s.angle);
+    await setKeys(page, { w: true, a: diff > 0.2, d: diff < -0.2, s: false });
+    await sleep(300);
+  }
+  await releaseKeys(page);
+  return false;
+}
+
+async function boardCar(page) {
+  // TEST fix (shops 22 Nov ~15:00): always walk to within 1.5u of the
+  // car BEFORE pressing E. Pressing E from 2-3u away can hit the shop
+  // door instead (the door is nearer than the car from the doorway —
+  // run 7: E re-opened the pharmacy shop, game left paused, boardCar
+  // failed). At the car, dCar ~ 0 < door distance, so E enters the car.
+  for (let tries = 0; tries < 2; tries++) {
+    const s = await readState(page);
+    if (!s.onFoot) return true;
+    const d = Math.hypot(s.px - s.cx, s.pz - s.cz);
+    if (d > 20) return false;
+    if (d > 1.5) {
+      const ok = await walkToPoint(page, s.cx, s.cz, 1.5, 60000);
+      if (!ok) return false;
+    }
+    await page.keyboard.press('KeyE');
+    await sleep(700);
+    const s2 = await readState(page);
+    if (!s2.onFoot) return true;
+  }
+  return false;
+}
+
+// Exit the car for a final walk (E is consumed by a mission interact
+// first, so retry up to 3 times).
+async function exitCar(page) {
+  for (let i = 0; i < 3; i++) {
+    const s = await readState(page);
+    if (s.onFoot) return true;
+    await page.keyboard.press('KeyE');
+    await sleep(600);
+  }
+  const s = await readState(page);
+  return s.onFoot;
+}
+
+// Drive through intermediate points in order, then to the target.
+// Used to force a route that avoids a flaky stretch (the boulevard
+// median nose westward): e.g. the weapons shop via the ring [(0,-39)].
+async function routeDriveVia(page, points, cap, perWpMs) {
+  for (const p of points) {
+    const ok = await routeDrive(page, p.x, p.z, cap, perWpMs);
+    if (!ok) return false;
+  }
+  return true;
+}
+
+// Drive to (tx,tz), exit, walk the final leg to (wx,wz) within r.
+// Boards the car first: the player spawns ON FOOT, and routeDrive
+// cannot move a car nobody is driving.
+// `via` (optional): intermediate points driven through first.
+async function driveThenWalk(page, tx, tz, wx, wz, r, via) {
+  let s0 = await readState(page);
+  if (s0.onFoot) {
+    const boarded = await boardCar(page);
+    if (!boarded) return { ok: false, reason: 'could not board car (player-car too far or walk failed)' };
+  }
+  let ok;
+  if (via && via.length) ok = await routeDriveVia(page, [...via, { x: tx, z: tz }], 10, 20000);
+  else ok = await routeDrive(page, tx, tz, 10, 20000);
+  if (!ok) return { ok: false, reason: `routeDrive to (${tx},${tz}) failed` };
+  let s = await readState(page);
+  const parkedD = Math.hypot(s.cx - wx, s.cz - wz);
+  if (parkedD > 5) {
+    await driveToPoint(page, wx, wz, 5, 10, 30000);
+    s = await readState(page);
+  }
+  if (!await exitCar(page)) return { ok: false, reason: 'could not exit car for final walk' };
+  s = await readState(page);
+  const walkD = Math.hypot(s.px - wx, s.pz - wz);
+  const wok = await walkToPoint(page, wx, wz, r, 120000);
+  if (!wok) {
+    s = await readState(page);
+    return { ok: false, reason: `final walk failed, ${Math.hypot(s.px - wx, s.pz - wz).toFixed(1)}u short` };
+  }
+  return { ok: true, walkU: walkD };
+}
+
+// --- Page boot (fresh context per test) ---
+async function newPage() {
+  await ensureBrowser();
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e.message || e)));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push('[console] ' + m.text()); });
+  await page.goto(PAGE_URL, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.__gameReady, null, { timeout: 120000 });
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
+  await sleep(2000);
+  roadGraph = await buildRoadGraph(page);
+  console.log(`[boot] road graph ${roadGraph.nodes.length} nodes, ${roadGraph.segments} segments`);
+  return { ctx, page, errors };
+}
+
+// Open a shop by walking to its door on foot and pressing E.
+// Returns the shop title, or throws. `via` is passed to driveThenWalk.
+async function openShopAtDoor(page, x, z, expectTitle, via) {
+  const r = await driveThenWalk(page, x, z, x, z, 1.5, via);
+  if (!r.ok) throw new Error(`driveThenWalk to shop (${x},${z}) failed: ${r.reason}`);
+  await sleep(600); // prompt updates every 200 ms
+  let s = await readState(page);
+  if (!s.promptVisible) throw new Error(`no prompt at shop door (${x},${z}); prompt='${s.prompt}'`);
+  await page.keyboard.press('KeyE');
+  await sleep(800);
+  s = await readState(page);
+  if (!s.shopOpen) throw new Error(`shop did not open at (${x},${z})`);
+  const title = await page.evaluate(() => (document.getElementById('shop-title') || {}).textContent || '');
+  if (expectTitle && !title.includes(expectTitle)) throw new Error(`shop title '${title}' does not include '${expectTitle}'`);
+  return title;
+}
+
+async function clickBuy(page, itemId) {
+  const before = await readState(page);
+  const clicked = await page.evaluate((id) => {
+    const b = document.querySelector(`[data-buy="${id}"]`);
+    if (!b || b.disabled) return false;
+    b.click();
+    return true;
+  }, itemId);
+  if (!clicked) throw new Error(`BUY button for ${itemId} missing or disabled`);
+  await sleep(500);
+  const after = await readState(page);
+  return { before, after };
+}
+
+async function closeShop(page) {
+  await page.keyboard.press('Escape');
+  await sleep(600);
+  const s = await readState(page);
+  if (s.shopOpen) throw new Error('shop did not close on Escape');
+}
+
+// --- T2 shops ---
+async function testShops() {
+  const label = 'shops';
+  const started = Date.now();
+  const { ctx, page, errors } = await newPage();
+  const evidence = {};
+  try {
+    const s0 = await readState(page);
+    evidence.start = { money: s0.money, armour: s0.armour, health: s0.health, fuel: s0.fuel, damage: s0.damage, p9reserve: s0.ammo[1].reserve, rank: s0.side.rank };
+    console.log(`[shops] start money=${s0.money} armour=${s0.armour} fuel=${s0.fuel} rank=${s0.side.rank}`);
+
+    // 1. Pharmacy (Farmacia Azzura, skyline plaza): armour plate + medkit.
+    // First stop: short CBD drive, no boulevard crossing.
+    await openShopAtDoor(page, -1.9, -5.9, 'Farmacia');
+    const plate = await clickBuy(page, 'armour-plate');
+    evidence.armourPlate = { moneyBefore: plate.before.money, moneyAfter: plate.after.money, armourBefore: plate.before.armour, armourAfter: plate.after.armour };
+    if (plate.after.armour !== 100) throw new Error(`armour plate: armour ${plate.before.armour} -> ${plate.after.armour}, expected 100`);
+    if (plate.after.money !== plate.before.money - 300) throw new Error(`armour plate: money expected -300`);
+    const med = await clickBuy(page, 'medkit');
+    evidence.medkit = { moneyBefore: med.before.money, moneyAfter: med.after.money, healthBefore: med.before.health, healthAfter: med.after.health };
+    if (med.after.money !== med.before.money - 200) throw new Error(`medkit: money expected -200`);
+    if (med.after.health !== 100) throw new Error(`medkit: health ${med.after.health}, expected 100`);
+    await closeShop(page);
+    console.log('[shops] pharmacy OK: armour 100, medkit bought');
+
+    // 2. Garage (Gus' Garage, marina): drive to the door, ram the
+    // pavilion wall for damage, then walk back and open the shop.
+    // Via the (0,0) junction: from the pharmacy the BFS start node can
+    // be (-11.2,0), which drags the car west onto the w=2 x=-11.2
+    // street (run 8: route (-11.2,-11.2)->(-11.2,0)->(0,0), the 90 deg
+    // turn onto the boulevard wedged the car). Staging at (0,0) keeps
+    // the car on the wide Corso for the whole south leg.
+    await boardCar(page);
+    const g = await driveThenWalk(page, -1, 20, -1, 20, 3.5, [{ x: 0, z: 0 }]);
+    if (!g.ok) throw new Error(`driveThenWalk to garage failed: ${g.reason}`);
+    await boardCar(page);
+    let dmg = (await readState(page)).damage;
+    for (let i = 0; i < 3 && dmg < 5; i++) {
+      await driveToPoint(page, 5, 20, 1.5, 12, 20000);
+      await sleep(500);
+      dmg = (await readState(page)).damage;
+      console.log(`[shops] ram ${i + 1}: damage=${dmg.toFixed(1)}`);
+      // back out for the next run
+      await driveToPoint(page, -1, 14, 3, 8, 15000);
+    }
+    evidence.damageBeforeRepair = dmg;
+    if (dmg < 5) throw new Error(`could not damage the car for the repair test (damage=${dmg.toFixed(1)})`);
+    if (!await exitCar(page)) throw new Error('could not exit car at garage');
+    if (!await walkToPoint(page, -1, 20, 1.5, 60000)) throw new Error("final walk to garage door failed");
+    await sleep(600);
+    let sg = await readState(page);
+    if (!sg.promptVisible) throw new Error(`no prompt at garage door; prompt='${sg.prompt}'`);
+    await page.keyboard.press('KeyE');
+    await sleep(800);
+    sg = await readState(page);
+    if (!sg.shopOpen) throw new Error('garage shop did not open');
+    const rep = await clickBuy(page, 'repair-full');
+    evidence.repair = { moneyBefore: rep.before.money, moneyAfter: rep.after.money, damageBefore: rep.before.damage, damageAfter: rep.after.damage };
+    if (rep.after.damage !== 0) throw new Error(`repair: damage ${rep.after.damage}, expected 0`);
+    if (rep.after.money !== rep.before.money - 150) throw new Error(`repair: money expected -150`);
+    const fuelBefore = (await readState(page)).fuel;
+    const ful = await clickBuy(page, 'fuel-full');
+    evidence.fuel = { fuelBefore, fuelAfter: ful.after.fuel, moneyBefore: ful.before.money, moneyAfter: ful.after.money };
+    if (ful.after.fuel !== 100) throw new Error(`fuel: ${ful.after.fuel}, expected 100`);
+    if (ful.after.money !== ful.before.money - 80) throw new Error(`fuel: money expected -80`);
+    // Paint-teal price gate: money here is S 770 < S 900, so the buy
+    // must be refused and the money must not move (button disabled or
+    // buy() refuses — either way the gate holds).
+    const paintBtn = await page.evaluate(() => {
+      const b = document.querySelector('[data-buy="paint-teal"]');
+      return b ? { disabled: b.disabled, text: b.textContent } : null;
+    });
+    const paintMoneyBefore = (await readState(page)).money;
+    const paintClicked = await page.evaluate(() => {
+      const b = document.querySelector('[data-buy="paint-teal"]');
+      if (!b || b.disabled) return false;
+      b.click();
+      return true;
+    });
+    await sleep(500);
+    const paintMoneyAfter = (await readState(page)).money;
+    evidence.paintGate = { moneyBefore: paintMoneyBefore, moneyAfter: paintMoneyAfter, clicked: paintClicked, button: paintBtn };
+    if (paintMoneyAfter !== paintMoneyBefore) throw new Error(`paint-teal changed money ${paintMoneyBefore} -> ${paintMoneyAfter} despite insufficient funds`);
+    await closeShop(page);
+    console.log(`[shops] garage OK: repair 0, fuel ${fuelBefore.toFixed(1)} -> 100, paint-teal refused (S ${paintMoneyBefore} < 900)`);
+
+    // 3. Weapons (Kelo Arms, old town) VIA THE RING: north on the Corso
+    // to (0,-39), then west on the ring to the shop. NOT the boulevard:
+    // the median nose at (-34.7,0) wedges the driver westward (runs
+    // 2-5, M5 db4bcca). Buy P9 ammo; Tamburo locked below FIXER.
+    await boardCar(page);
+    await openShopAtDoor(page, -48, -39, 'Kelo Arms', [{ x: 0, z: -39 }]);
+    const tamburoLocked = await page.evaluate(() => {
+      const b = document.querySelector('[data-buy="ammo-tamburo"]');
+      return b ? { disabled: b.disabled, text: b.textContent } : null;
+    });
+    evidence.tamburoLocked = tamburoLocked;
+    if (!tamburoLocked || !tamburoLocked.disabled) throw new Error('ammo-tamburo NOT locked below FIXER (expected disabled LOCKED button)');
+    const p9 = await clickBuy(page, 'ammo-p9');
+    evidence.ammoP9 = { moneyBefore: p9.before.money, moneyAfter: p9.after.money, reserveBefore: p9.before.ammo[1].reserve, reserveAfter: p9.after.ammo[1].reserve };
+    if (p9.after.money !== p9.before.money - 120) throw new Error(`P9 ammo: money ${p9.before.money} -> ${p9.after.money}, expected -120`);
+    if (p9.after.ammo[1].reserve !== p9.before.ammo[1].reserve + 24) throw new Error(`P9 ammo: reserve ${p9.before.ammo[1].reserve} -> ${p9.after.ammo[1].reserve}, expected +24`);
+    await closeShop(page);
+    console.log('[shops] weapons OK: P9 ammo bought, Tamburo locked');
+
+    // 4. Clothes (Sartoria Azzura, promenade): buy Harbor Stripes.
+    await boardCar(page);
+    await openShopAtDoor(page, 29, 29, 'Sartoria');
+    const outfit = await clickBuy(page, 'outfit-harbour');
+    evidence.outfit = { moneyBefore: outfit.before.money, moneyAfter: outfit.after.money, outfitBefore: outfit.before.side.outfit, outfitAfter: outfit.after.side.outfit };
+    if (outfit.after.money !== outfit.before.money - 400) throw new Error(`outfit-harbour: money expected -400`);
+    if (outfit.after.side.outfit !== 'harbour') throw new Error(`outfit-harbour: outfit ${outfit.after.side.outfit}, expected harbour`);
+    await closeShop(page);
+    console.log('[shops] clothes OK: Harbor Stripes worn');
+
+    // 5. Save (slot 1) -> reload -> load slot 1: money/ammo/armour restored.
+    let st = await readState(page);
+    for (let i = 0; i < 12 && st.wanted > 0; i++) { await sleep(5000); st = await readState(page); }
+    if (st.wanted > 0) throw new Error(`wanted ${st.wanted} — cannot save`);
+    const savedMoney = st.money, savedP9 = st.ammo[1].reserve, savedArmour = st.armour;
+    const savedCoins = st.side.coinsDone;
+    await page.keyboard.press('Escape');
+    await sleep(800);
+    await page.click('#pause-save');
+    await sleep(500);
+    st = await readState(page);
+    evidence.saved = { money: savedMoney, p9reserve: savedP9, armour: savedArmour, coins: savedCoins, saveMsg: await page.evaluate(() => window.__game.state.saveMsg) };
+    await page.keyboard.press('Escape'); // resume
+    await sleep(500);
+    // Reload the page: game state resets, side store persists.
+    await page.goto(PAGE_URL, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.__gameReady, null, { timeout: 120000 });
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
+    await sleep(2000);
+    const fresh = await readState(page);
+    evidence.afterReload = { money: fresh.money, p9reserve: fresh.ammo[1].reserve, coins: fresh.side.coinsDone };
+    if (fresh.money !== 1250) throw new Error(`after reload money ${fresh.money}, expected fresh 1250 (slot not loaded yet)`);
+    if (fresh.side.coinsDone !== savedCoins) throw new Error(`side store coins ${fresh.side.coinsDone} != ${savedCoins} after reload`);
+    await page.keyboard.press('Escape');
+    await sleep(800);
+    await page.click('#pause-load');
+    await sleep(800);
+    const loaded = await readState(page);
+    evidence.afterLoad = { money: loaded.money, p9reserve: loaded.ammo[1].reserve, armour: loaded.armour };
+    if (loaded.money !== savedMoney) throw new Error(`after load money ${loaded.money} != saved ${savedMoney}`);
+    if (loaded.ammo[1].reserve !== savedP9) throw new Error(`after load P9 reserve ${loaded.ammo[1].reserve} != saved ${savedP9}`);
+    if (loaded.armour !== savedArmour) throw new Error(`after load armour ${loaded.armour} != saved ${savedArmour}`);
+    console.log('[shops] save/load OK');
+
+    if (errors.length) throw new Error('page errors: ' + errors.slice(0, 3).join(' | '));
+    const rec = { result: 'PASS', how: 'human-like', ms: Date.now() - started, evidence };
+    await saveResult(label, rec);
+    await ctx.close();
+    return rec;
+  } catch (e) {
+    const s = await readState(page).catch(() => null);
+    const rec = { result: 'FAIL', how: 'human-like', ms: Date.now() - started, error: String(e.message || e), evidence, state: s ? { money: s.money, onFoot: s.onFoot, px: s.px, pz: s.pz, cx: s.cx, cz: s.cz, mode: s.mode } : null, pageErrors: errors.slice(0, 5) };
+    await saveResult(label, rec);
+    await ctx.close();
+    return rec;
+  }
+}
+
+// --- Runner ---
+const TESTS = { shops: testShops };
+const selected = ONLY ? [ONLY] : Object.keys(TESTS);
+let allPass = true;
+for (const label of selected) {
+  const fn = TESTS[label];
+  if (!fn) { console.log(`unknown test ${label}`); allPass = false; continue; }
+  console.log(`\n=== ${label} ===`);
+  const r = await fn();
+  console.log(`${label}: ${r.result}${r.error ? ' — ' + r.error : ''} (${Math.round(r.ms / 1000)}s)`);
+  if (r.result !== 'PASS') allPass = false;
+}
+await browser.close();
+process.exit(allPass ? 0 : 1);

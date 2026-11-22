@@ -38,7 +38,7 @@ export function rankForXp(xp) {
 export const RANK_REWARDS = [
   { rank: 'DECKHAND', money: 250, unlock: 'outfit:harbour', text: 'Harbor Stripes outfit unlocked — the Mariners know your name now.' },
   { rank: 'WHEELMAN', money: 500, unlock: 'paint:teal', text: 'Harbor Teal paint unlocked — the Stella turns heads on the boulevard.' },
-  { rank: 'FIXER', money: 1000, unlock: 'outfit:casino', text: 'Casino Sharp outfit unlocked — walk into the Azzura like you own it.' },
+  { rank: 'FIXER', money: 1000, unlocks: ['outfit:casino', 'weapon:3'], text: 'Casino Sharp outfit unlocked — walk into the Azzura like you own it. Tamburo SMG unlocked — 48 rounds in the reserve.' },
   { rank: 'CAPO', money: 2000, unlock: 'paint:magenta', text: 'Bright Lights paint unlocked — neon pink, impossible to miss.' },
   { rank: 'KING OF THE RIVIERA', money: 5000, unlock: 'outfit:king', text: 'King of the Riviera outfit unlocked — gold on black. Azzura is yours.' },
 ];

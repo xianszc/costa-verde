@@ -19,4 +19,7 @@ export const SIDE_SPOTS = {
   // Gus' Garage (car customization): marina strip, 6 m west of the
   // harbormaster pavilion — clear of the M1/M2/M5/M8/M12 target.
   garage: { x: ANCHORS.harbormaster_pavilion.x - 6, z: ANCHORS.harbormaster_pavilion.z, district: 'marina' },
+  // Farmacia Azzura (health + armour): skyline plaza, 4 m east of the
+  // plaza centre — open walkable ground, clear of the M7 target.
+  pharmacy: { x: ANCHORS.skyline_plaza.x + 4, z: ANCHORS.skyline_plaza.z, district: 'cbd' },
 };

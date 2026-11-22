@@ -346,8 +346,9 @@ export function collideCircleAABBs(x, z, r, colliders) {
 // input: { up, down, left, right, handbrake } — dt in seconds.
 export function stepCar(car, input, dt, colliders, nowSec) {
   const time = nowSec !== undefined ? nowSec : performance.now() / 1000;
-  if (input.up) car.speed += car.accel * dt;
-  if (input.down) car.speed -= (car.speed > 0.5 ? car.brake : car.accel * 0.5) * dt;
+  if (input.up && car.fuel > 0) car.speed += car.accel * dt;
+  // Brakes always work; reversing is engine work and needs fuel.
+  if (input.down) car.speed -= (car.speed > 0.5 ? car.brake : (car.fuel > 0 ? car.accel * 0.5 : 0)) * dt;
   if (!input.up && !input.down) car.speed -= Math.sign(car.speed) * 4 * dt;
   if (input.handbrake) car.speed -= Math.sign(car.speed) * 26 * dt;
   if (Math.abs(car.speed) < 0.05 && !input.up && !input.down) car.speed = 0;
@@ -399,7 +400,11 @@ export function stepCar(car, input, dt, colliders, nowSec) {
   // Wheels: spin with speed, front wheels steer, suspension bounce,
   // body roll in corners, drift skid marks + tyre squeal.
   updateCarWheels(car, dt, input, time);
-  if (car.fuel > 0) car.fuel = Math.max(0, car.fuel - Math.abs(car.speed) * dt * 0.02);
+  // Fuel: a full tank lasts ~1000 s at full speed (0.005 per unit of
+  // speed per second) — no story mission (cap 480 s) can stall the
+  // car, but a long free drive can. On empty the engine is dead:
+  // no accel forward or back (the car coasts to a stop).
+  if (car.fuel > 0) car.fuel = Math.max(0, car.fuel - Math.abs(car.speed) * dt * 0.005);
   return car;
 }
 

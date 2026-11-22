@@ -9,15 +9,23 @@
 // 3 Tamburo, 4 Fucile. Fists need no ammo.
 export const SHOP_SECTIONS = [
   {
-    id: 'weapons', title: 'Kelo Arms — Weapons & Armour', district: 'old town',
-    note: 'Old town, west end of the main street. Ammo, armour and medkits.',
+    id: 'weapons', title: 'Kelo Arms — Weapons', district: 'old town',
+    note: 'Old town, west end of the main street. Ammo for every gun.',
     items: [
       { id: 'ammo-p9', kind: 'ammo', weapon: 1, qty: 24, name: 'Lupo P9 ammo ×24', price: 120, desc: 'Box of 9 mm for the Lupo P9.' },
       { id: 'ammo-doppietta', kind: 'ammo', weapon: 2, qty: 8, name: 'Doppietta shells ×8', price: 150, desc: 'Heavy shells for the double barrel.' },
-      { id: 'ammo-tamburo', kind: 'ammo', weapon: 3, qty: 48, name: 'Tamburo ammo ×48', price: 200, desc: 'A full drum of SMG rounds.' },
+      { id: 'ammo-tamburo', kind: 'ammo', weapon: 3, qty: 48, name: 'Tamburo ammo ×48', price: 200, rank: 'FIXER', desc: 'A full drum of SMG rounds. Unlocks at FIXER.' },
       { id: 'ammo-fucile', kind: 'ammo', weapon: 4, qty: 10, name: 'Fucile rounds ×10', price: 250, desc: 'Long-range rifle rounds.' },
-      { id: 'armour-plate', kind: 'armour', amount: 40, name: 'Armour plate +40', price: 300, desc: 'Bolt-on plate. Armour up to 100.' },
+      { id: 'weapon-tamburo', kind: 'weapon', weapon: 3, qty: 48, name: 'Tamburo SMG', price: 600, rank: 'FIXER', desc: 'The drum-fed SMG, with 48 rounds. Unlocks at FIXER.' },
+    ],
+  },
+  {
+    id: 'pharmacy', title: 'Farmacia Azzura — Health & Armour', district: 'cbd',
+    note: 'Skyline plaza, by the tower. Medkits and armour plates.',
+    items: [
       { id: 'medkit', kind: 'medkit', name: 'Medkit — full health', price: 200, desc: 'Stitches, gauze and a strong coffee. Health to 100.' },
+      { id: 'armour-plate', kind: 'armour', amount: 40, name: 'Armour plate +40', price: 300, desc: 'Bolt-on plate. Armour up to 100.' },
+      { id: 'armour-vest', kind: 'armour', amount: 100, name: 'Armour vest — full', price: 600, desc: 'A full vest. Armour straight to 100.' },
     ],
   },
   {
@@ -32,8 +40,10 @@ export const SHOP_SECTIONS = [
   },
   {
     id: 'garage', title: 'Gus\u2019 Garage — Car Customization', district: 'marina',
-    note: 'Marina strip, by the harbormaster pavilion. Paint and tuning for the Stella.',
+    note: 'Marina strip, by the harbormaster pavilion. Paint, tuning, repair and fuel for the Stella.',
     items: [
+      { id: 'repair-full', kind: 'repair', name: 'Full repair', price: 150, desc: 'Body shop. Damage to 0 — the Stella drives like new.' },
+      { id: 'fuel-full', kind: 'fuel', name: 'Full tank', price: 80, desc: 'A full tank of fuel. The engine stalls on empty.' },
       { id: 'paint-teal', kind: 'paint', paint: 0x2e7f8f, name: 'Harbor Teal paint', price: 900, rank: 'DECKHAND', desc: 'Deep sea teal for the Stella\u2019s body panels.' },
       { id: 'paint-gold', kind: 'paint', paint: 0xe8a33d, name: 'Gold Riviera paint', price: 1500, rank: 'FIXER', desc: 'Gold — loud, rich, unmistakable.' },
       { id: 'paint-magenta', kind: 'paint', paint: 0xc93a6b, name: 'Bright Lights paint', price: 1200, rank: 'CAPO', desc: 'Neon magenta. The Bright Lights approve.' },

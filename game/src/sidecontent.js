@@ -3,10 +3,11 @@
 // collectibles, district standing, rank unlocks. Runs BESIDE the story
 // game: a second mission engine for jobs/races, its own persistence,
 // its own HUD panel + map overlay + toast. It never edits game.js or
-// main.js — it attaches to window.__game when the game boots (hub.js
+// main.js — it attaches to window.__game when the game boots (main.js
 // imports this module), or via attachSideContent(game) if the parent
 // wires it in later. Owned files only: this module + side-*.js +
-// anchors-side.js; hub.js (Jobs/Shops tabs) + hud.css (its styles).
+// anchors-side.js + hud.css (its styles: #side-toast, #side-job-panel,
+// #map-overlay, #shop-overlay, #side-prompt, #side-hud).
 import * as THREE from '../vendor/three.module.min.js';
 import { ANCHORS, anchorXZ } from './anchors.js';
 import { createMissionEngine } from './missions.js';
@@ -91,7 +92,7 @@ let mapDataCache = null;
 let lastPanel = 0;
 let lastToastAt = 0;
 
-const markers = { coins: [], gates: [], signs: [] };
+const markers = { coins: [], gates: [], signs: [], jobs: [] };
 let beacon = null;
 let waypointBeacon = null;
 let smugglerMesh = null;
@@ -207,6 +208,15 @@ function buy(sectionId, itemId) {
   game.state.money -= price;
   if (item.kind === 'ammo') {
     game.combat.ammo[item.weapon].reserve += item.qty;
+  } else if (item.kind === 'weapon') {
+    // The Tamburo SMG (FIXER): select it and load the bought rounds.
+    game.combat.select(item.weapon);
+    game.combat.ammo[item.weapon].reserve += item.qty;
+    game.state.weapon = item.weapon;
+  } else if (item.kind === 'repair') {
+    game.car.damage = 0;
+  } else if (item.kind === 'fuel') {
+    game.car.fuel = 100;
   } else if (item.kind === 'armour') {
     game.state.armour = Math.min(100, game.state.armour + item.amount);
   } else if (item.kind === 'medkit') {
@@ -360,6 +370,7 @@ function buildMarkers() {
     { spot: SIDE_SPOTS.weaponsShop, color: 0xc0392b, label: 'ARMS' },
     { spot: SIDE_SPOTS.clothesShop, color: 0xc93a6b, label: 'CLOTHES' },
     { spot: SIDE_SPOTS.garage, color: 0x2e7f8f, label: 'GARAGE' },
+    { spot: SIDE_SPOTS.pharmacy, color: 0x2e8b57, label: 'MEDS' },
   ];
   for (const s of signDefs) {
     const g = new THREE.Group();
@@ -394,6 +405,16 @@ function buildMarkers() {
     if (j.dir === 'ew') ring.rotation.y = Math.PI / 2;
     scene.add(ring);
     markers.gates.push({ def: j, mesh: ring });
+  }
+  // Job start markers: a small teal beacon at each job's first stage
+  // target. Press E on foot nearby to start the job (see onKeyDown).
+  for (const j of SIDE_JOBS) {
+    const t = j.stages[0].target;
+    const bm = makeBeaconMesh(0x2e7f8f);
+    bm.scale.setScalar(0.7);
+    bm.position.set(t.x, 0, t.z);
+    scene.add(bm);
+    markers.jobs.push({ def: j, mesh: bm });
   }
   // Collectible coins: spinning gold octahedrons.
   for (const c of COLLECTIBLES) {
@@ -436,6 +457,27 @@ function buildDOM() {
     document.body.appendChild(m);
     const close = el('map-close');
     if (close) close.addEventListener('click', () => closeMap());
+  }
+  if (!el('shop-overlay')) {
+    const s = document.createElement('div');
+    s.id = 'shop-overlay';
+    s.style.display = 'none';
+    s.innerHTML = `<div class="shop-card">
+      <div class="shop-title" id="shop-title">SHOP</div>
+      <div class="shop-sub" id="shop-sub"></div>
+      <div class="shop-money" id="shop-money"></div>
+      <div id="shop-items"></div>
+      <div class="shop-msg" id="shop-msg"></div>
+      <button class="shop-close" id="shop-close">CLOSE (ESC)</button></div>`;
+    document.body.appendChild(s);
+    const close = el('shop-close');
+    if (close) close.addEventListener('click', () => closeShop());
+  }
+  if (!el('side-prompt')) {
+    const p = document.createElement('div');
+    p.id = 'side-prompt';
+    p.style.display = 'none';
+    document.body.appendChild(p);
   }
 }
 function updateJobPanel(force) {
@@ -631,6 +673,93 @@ function closeMap() {
   }
 }
 
+// --- shops (one shared menu, opened with E at a shop door) ---
+let shopOpen = false;
+let shopSection = null;
+let shopPausedByMe = false;
+function shopSpots() {
+  return [
+    { section: 'weapons', spot: SIDE_SPOTS.weaponsShop },
+    { section: 'clothes', spot: SIDE_SPOTS.clothesShop },
+    { section: 'garage', spot: SIDE_SPOTS.garage },
+    { section: 'pharmacy', spot: SIDE_SPOTS.pharmacy },
+  ];
+}
+function nearestShop(px, pz) {
+  let best = null, bd = Infinity;
+  for (const s of shopSpots()) {
+    const d = dist2(px, pz, s.spot.x, s.spot.z);
+    if (d < bd) { bd = d; best = s; }
+  }
+  return bd <= 4 ? { ...best, dist: bd } : null;
+}
+function nearestJobStart(px, pz) {
+  if (active) return null;
+  let best = null, bd = Infinity;
+  for (const j of SIDE_JOBS) {
+    const t = j.stages[0].target;
+    const d = dist2(px, pz, t.x, t.z);
+    if (d < bd) { bd = d; best = j; }
+  }
+  return bd <= 4 ? { job: best, dist: bd } : null;
+}
+function openShop(sectionId) {
+  const section = SHOP_SECTIONS.find((s) => s.id === sectionId);
+  if (!section || !game) return;
+  shopSection = section;
+  shopOpen = true;
+  if (game.state.mode === 'play') {
+    game.setPaused(true);
+    shopPausedByMe = true;
+  } else {
+    shopPausedByMe = false;
+  }
+  const ov = el('shop-overlay');
+  if (ov) ov.style.display = 'flex';
+  renderShop();
+}
+function renderShop() {
+  if (!shopSection || !game) return;
+  const st = getState();
+  const sec = st.shops.find((s) => s.id === shopSection.id);
+  if (!sec) return;
+  const t = el('shop-title');
+  if (t) t.textContent = sec.title;
+  const sub = el('shop-sub');
+  if (sub) sub.textContent = `${sec.note || ''}${sec.discount ? ' · 10% off — FRIENDLY standing here.' : ''}`;
+  const m = el('shop-money');
+  if (m) m.textContent = `YOUR MONEY: ${fmtMoney(game.state.money)}`;
+  const list = el('shop-items');
+  if (list) {
+    list.innerHTML = sec.items.map((it) => {
+      const owned = it.owned && (it.kind === 'outfit' || it.kind === 'paint' || it.kind === 'tune');
+      const applied = it.applied;
+      const btn = it.locked ? 'LOCKED' : applied ? 'APPLIED' : owned ? 'APPLY' : 'BUY';
+      return `<div class="shop-item${it.locked ? ' locked' : ''}">
+        <div class="shop-info"><b>${it.name}</b><p>${it.desc || ''}${it.rank ? ` · Needs rank ${it.rank}.` : ''}</p></div>
+        <span class="shop-price">${it.locked ? '' : fmtMoney(it.price)}</span>
+        <button data-buy="${it.id}"${it.locked || applied ? ' disabled' : ''}>${btn}</button></div>`;
+    }).join('');
+    list.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
+      const r = buy(shopSection.id, b.dataset.buy);
+      const msg = el('shop-msg');
+      if (msg) msg.textContent = r.msg;
+      if (r.ok) renderShop();
+    }));
+  }
+}
+function closeShop() {
+  if (!shopOpen) return;
+  shopOpen = false;
+  shopSection = null;
+  const ov = el('shop-overlay');
+  if (ov) ov.style.display = 'none';
+  if (shopPausedByMe && game) {
+    game.setPaused(false);
+    shopPausedByMe = false;
+  }
+}
+
 // --- input ---
 function onKeyDown(e) {
   if (!game) return;
@@ -643,6 +772,12 @@ function onKeyDown(e) {
   }
   if (e.code === 'Escape' && mapOpen) {
     closeMap();
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    return;
+  }
+  if (e.code === 'Escape' && shopOpen) {
+    closeShop();
     e.stopImmediatePropagation();
     e.preventDefault();
     return;
@@ -665,10 +800,88 @@ function onKeyDown(e) {
       e.preventDefault();
     }
   }
+  // Shop doors + job start markers (E, on foot): a shop door opens
+  // the shared shop menu; a job marker starts that job. The story
+  // interact stage wins when it is in range at the same spot.
+  if (e.code === 'KeyE' && game.state.mode === 'play' && !game.hub.open && !mapOpen && !shopOpen && game.state.onFoot) {
+    const px = game.player.x, pz = game.player.z;
+    const story = game.missions.stageDef();
+    if (story && story.type === 'interact' && dist2(px, pz, story.target.x, story.target.z) < story.target.r) return; // story wins
+    if (active) {
+      const s = engine.stageDef();
+      if (s && s.type === 'interact' && dist2(px, pz, s.target.x, s.target.z) < s.target.r) return; // handled above
+    }
+    const shop = nearestShop(px, pz);
+    if (shop) {
+      // GAME fix (shops 22 Nov ~15:00): the CAR wins E when it is
+      // nearer than the door. A car parked at the shop door made E
+      // re-open the shop forever — the player could never get back in
+      // (run 7: boardCar failed, game left paused with the shop open).
+      // Only hijack E when the door is the nearer target — except
+      // when the player is right AT the door (<=2u), which is a clear
+      // "I want the shop" signal (run 9: the player stopped 2.6u from
+      // the door, nearer the car, and E would have entered the car).
+      const dCar = Math.hypot(game.car.x - px, game.car.z - pz);
+      const carNearer = dCar < 4 && dCar < shop.dist && shop.dist > 2;
+      if (!carNearer) {
+        openShop(shop.section);
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        return;
+      }
+    }
+    const js = nearestJobStart(px, pz);
+    if (js) {
+      const dCar = Math.hypot(game.car.x - px, game.car.z - pz);
+      if (dCar < 4 && dCar < js.dist) {
+        // car nearer — let E fall through to enter the car
+      } else {
+        const r = startActivity(js.job.id);
+        if (r.ok) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }
+    }
+  }
 }
 
 // --- main loop (own rAF; the game loop stays untouched) ---
 let lastNow = 0;
+let lastPrompt = 0;
+function updatePrompt() {
+  const now = performance.now();
+  if (now - lastPrompt < 200) return;
+  lastPrompt = now;
+  const p = el('side-prompt');
+  if (!p) return;
+  if (!game || game.state.mode !== 'play' || game.hub.open || mapOpen || shopOpen || !game.state.onFoot) {
+    p.style.display = 'none';
+    return;
+  }
+  const px = game.player.x, pz = game.player.z;
+  const shop = nearestShop(px, pz);
+  if (shop) {
+    // Same nearer-target rule as the E handler: do not advertise the
+    // shop when the car is nearer (E would enter the car instead) —
+    // unless the player is right at the door (<=2u).
+    const dCar = Math.hypot(game.car.x - px, game.car.z - pz);
+    const carNearer = dCar < 4 && dCar < shop.dist && shop.dist > 2;
+    if (!carNearer) {
+      const sec = SHOP_SECTIONS.find((s) => s.id === shop.section);
+      p.innerHTML = `PRESS <b>E</b> — ${sec ? sec.title : shop.section}`;
+      p.style.display = 'block';
+      return;
+    }
+  }
+  const js = nearestJobStart(px, pz);
+  if (js) {
+    p.innerHTML = `PRESS <b>E</b> — START ${js.job.code} ${js.job.title}`;
+    p.style.display = 'block';
+    return;
+  }
+  p.style.display = 'none';
+}
 function loop(now) {
   requestAnimationFrame(loop);
   if (!game) return;
@@ -689,6 +902,9 @@ function loop(now) {
     if (mapOpen) updateMapPlayer();
     return;
   }
+  updatePrompt();
+  // Job start beacons show only while no side activity is running.
+  for (const j of markers.jobs) j.mesh.visible = !active;
   const px = game.state.onFoot ? game.player.x : game.car.x;
   const pz = game.state.onFoot ? game.player.z : game.car.z;
   // Busted / wasted during a side activity fails it (the game
@@ -772,9 +988,16 @@ function loop(now) {
     if (need && xp >= need.xp) {
       store.ranksClaimed.push(r.rank);
       game.state.money += r.money;
-      const [kind, id] = r.unlock.split(':');
-      if (kind === 'outfit' && !store.outfitsOwned.includes(id)) store.outfitsOwned.push(id);
-      if (kind === 'paint' && !store.paintsOwned.includes(id)) store.paintsOwned.push(id);
+      const unlocks = r.unlocks || (r.unlock ? [r.unlock] : []);
+      for (const u of unlocks) {
+        const [kind, id] = u.split(':');
+        if (kind === 'outfit' && !store.outfitsOwned.includes(id)) store.outfitsOwned.push(id);
+        if (kind === 'paint' && !store.paintsOwned.includes(id)) store.paintsOwned.push(id);
+        if (kind === 'weapon') {
+          const wi = parseInt(id, 10);
+          if (game.combat.ammo[wi]) game.combat.ammo[wi].reserve += 48;
+        }
+      }
       persist();
       toast(`RANK UP — ${r.rank}! +${fmtMoney(r.money)}. ${r.text}`);
     }
@@ -850,7 +1073,7 @@ function attach(g) {
   window.addEventListener('keydown', onKeyDown, true);
   window.__side = {
     getState, buy, applyOwned, startActivity, abandonActivity,
-    openMap, closeMap, setWaypoint, toast,
+    openMap, closeMap, setWaypoint, toast, openShop, closeShop,
     get active() { return active ? active.def.id : null; },
     get store() { return store; },
   };
