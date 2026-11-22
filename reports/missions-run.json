@@ -1,16 +1,28 @@
 {
-  "generated": "2026-11-22T05:28:55.659Z",
+  "generated": "2026-11-22T05:44:43.612Z",
   "commit": "unknown",
   "missions": {
     "M1": {
       "mission": "M1",
-      "result": "PASS",
-      "how": "workaround",
-      "ms": 134000,
+      "result": "TIMEOUT",
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "evidence": "/tmp/missions-run-20261122-0200.log (HEAD f7a574e), not re-run in this pass"
+      "ms": 468144,
+      "abortReason": "hard cap 240s reached",
+      "trace": [
+        "[trace] M1 stage=0 RECON player=(-2.0,-1.5) car=(-8.0,-0.7) target=(5,20) distPlayer=22.6u distCar=24.5u wanted=0 onFoot=true",
+        "[trace] M1 stage=1 STEAL player=(-4.4,0.2) car=(7.5,17.6) target=(5,20) distPlayer=21.9u distCar=3.5u wanted=1 onFoot=false",
+        "[trace] M1 stage=2 ESCAPE player=(4.6,16.2) car=(10.2,11.9) target=(0,0) distPlayer=16.9u distCar=15.6u wanted=0 onFoot=true"
+      ],
+      "lastTrace": "[trace] M1 stage=2 ESCAPE player=(4.6,16.2) car=(10.2,11.9) target=(0,0) distPlayer=16.9u distCar=15.6u wanted=0 onFoot=true",
+      "stages": {
+        "0": "RECON: reached by driving (human-like)",
+        "1": "STEAL: drive 0.0u + walk 10.0u (human-like)",
+        "2": "ESCAPE: drive + walk final leg (human-like)"
+      },
+      "errors": 0,
+      "commit": "unknown"
     },
     "M3": {
       "mission": "M3",
