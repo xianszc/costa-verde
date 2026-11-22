@@ -438,6 +438,21 @@ export function createGame(container) {
       state.onFoot = true;
       playerMesh.visible = true;
       playerMesh.position.set(player.x, 0, player.z);
+      // PAUSE-FLAKE FIX 2 (23 Nov): the car stays where attempt 1
+      // left it — M7 attempt 2 found it 21.2u away at (-19.8,-12.9),
+      // past the 20u boarding range, so the retry failed instantly
+      // ("cannot board car"). A mission restart after death puts the
+      // car back at its spawn when it is too far to walk to; a nearby
+      // car is left alone (M1's retry re-uses the car in place).
+      const carDist = Math.hypot(car.x - ANCHORS.player_spawn.x, car.z - ANCHORS.player_spawn.z);
+      if (carDist > 18) {
+        car.x = ANCHORS.car_spawn.x;
+        car.z = ANCHORS.car_spawn.z;
+        car.angle = ANCHORS.car_spawn.angle;
+        car.speed = 0;
+        car.mesh.position.set(car.x, 0, car.z);
+        car.mesh.rotation.y = car.angle;
+      }
       state.health = 100;
       state.armour = 60;
       state.busted = false;
