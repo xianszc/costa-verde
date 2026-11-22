@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T00:00:11.933Z",
+  "generated": "2026-11-22T00:06:06.375Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -124,16 +124,16 @@
       "attempts": 1,
       "fails": 0,
       "maxStage": 3,
-      "ms": 456294,
+      "ms": 317991,
       "abortReason": "hard cap 240s reached",
       "trace": [
         "[trace] M11 stage=0 LOBBY player=(-2.0,-1.5) car=(-8.0,-0.7) target=(5.9,-13.5) distPlayer=14.4u distCar=18.9u wanted=0 onFoot=true",
         "[trace] M11 stage=2 VAULT player=(5.9,-13.5) car=(-8.0,-0.7) target=(5.9,-13.5) distPlayer=0.0u distCar=18.9u wanted=0 onFoot=true",
-        "[trace] M11 stage=3 ESCAPE player=(-11.2,-8.3) car=(-10.6,0.4) target=(0,33) distPlayer=42.8u distCar=34.3u wanted=0 onFoot=true"
+        "[trace] M11 stage=3 ESCAPE player=(-3.1,19.7) car=(-2.3,9.1) target=(0,33) distPlayer=13.6u distCar=24.0u wanted=0 onFoot=true"
       ],
-      "lastTrace": "[trace] M11 stage=3 ESCAPE player=(-11.2,-8.3) car=(-10.6,0.4) target=(0,33) distPlayer=42.8u distCar=34.3u wanted=0 onFoot=true",
+      "lastTrace": "[trace] M11 stage=3 ESCAPE player=(-3.1,19.7) car=(-2.3,9.1) target=(0,33) distPlayer=13.6u distCar=24.0u wanted=0 onFoot=true",
       "errors": 0,
-      "commit": "5585be3"
+      "commit": "unknown"
     },
     "M12": {
       "mission": "M12",
