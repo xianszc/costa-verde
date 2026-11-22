@@ -153,6 +153,19 @@ async function readState(page) {
       mode: g.state.mode,
       tailTimer: m.tailTimer,
       elapsed: m.elapsed, // game seconds since this mission started
+      // SPY (driver-fix 23 Nov ~04:20): pause-cause fields for the
+      // M5/M9/M11 "could not exit car (mode=paused wanted=0)" hunt.
+      // doBusted/doWasted reset wanted THEN pause — so wanted=0 at
+      // discovery is their fingerprint; a shop/map pause leaves
+      // busted/wasted false and its overlay open instead.
+      busted: !!g.state.busted,
+      wasted: !!g.state.wasted,
+      health: g.state.health,
+      shopOpen: (() => { const el = document.getElementById('shop-overlay'); return !!el && el.style.display !== 'none'; })(),
+      mapOpen: (() => { const el = document.getElementById('map-overlay'); return !!el && el.style.display !== 'none'; })(),
+      hubOpen: !!(g.hub && g.hub.open),
+      hidden: document.hidden,
+      endTitle: (() => { const t = document.getElementById('busted-title'); return t ? t.textContent : ''; })(),
     };
   });
 }
@@ -842,7 +855,7 @@ async function driveToObjective(page, o, stageHow, stageIdx, stageName, missionI
       // pause, mode=paused wanted=0) looks identical to a genuine
       // exit failure without it.
       const sX = await readState(page);
-      return { ok: false, reason: `could not exit car for final walk (mode=${sX.mode} wanted=${sX.wanted})` };
+      return { ok: false, reason: `could not exit car for final walk (mode=${sX.mode} wanted=${sX.wanted} busted=${sX.busted} wasted=${sX.wasted} health=${Math.round(sX.health)} shop=${sX.shopOpen} map=${sX.mapOpen} hub=${sX.hubOpen} hidden=${sX.hidden} title=${sX.endTitle})` };
     }
     const s2 = await readState(page);
     walkU = Math.hypot(s2.px - o.x, s2.pz - o.z);
@@ -1022,7 +1035,7 @@ async function playMission(page, id, label, maxAttempts = 2) {
       // BUSTED: the mode leaves 'play' (pursuers caught the on-foot
       // player) — missions.update stops, so the mission can never
       // complete from here. Count it as a fail and retry once.
-      if (s.mode && s.mode !== 'play') { fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-event] ${label} mode=${s.mode} stage=${s.stage} wanted=${s.wanted} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)}) car=(${s.cx.toFixed(1)},${s.cz.toFixed(1)})`); break; }
+      if (s.mode && s.mode !== 'play') { fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-event] ${label} mode=${s.mode} stage=${s.stage} wanted=${s.wanted} busted=${s.busted} wasted=${s.wasted} health=${Math.round(s.health)} shop=${s.shopOpen} map=${s.mapOpen} hub=${s.hubOpen} hidden=${s.hidden} title=${s.endTitle} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)}) car=(${s.cx.toFixed(1)},${s.cz.toFixed(1)})`); break; }
       // A fail restarts the SAME mission (stage drops back to 0).
       if (s.missionId === id && s.stage === 0 && lastStage > 0) { fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-event] ${label} mission restarted at stage 0 (fail) wanted=${s.wanted} player=(${s.px.toFixed(1)},${s.pz.toFixed(1)})`); break; }
       lastStage = s.stage;
@@ -1387,6 +1400,45 @@ async function runMissionInFreshContext(id, label, maxAttempts) {
       await sleep(2000);
       await page.evaluate(() => window.__game.startPlay());
       await sleep(2000);
+      // SPY (driver-fix 23 Nov ~04:20): mode->paused trap for the
+      // M5/M9/M11 exit-pause hunt. Intercepts every assignment to
+      // state.mode (the game only ever assigns it directly — doBusted
+      // / doWasted / setPaused / visibilitychange) and records the
+      // caller stack + the pause-time state. A plain property, so
+      // reads/writes behave identically; wrapped in try/catch so a
+      // frozen state object degrades to no-trap, never a crash.
+      try {
+        await page.evaluate(() => {
+          const g = window.__game;
+          window.__modeTrap = [];
+          let cur = g.state.mode;
+          Object.defineProperty(g.state, 'mode', {
+            configurable: true,
+            get() { return cur; },
+            set(v) {
+              if (v !== cur) {
+                if (v === 'paused') {
+                  window.__modeTrap.push({
+                    at: Math.round(performance.now()),
+                    from: cur,
+                    stack: (new Error('mode->paused')).stack.split('\n').slice(1, 6).join(' | '),
+                    busted: !!g.state.busted, wasted: !!g.state.wasted,
+                    health: g.state.health, wanted: g.wanted.level,
+                    shop: (document.getElementById('shop-overlay') || {}).style?.display || 'n/a',
+                    map: (document.getElementById('map-overlay') || {}).style?.display || 'n/a',
+                    hub: !!(g.hub && g.hub.open), hidden: document.hidden,
+                    title: (document.getElementById('busted-title') || {}).textContent || '',
+                  });
+                }
+                cur = v;
+              }
+            },
+          });
+          return 'trap installed';
+        });
+      } catch (e) {
+        console.log(`[spy] mode trap NOT installed: ${String(e).slice(0, 120)}`);
+      }
       try {
         roadGraph = await buildRoadGraph(page);
         console.log(`road graph: ${roadGraph.nodes.length} nodes, ${roadGraph.segments} segments`);
@@ -1395,6 +1447,17 @@ async function runMissionInFreshContext(id, label, maxAttempts) {
         roadGraph = null;
       }
       const r = await playMission(page, id, label, maxAttempts);
+      // SPY: dump the mode->paused trap (empty = no pause struck).
+      try {
+        const trap = await page.evaluate(() => window.__modeTrap || []);
+        if (trap.length) {
+          r.modeTrap = trap;
+          console.log(`[spy] ${label} mode->paused x${trap.length}:`);
+          for (const t of trap) console.log(`[spy]   at=${t.at}ms from=${t.from} busted=${t.busted} wasted=${t.wasted} health=${t.health} wanted=${t.wanted} shop=${t.shop} map=${t.map} hub=${t.hub} hidden=${t.hidden} title=${t.title} stack=${t.stack}`);
+        } else {
+          console.log(`[spy] ${label} no mode->paused transition`);
+        }
+      } catch { /* page gone — trap unreadable, non-fatal */ }
       r.errors = errors.length;
       if (errors.length) console.log(`  ${label} ERRORS: ` + errors.slice(0, 5).join(' | '));
       return r;
