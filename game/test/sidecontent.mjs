@@ -370,7 +370,7 @@ async function buildRoadGraph(page) {
       // junctions 3.5u apart distinct. Keep in sync with
       // connectivity.mjs CLUSTER_R.
       ni = nodes.findIndex((n) => Math.hypot(n.x - x, n.z - z) < 3);
-      if (ni < 0) { nodes.push({ x, z, adj: new Map() }); ni = nodes.length - 1; }
+      if (ni < 0) { nodes.push({ x, z, adj: new Map(), w: 0 }); ni = nodes.length - 1; }
       nodeOf.set(key, ni);
     }
     return ni;
@@ -390,6 +390,10 @@ async function buildRoadGraph(page) {
   for (const s of segments) {
     const a = nodeFor(s.x1, s.z1);
     const b = nodeFor(s.x2, s.z2);
+    // DRIVER fix (J1 22 Nov ~17:45): track the widest road touching
+    // each node. routeDrive uses it for the arrival radius (below).
+    nodes[a].w = Math.max(nodes[a].w, s.w);
+    nodes[b].w = Math.max(nodes[b].w, s.w);
     if (a !== b) {
       const len = Math.hypot(s.x2 - s.x1, s.z2 - s.z1);
       const cost = len * widthFactor(s.w);
@@ -442,7 +446,7 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
     const to = roadGraph.nearestNode(tx, tz);
     const pathIdx = roadGraph.route(from.node, to.node);
     if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz})`); return false; }
-    const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
+    const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z, w: roadGraph.nodes[i].w || 2 }));
     const thin = [wps[0]];
     for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 3) thin.push(p);
     if (plan === 0) {
@@ -478,7 +482,18 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
       // 4 u/s, FASTSIM=2) before the corner, so the 90 deg arc exits
       // on the centreline instead of 3.2u off the road. The last
       // waypoint keeps 2.5u (it IS the target).
-      let r = 2.5;
+      // DRIVER fix (J1 22 Nov ~17:45): arrival radius by ROAD WIDTH
+      // on straight legs. The old flat 2.5u is smaller than one
+      // headless control step at the 4 m/s approach floor (the sim
+      // advances ~1 game-s per iteration, so the car moves 4-6u
+      // between samples and jumps clean over the 2.5u radius) — the
+      // J1 boulevard run overshot (-22.4,0), U-turned north into the
+      // CBD blocks at (-12.4,6.1), and could never get back south.
+      // On a w>=4 road (boulevard/Corso, 4.8u of asphalt) a 4u
+      // radius still keeps the car on the road, and the car cannot
+      // jump over it in one step. Narrow (w=2) streets keep 2.5u
+      // (M10 run 9: a loose radius on 1u asphalt scrapes houses).
+      let r = wp.w >= 4 ? 4 : 2.5;
       if (wi > 0 && wi < thin.length - 1) {
         const a = thin[wi - 1], b = thin[wi], c = thin[wi + 1];
         const v1 = Math.atan2(-(b.z - a.z), b.x - a.x);
@@ -1606,7 +1621,7 @@ async function testJobs() {
       if (!panel.includes('DROP')) throw new Error(`J1 PICKUP did not advance to DROP, panel='${panel}'`);
       if (!(await boardCar(page))) throw new Error('J1: could not board car');
       const before = await readState(page);
-      if (!(await routeDrive(page, 44, 13.6, 8, 20000))) throw new Error('J1: routeDrive to (44,13.6) failed');
+      if (!(await routeDrive(page, 44, 13.6, 6, 20000))) throw new Error('J1: routeDrive to (44,13.6) failed');
       const legs = [[44, 25, 2, 8], [46.2, 25, 1, 6], [46.2, 32, 2, 8], [35, 32, 2, 8]];
       for (const [wx, wz, r, cap] of legs) {
         if (!(await driveToPoint(page, wx, wz, r, cap, 60000))) {
