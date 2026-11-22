@@ -987,6 +987,35 @@ export function createGame(container) {
       animateWalk(p.mesh, p.phase, p.speed);
     }
   }
+  // Perf: distance-based hiding (Xian 22 Nov 21:33, 15-min step) — peds
+  // beyond 12u (120 m) and traffic beyond 25u (250 m) from the camera
+  // are hidden (visible=false). Horizontal (XZ) distance: the aerial
+  // diagnostic camera sits 200u up, so a 3D distance would hide the
+  // whole city from it. The player's own car, the smuggler car and
+  // mission figures are NOT in these lists, so they are never hidden.
+  // Collisions / yielding / missions use positions, not visibility, so
+  // a hidden car still blocks and yields. Applied every step in play
+  // mode; staged (?shot=) pages never step, so their shots keep every
+  // ped/car. Exposed as updateVisibility() for measurement scripts
+  // that move the camera by hand.
+  const PED_HIDE_DIST = 12, PED_HIDE_DIST2 = PED_HIDE_DIST * PED_HIDE_DIST;
+  const CAR_HIDE_DIST = 25, CAR_HIDE_DIST2 = CAR_HIDE_DIST * CAR_HIDE_DIST;
+  function updateVisibility() {
+    const cx = camera.position.x, cz = camera.position.z;
+    for (const p of peds) {
+      if (p.fallen) continue; // knocked-down peds stay visible where they fell
+      const dx = p.mesh.position.x - cx, dz = p.mesh.position.z - cz;
+      p.mesh.visible = dx * dx + dz * dz <= PED_HIDE_DIST2;
+    }
+    for (const t of traffic) {
+      const dx = t.x - cx, dz = t.z - cz;
+      t.mesh.visible = dx * dx + dz * dz <= CAR_HIDE_DIST2;
+    }
+    for (const c of cbdTraffic) {
+      const dx = c.x - cx, dz = c.z - cz;
+      c.mesh.visible = dx * dx + dz * dz <= CAR_HIDE_DIST2;
+    }
+  }
   function stepRain(dt) {
     if (!state.storm) return;
     const cx = camera.position.x, cz = camera.position.z;
@@ -1231,6 +1260,7 @@ export function createGame(container) {
       // loop cars yield to them — neither system drives through the other.
       stepCbdTraffic(cbdTraffic, dt, [...traffic, ...obstacles]);
       stepPeds(dt);
+      updateVisibility();
       // Missions: stage transitions from position / wanted / E-key.
       const ev = missions.update(
         state.onFoot ? player.x : car.x,
@@ -1943,7 +1973,7 @@ export function createGame(container) {
 
   return {
     state, car, player, traffic, cbdTraffic, peds, renderer, scene, camera,
-    stageShot, setStorm, startPlay, district, setPaused,
+    stageShot, setStorm, startPlay, district, setPaused, updateVisibility,
     wanted, combat, missions, hub, radio, saveSystem,
     get duelTarget() { return duelTarget; },
     // Test-only fast simulation (see ?fastsim in main.js): steps the
