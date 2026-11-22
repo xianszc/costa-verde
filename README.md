@@ -35,19 +35,51 @@ TOWN RUN, R4 MARINA DASH) are defined in `game/src/side-races.js`.
 
 ## What works
 
-Verified in Playwright, not just claimed: the 11 story missions
-(test driver: drive + escape stages played for real; goto/deliver/
-interact stages currently teleport the player — see
-`reports/missions-run.json`); the Captain's Logbook hub (Tab/H, 6 tabs:
-Logbook, Crew, Chart, Garage, Vault, Waves); save/load (3 slots,
-localStorage); a day/night cycle (one in-game day = 8 real minutes);
-storm rain (M8 + `?shot=storm`); traffic (23 cars on 24 lanes) and 40
-pedestrians; wanted 1–5 + combat; 3 procedural radio stations.
+Verified in Playwright, not just claimed — latest results in
+`reports/missions-run.json` and `reports/sidecontent-run.json`:
 
-Not wired into play yet (code exists in `game/src/side-*.js` +
-`sidecontent.js`, but `attachSideContent()` is never called): shops,
-side jobs, street races, stunt jumps, collectibles, standing and
-rank-gated unlocks. Full audit: `reports/item0-answers-2026-11-22.md`.
+- **11 story missions:** M2 and M7 pass fully human-like (drive the car,
+  walk the final leg, no teleports — 292 s and 398 s); M3, M4, M6, M8,
+  M9, M11 and M12 pass with the standard driver (drive + escape stages
+  played for real; goto/deliver/interact stages teleport the player —
+  labelled "workaround" in the run file). M12's duel is resolved via
+  damage, not played combat. **Open:** M1 FAIL on the 22 Nov re-run
+  (`e4aaa6d`, 409 s, 2 attempts) — the car drives fine, but the final
+  on-foot walk to the harbormaster pavilion ends 10.6u short, twice at
+  the same spot; M5 FAIL (could not exit the car for the final walk).
+  Both are driver-side walk issues under investigation, not game
+  regressions — the same HEAD passes shops-near driving normally.
+  M10 (RIVIERA GRAND PRIX) was cut 22 Nov — unwinnable race, removed
+  cleanly.
+- **Side content — all wired into play and passing**
+  (`attachSideContent()` is called from `main.js`): shops (garage /
+  weapons / pharmacy / clothes — `shops-near` PASS human-like, 144 s
+  on the current HEAD: repair, fuel, ammo, Harbor Stripes outfit,
+  save/load all verified; the far-drive `shops` variant FAILs on its
+  long routeDrive — known, non-blocking), 4 side jobs J1–J4 (PASS,
+  251 s, rewards + save verified; J1's fare-drive leg is still open —
+  the job completes from a ≤5 m start, the drive itself is
+  driver-open), 4 stunt jumps SJ1–SJ4 (PASS, 147 s, 8/8 bonus +S 500
+  saved), 12 collectible coins (PASS, 145 s, WHEELMAN rank-up at coin
+  11, 20/20 bonus +S 500 proven via a seeded run), rank unlocks
+  (PASS, 99 s: outfit-casino bought for S 800 at WHEELMAN, money
+  deducted, outfit applied + saved). Full-screen map (M key,
+  24 markers, 20 coin dots) and the Captain's Logbook hub (Tab/H,
+  6 tabs) work. Street races R1–R4 are defined in
+  `game/src/side-races.js` and wired; J5–J9 stay disabled until
+  tested (minimum-first: 4 jobs proven).
+- **World + systems:** save/load (3 slots, localStorage, exact-match
+  verified); day/night cycle (one in-game day = 8 real minutes, plus
+  `?time=H` staging for shots); storm rain (M8 + `?shot=storm`);
+  traffic (23 cars on 24 lanes) and 40 pedestrians; wanted 1–5 +
+  Guard cruisers/interceptors + combat; 3 procedural radio stations.
+- **Performance (22 Nov, current HEAD):** draw calls — avenue 281,
+  ring 99, promenade 255, residential 102, whole-city aerial 325
+  (`reports/perf-after-chunk-merge-2026-11-22.json`); all street
+  views ≤450, aerial ≤800. 1,250 buildings across 9 districts,
+  2,400 × 1,400 m.
+
+Full side-content audit history: `reports/item0-answers-2026-11-22.md`.
 
 ---
 
