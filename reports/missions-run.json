@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T02:45:50.608Z",
+  "generated": "2026-11-22T03:03:17.954Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -102,16 +102,11 @@
     },
     "M10": {
       "mission": "M10",
-      "result": "TIMEOUT",
-      "attempts": 1,
-      "fails": 0,
+      "result": "FAIL",
+      "attempts": 2,
+      "fails": 2,
       "maxStage": 1,
-      "ms": 259076,
-      "abortReason": "hard cap 240s reached",
-      "trace": [
-        "[trace] M10 stage=0 LINE UP player=(-2.0,-1.5) car=(-8.0,-0.7) target=(-30,-0.725) distPlayer=28.0u distCar=22.0u wanted=0 onFoot=true"
-      ],
-      "lastTrace": "[trace] M10 stage=0 LINE UP player=(-2.0,-1.5) car=(-8.0,-0.7) target=(-30,-0.725) distPlayer=28.0u distCar=22.0u wanted=0 onFoot=true",
+      "ms": 421664,
       "errors": 0,
       "commit": "unknown"
     },
