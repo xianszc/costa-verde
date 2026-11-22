@@ -14,6 +14,10 @@ export const STATIONS = [
 
 // Chord roots in Hz (A minor family for Lume, C major 7 for Onda, E minor
 // power chords for Cava). Each station steps through 4 chords, one per bar.
+// AUDIO (22 Nov 23:31): the radio shares the game's single AudioContext
+// (audio.js) — its master connects to the music bus, so volume/ducking
+// apply to the radio too. No second context is created here.
+import { ensureSharedAudio } from './audio.js';
 const PROG = [
   [110.0, 130.81, 164.81, 196.0], // Lume: Am F C G
   [130.81, 164.81, 196.0, 146.83], // Onda: C E G Dm
@@ -28,21 +32,19 @@ export function createRadio() {
   let step = 0;
   let nextTime = 0;
   let current = 0;
-  let volume = 0.5;
+  let volume = 0.7;
   let started = false;
 
   function ensure() {
     if (ctx) return true;
     try {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return false;
-      ctx = new AC();
+      const sh = ensureSharedAudio();
+      if (!sh) return false;
+      ctx = sh.ctx;
       master = ctx.createGain();
-      master.gain.value = volume * 0.6;
-      master.connect(ctx.destination);
-      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-      const d = noiseBuf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      master.gain.value = volume * 1.0;
+      master.connect(sh.music);
+      noiseBuf = sh.noiseBuf;
       return true;
     } catch (e) { return false; }
   }
@@ -148,7 +150,7 @@ export function createRadio() {
   function prev() { return setStation(current - 1); }
   function setVolume(v) {
     volume = Math.max(0, Math.min(1, v));
-    if (master) master.gain.value = volume * 0.6;
+    if (master) master.gain.value = volume * 1.0;
   }
   function stop() {
     if (timer) clearInterval(timer);

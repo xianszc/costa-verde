@@ -227,7 +227,7 @@ function getSkidPool(scene) {
       marks.push({ mesh: m, age: 1e9 });
     }
     scene.add(group);
-    skidPools.set(scene, { group, marks, next: 0, squeal: null });
+    skidPools.set(scene, { group, marks, next: 0 });
   }
   return skidPools.get(scene);
 }
@@ -255,39 +255,10 @@ function skidUpdate(pool, dt) {
   }
 }
 
-// Tyre squeal: a looping band-passed noise whose gain follows the drift.
-// Lazily created on the first drift; never throws (no gesture in a
-// headless shot run means the context simply stays suspended).
-function squealSet(pool, on) {
-  try {
-    if (on && !pool.squeal) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      const ctx = new AC();
-      const src = ctx.createBufferSource();
-      const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      src.buffer = buf;
-      src.loop = true;
-      const f = ctx.createBiquadFilter();
-      f.type = 'bandpass';
-      f.frequency.value = 900;
-      f.Q.value = 2.5;
-      const g = ctx.createGain();
-      g.gain.value = 0;
-      src.connect(f);
-      f.connect(g);
-      g.connect(ctx.destination);
-      src.start();
-      pool.squeal = { ctx, gain: g };
-    }
-    if (pool.squeal) {
-      if (pool.squeal.ctx.state === 'suspended') pool.squeal.ctx.resume().catch(() => {});
-      pool.squeal.gain.gain.value = on ? 0.05 : 0;
-    }
-  } catch (e) { /* audio is optional — never break the game */ }
-}
+// Tyre squeal (AUDIO, 22 Nov 23:31): the old version created its own
+// AudioContext here. The squeal is now the audio engine's skid loop
+// (audio.js, driven from game.step via update({drifting})) — one shared
+// context for the whole game, no second context in this file.
 
 // Drive all four rigs of one car for a frame. `car` is a vehicles.js car
 // object; `input` is { left, right, handbrake, up, down }; `time` is
@@ -323,9 +294,7 @@ export function updateCarWheels(car, dt, input, time) {
         const wz = car.z - lx * Math.sin(car.angle) + lz * Math.cos(car.angle);
         addSkidMark(scene, wx, wz, car.angle);
       }
-      squealSet(pool, true);
-    } else {
-      squealSet(pool, false);
+      // Squeal is the audio engine's skid loop now (see note above).
     }
   }
 }
