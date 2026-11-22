@@ -159,20 +159,60 @@ function matKey(mat) {
     mat.emissiveMap ? 'emap' + mat.emissiveMap.uuid : '',
   ].join('|');
 }
-export function mergeStatic(root, keep = []) {
+// Item 4 perf: unify opaque, untextured, non-emissive standard-material
+// parts into ONE vertex-colored mesh (color baked per vertex), instead of
+// one mesh per material key. The rendered color is preserved exactly
+// (material color x vertex color, component-wise); only roughness /
+// metalness collapse to the shared material (0.9 / 0.0) — matte
+// building parts are visually identical. Parts with maps, transparency,
+// emissive glow, metalness, smooth shading or non-front sides keep the
+// old key path.
+function isUnifiable(mat) {
+  if (!mat || !mat.isMeshStandardMaterial) return false;
+  if (mat.transparent || mat.map || mat.emissiveMap || mat.normalMap
+    || mat.bumpMap || mat.roughnessMap || mat.metalnessMap || mat.alphaMap) return false;
+  if (mat.emissive && mat.emissive.getHex() !== 0) return false;
+  if ((mat.metalness ?? 0) >= 0.1) return false;
+  if (mat.flatShading !== true) return false;
+  if ((mat.side ?? 0) !== 0) return false; // FrontSide only
+  return true;
+}
+export function mergeStatic(root, keep = [], opts = {}) {
   root.updateMatrixWorld(true);
   const keepSet = new Set(keep);
   const byKey = new Map(); // key -> { mat, geoms: [] }
+  const unified = []; // vertex-colored geometries (one mesh total)
   const kept = [];
   const collect = (obj) => {
     if (obj.userData && obj.userData.noMerge) { kept.push(obj); return; }
     if (keepSet.has(obj.name)) { kept.push(obj); return; }
     if (obj.isPoints || obj.isLine || obj.isSprite || obj.isInstancedMesh) { kept.push(obj); return; }
     if (obj.isMesh) {
-      const key = matKey(obj.material);
+      const mat = obj.material;
+      if (opts.unifyStandard && isUnifiable(mat)) {
+        const g = obj.geometry.clone();
+        g.applyMatrix4(obj.matrixWorld);
+        // Bake the final color (material color x vertex color) into the
+        // color attribute, so the white vertexColorMat renders it
+        // identically. Parts that already carry vertex colors (e.g.
+        // colored() parts, coloredKerb tints) keep them, multiplied by
+        // the material color; parts without one get the material color.
+        const mc = mat.color || { r: 1, g: 1, b: 1 };
+        if (g.attributes.color) {
+          const c = g.attributes.color;
+          for (let i = 0; i < c.count; i++) {
+            c.setXYZ(i, c.getX(i) * mc.r, c.getY(i) * mc.g, c.getZ(i) * mc.b);
+          }
+        } else {
+          colored(g, mat.color ? mat.color.getHex() : 0xffffff);
+        }
+        unified.push(g);
+        return;
+      }
+      const key = matKey(mat);
       const g = obj.geometry.clone();
       g.applyMatrix4(obj.matrixWorld);
-      if (!byKey.has(key)) byKey.set(key, { mat: obj.material, geoms: [] });
+      if (!byKey.has(key)) byKey.set(key, { mat, geoms: [] });
       byKey.get(key).geoms.push(g);
       return;
     }
@@ -183,6 +223,7 @@ export function mergeStatic(root, keep = []) {
   for (const { mat, geoms } of byKey.values()) {
     root.add(mergedMesh(geoms, mat));
   }
+  if (unified.length) root.add(mergedMesh(unified, vertexColorMat));
   for (const k of kept) root.add(k);
   return root;
 }

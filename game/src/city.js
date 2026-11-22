@@ -202,7 +202,7 @@ function buildHills() {
     parts.push(colored(xform(new THREE.BoxGeometry(3.3, 0.3, 2.8), x, y + 2.1, z), 0xb4552d));
   }
   g.add(mergedMesh(parts, vertexColorMat));
-  return mergeStatic(g);
+  return mergeStatic(g, [], { unifyStandard: true });
 }
 
 // ---------- Hills terraces + cliff villas + funicular (2d, Xian 21 Nov 17:58) ----------
@@ -613,7 +613,7 @@ export function buildDistrict4() {
   addPlot(PLOTS[0], () => buildHeroBuilding('marina'));
   // Old bell tower (M4 drop point).
   addPlot(PLOTS[1], () => bellTower());
-  group.add(mergeStatic(buildings));
+  group.add(mergeStatic(buildings, [], { unifyStandard: true }));
   // Animated bits the merge kept whole (the casino fountain) still tick.
   buildings.traverse((o) => { if (o.userData && o.userData.tick) tickers.push(o); });
 
@@ -708,7 +708,7 @@ export function buildDistrict4() {
   // Facade line: STAGE 1 — removed (the old facade line at z -9.6 is
   // inside the new CBD footprint; the towers stand there now). The quay
   // cover props stay.
-  group.add(mergeStatic(cover));
+  group.add(mergeStatic(cover, [], { unifyStandard: true }));
 
   // --- quay details: crates, rope coils, cleats, moored boats, crane ---
   // GRID REBUILD: everything on the quay sits at z 13.5 (the quay strip
@@ -739,7 +739,7 @@ export function buildDistrict4() {
   quayProps.add(cyl(0.5, 0.5, 1.0, 0x2e7f8f, -56.4, 0.8, 15.0, 10));
   quayProps.add(box(2.2, 0.15, 1.4, 0x3a5a3a, -30, 0.4, 13.5));
   colliders.push({ x0: -59.3, z0: 14.7, x1: -58.7, z1: 15.3, id: 'crane' });
-  group.add(mergeStatic(quayProps));
+  group.add(mergeStatic(quayProps, [], { unifyStandard: true }));
 
   // --- bay water + moored boats + skyline across the bay ---
   // Water sits at y 0.3 so its wave troughs never dip under the ground

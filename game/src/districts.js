@@ -380,7 +380,7 @@ export function buildOldTown() {
       addPlot(hx, hz, 3, 3, builder, hz < -39 ? 0 : Math.PI);
     }
   }
-  group.add(mergeStatic(buildings));
+  group.add(mergeStatic(buildings, [], { unifyStandard: true }));
   colliders.push(...collidersLocal);
 
   // --- fortress wall + bastions along the north edge (z -52) ---
@@ -396,7 +396,7 @@ export function buildOldTown() {
   wall.add(fortressWall(-36.5, -34, -52));
   wall.add(bastion(-59, -52));
   wall.add(bastion(-35, -52));
-  group.add(mergeStatic(wall));
+  group.add(mergeStatic(wall, [], { unifyStandard: true }));
   colliders.push({ x0: -72, z0: -53.4, x1: -68.5, z1: -50.6, id: 'fortress-wall' });
   colliders.push({ x0: -66.5, z0: -53.4, x1: -58.5, z1: -50.6, id: 'fortress-wall' });
   colliders.push({ x0: -56.5, z0: -53.4, x1: -48.5, z1: -50.6, id: 'fortress-wall' });
@@ -415,7 +415,7 @@ export function buildOldTown() {
   lines.add(laundryLine(-68, -34, -62, -34, 3.2));
   // 2b draw-call cut: the lines are static — merge them by material
   // instead of one group per line.
-  group.add(mergeStatic(lines));
+  group.add(mergeStatic(lines, [], { unifyStandard: true }));
   // 2b draw-call cut (Xian 21 Nov 18:41): lampRow merges a whole row
   // into 2 meshes (poles + globes) instead of 2 meshes per lamp post.
   group.add(lampRow([-70, -60, -50, -40], -43.5));
@@ -441,7 +441,7 @@ export function buildOldTown() {
   wallW.add(fortressWallNS(-41, -30, -96));
   wallW.add(bastion(-96, -80));
   wallW.add(bastion(-72, -80));
-  group.add(mergeStatic(wallW));
+  group.add(mergeStatic(wallW, [], { unifyStandard: true }));
   colliders.push({ x0: -94, z0: -81.4, x1: -85, z1: -78.6, id: 'fortress-wall' });
   colliders.push({ x0: -83, z0: -81.4, x1: -74, z1: -78.6, id: 'fortress-wall' });
   colliders.push({ x0: -97.4, z0: -80, x1: -94.6, z1: -43, id: 'fortress-wall' });
@@ -734,7 +734,7 @@ export function buildPromenade() {
   addPlot(1, 24, 5, 5, () => decoVilla(5, 5, 3.5, PR.mint));
   // 2b: one more shed west on the extended apron (-33, 24).
   addPlot(-33, 24, 5, 5, () => decoVilla(5, 5, 3.5, PR.mint));
-  group.add(mergeStatic(buildings));
+  group.add(mergeStatic(buildings, [], { unifyStandard: true }));
   colliders.push(...collidersLocal);
 
   // --- fountains: casino forecourt (hero) + hotel forecourt ---
@@ -778,7 +778,7 @@ export function buildPromenade() {
     piers.add(cyl(0.15, 0.18, 0.6, PR.sea, px - 0.7, 0.7, 37.5, 8));
     piers.add(cyl(0.15, 0.18, 0.6, PR.sea, px + 0.7, 0.7, 37.5, 8));
   }
-  group.add(mergeStatic(piers));
+  group.add(mergeStatic(piers, [], { unifyStandard: true }));
   // Quay bollards + cleats along the whole shore (x -96..108, 2b).
   const quayProps = new THREE.Group();
   for (let x = -96; x <= 108; x += 4) {
@@ -787,7 +787,7 @@ export function buildPromenade() {
   for (const cx of [-80, -60, -40, -20, 0, 20, 40, 60, 80, 92, 104]) {
     quayProps.add(box(0.9, 0.25, 0.4, PR.ink, cx, 0.3, 34.6));
   }
-  group.add(mergeStatic(quayProps));
+  group.add(mergeStatic(quayProps, [], { unifyStandard: true }));
   // Moored sailboats on the water (beyond the quay, z > 35). 2b: 13
   // boats now (was 7) so the harbour reads busy along the whole shore.
   const boatSpots = [[-33, 42, 1.0], [-26, 42, 1.0], [-20, 42, 1.0], [-10, 44, 1.2], [0, 42, 1.0], [10, 44, 1.2], [20, 42, 1.0], [30, 44, 1.1], [44, 42, 1.0], [52, 42, 1.0], [60, 44, 1.1], [70, 44, 1.0], [76, 42, 1.0]];
@@ -811,7 +811,7 @@ export function buildPromenade() {
     swAdd(cx, 18, 4, 5, () => decoVilla(4, 5, 3.5, ccol));
   }
   swAdd(-44, 18, 8, 6, () => decoVilla(8, 6, 4, PR.cream)); // fish market
-  group.add(mergeStatic(sw));
+  group.add(mergeStatic(sw, [], { unifyStandard: true }));
   colliders.push(...swColliders);
 
   // --- traffic lanes + pedestrian paths ---
