@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T15:43:58.661Z",
+  "generated": "2026-11-22T18:41:33.219Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -7,12 +7,10 @@
       "result": "FAIL",
       "attempts": 2,
       "fails": 2,
-      "maxStage": 1,
-      "ms": 409114,
-      "stages": {
-        "0": "RECON: reached by driving (human-like)"
-      },
-      "abortReason": "final walk failed, 10.6u short of objective",
+      "maxStage": 0,
+      "ms": 12379,
+      "stages": {},
+      "abortReason": "could not exit car for final walk",
       "errors": 0,
       "commit": "unknown"
     },
