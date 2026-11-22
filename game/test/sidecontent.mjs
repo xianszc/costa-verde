@@ -531,6 +531,48 @@ async function walkToPoint(page, tx, tz, r, timeoutMs) {
   return false;
 }
 
+// Walk toward a shop door until its prompt shows — that is what a
+// human player does (the prompt appears within 4u of the door), and
+// it is far more robust than a 1.5u point target: under headless
+// SwiftShader each readState round-trip takes 1-4 s, so the walker
+// can stride straight through a 1.5u window between polls (probe
+// /tmp/shop-walk-probe.mjs: W1 passed d=1.54 at one poll and was at
+// d=3.15 past the door at the next, then wall-followed away and
+// stuck; run 4 crept to 1.3u between the last poll and the 60 s
+// timeout). Arrival = the shop's own prompt is visible, or d < 1.5.
+async function walkToPrompt(page, tx, tz, expectTitle, timeoutMs) {
+  const started = Date.now();
+  let lastDist = Infinity, lastProgress = Date.now();
+  let followSide = 1, followUntil = 0;
+  while (Date.now() - started < timeoutMs) {
+    const s = await readState(page);
+    if (s.mode !== 'play') { await releaseKeys(page); return false; }
+    if (!s.onFoot) { await releaseKeys(page); return false; }
+    const d = Math.hypot(s.px - tx, s.pz - tz);
+    if (d < 1.5) { await releaseKeys(page); return true; }
+    if (s.promptVisible && s.prompt.includes(expectTitle)) { await releaseKeys(page); return true; }
+    if (d < lastDist - 0.3) { lastDist = d; lastProgress = Date.now(); }
+    if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
+    if (Date.now() < followUntil) { await sleep(300); continue; }
+    if (Date.now() - lastProgress > 6000) {
+      const desiredB = Math.atan2(-(tz - s.pz), tx - s.px);
+      const diffB = normAngle(desiredB - s.angle);
+      followSide = diffB >= 0 ? -1 : 1;
+      await setKeys(page, { w: true, a: followSide < 0, d: followSide > 0, s: false });
+      followUntil = Date.now() + 3000;
+      lastProgress = Date.now();
+      await sleep(300);
+      continue;
+    }
+    const desired = Math.atan2(-(tz - s.pz), tx - s.px);
+    const diff = normAngle(desired - s.angle);
+    await setKeys(page, { w: true, a: diff > 0.2, d: diff < -0.2, s: false });
+    await sleep(300);
+  }
+  await releaseKeys(page);
+  return false;
+}
+
 async function boardCar(page) {
   // TEST fix (shops 22 Nov ~15:00): always walk to within 1.5u of the
   // car BEFORE pressing E. Pressing E from 2-3u away can hit the shop
@@ -849,8 +891,8 @@ async function placeCar(page, x, z, angle) {
   }, { x, z, angle });
 }
 async function walkToShopAtDoor(page, x, z, expectTitle) {
-  const ok = await walkToPoint(page, x, z, 1.5, 60000);
-  if (!ok) { const s = await readState(page); throw new Error(`walk to shop door (${x},${z}) failed, ${Math.hypot(s.px - x, s.pz - z).toFixed(1)}u short`); }
+  const ok = await walkToPrompt(page, x, z, expectTitle, 60000);
+  if (!ok) { const s = await readState(page); throw new Error(`walk to shop door (${x},${z}) failed, ${Math.hypot(s.px - x, s.pz - z).toFixed(1)}u short, prompt='${s.prompt}'`); }
   await sleep(600);
   let s = await readState(page);
   if (!s.promptVisible) throw new Error(`no prompt at shop door (${x},${z}); prompt='${s.prompt}'`);
