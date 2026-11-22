@@ -155,11 +155,11 @@
     }
   },
   "saveLoad": {
-    "saved": false,
-    "loaded": false,
-    "money": -1,
-    "xp": -1,
-    "missionId": -1,
-    "pass": false
+    "saved": true,
+    "loaded": true,
+    "money": 7777,
+    "xp": 1234,
+    "missionId": 4,
+    "pass": true
   }
 }

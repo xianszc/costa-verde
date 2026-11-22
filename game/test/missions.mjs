@@ -314,8 +314,15 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
   const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
   const thin = [wps[0]];
   for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 6) thin.push(p);
+  // PROBE logging (M10, 22 Nov 07:20): full BFS path + thinned
+  // waypoints + per-waypoint outcome, so a wedge can be traced to
+  // the exact waypoint that cut a corner through buildings.
+  console.log(`[routeDrive] to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
+  console.log(`[routeDrive] thinned ${thin.length} wps: ` + thin.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
   for (const wp of thin) {
     const ok = await driveToPoint(page, wp.x, wp.z, 4, cap, perWpMs);
+    const cc = await readCar(page);
+    console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
     if (!ok) break;
   }
   const c2 = await readCar(page);
