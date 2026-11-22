@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T19:28:35.049Z",
+  "generated": "2026-11-22T19:29:29.198Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -73,12 +73,11 @@
       "result": "FAIL",
       "attempts": 2,
       "fails": 2,
-      "maxStage": 1,
-      "ms": 52875,
+      "maxStage": 2,
+      "ms": 23695,
       "stages": {
         "0": "CROSS: reached by driving (human-like)"
       },
-      "abortReason": "could not exit car for final walk",
       "errors": 0,
       "commit": "unknown"
     },
