@@ -1515,12 +1515,14 @@ async function testJumps() {
         if (after.money !== expectMoney) throw new Error(`${leg.id}: money ${before.money} -> ${after.money}, expected ${expectMoney} (+150 jump${dCoins ? ` +${50 * dCoins} from ${dCoins} coin(s)` : ''}${rankUp ? ' +500 WHEELMAN' : ''})`);
         if (rankUp && after.side.rank !== 'WHEELMAN') throw new Error(`${leg.id}: unexpected rank-up to ${after.side.rank}`);
         // XP: +100 jump +25/coin collected on the route + driving XP
-        // (0.6/u, game.js:962 — the leg drives ~15-25u, so ~9-15 XP;
-        // cap 60 for overshoot). The jump +100 must be in the delta.
+        // (0.6/u, game.js:962 — run-up + ~45u coast/brake after the
+        // gate is ~60-110u, so ~35-65 XP; cap 80 for overshoot — a
+        // runaway car drives hundreds of units). The jump +100 must
+        // be in the delta.
         const xpGain = after.xp - before.xp;
         const driveXp = xpGain - 100 - 25 * dCoins;
         if (xpGain < 100 + 25 * dCoins) throw new Error(`${leg.id}: xp ${before.xp} -> ${after.xp}, expected at least +${100 + 25 * dCoins} (jump + coins)`);
-        if (driveXp < -0.5 || driveXp > 60) throw new Error(`${leg.id}: driving XP ${driveXp.toFixed(1)} out of range (xp gain ${xpGain.toFixed(1)}, coins ${dCoins})`);
+        if (driveXp < -0.5 || driveXp > 80) throw new Error(`${leg.id}: driving XP ${driveXp.toFixed(1)} out of range (xp gain ${xpGain.toFixed(1)}, coins ${dCoins})`);
         if (!hud || !hud.text.includes(`JUMPS ${i + 1}/8`)) throw new Error(`${leg.id}: HUD chip '${hud ? hud.text : 'missing'}' does not show JUMPS ${i + 1}/8`);
         console.log(`[jumps] ${leg.id} OK: jumps ${i + 1}/8 at ${res.maxSpeed.toFixed(1)} m/s, money ${after.money}, rank ${after.side.rank}, coins +${dCoins}, driveXp ${driveXp.toFixed(1)}`);
       }
@@ -1631,13 +1633,23 @@ async function testJobs() {
   async function toastText(page) {
     return page.evaluate(() => (document.getElementById('side-toast') || {}).textContent || '');
   }
-  async function startJobAt(page, px, pz, cx, cz) {
+  async function startJobAt(page, px, pz, cx, cz, expectId) {
+    // E can be stolen by a STORY interact sharing the spot (J4 at the
+    // pavilion: M1 STEAL is interact there and the story handler wins
+    // E — the first press advances the story, not the job). Retry E
+    // until the expected job is active (max 4): after STEAL the story
+    // is at ESCAPE (goto, no E), so the next press reaches the job.
     await placePlayer(page, px, pz, 0);
     await placeCar(page, cx, cz, 0);
-    await page.keyboard.press('KeyE');
-    await sleep(1000);
-    const s = await readState(page);
-    return s.side.active;
+    let active = null;
+    for (let i = 0; i < 4; i++) {
+      await page.keyboard.press('KeyE');
+      await sleep(1000);
+      const s = await readState(page);
+      active = s.side.active;
+      if (active === expectId) break;
+    }
+    return active;
   }
   try {
     // --- J1 fail: start again, let the 90 s timer expire ---
@@ -1654,7 +1666,7 @@ async function testJobs() {
       // radius but inside the job marker's 4u E radius and the PICKUP
       // stage's 4u goto radius; the car at (-44,0) is 3.5u from the
       // player, so E still picks the job marker (2.5u < 3.5u).
-      const active = await startJobAt(f.page, -47.5, 0, -44, 0);
+      const active = await startJobAt(f.page, -47.5, 0, -44, 0, 'J1');
       if (active !== 'J1') throw new Error(`J1 fail: did not start, active=${active}`);
       // Detect the fail by the TIMER RESETTING, not by catching the
       // toast: failActive toasts TIME UP and immediately restarts the
@@ -1771,7 +1783,7 @@ async function testJobs() {
       try {
         const s0 = await readState(jpage);
         if (s0.money !== 1500) throw new Error(`fresh money ${s0.money}, expected 1500`);
-        const active = await startJobAt(jpage, jt.start.player[0], jt.start.player[1], jt.start.car[0], jt.start.car[1]);
+        const active = await startJobAt(jpage, jt.start.player[0], jt.start.player[1], jt.start.car[0], jt.start.car[1], jt.id);
         if (active !== jt.id) throw new Error(`${jt.id} did not start, active=${active}`);
         for (let si = 0; si < jt.stages.length; si++) {
           const st = jt.stages[si];
@@ -1820,7 +1832,7 @@ async function testJobs() {
       // Player 1u from boulevard_west (-50,0); car 5u east — E must
       // start the job, not the car (the car-nearer rule: dCar<4 AND
       // dCar<marker dist lets E enter the car; dCar=5 is safe).
-      const active = await startJobAt(page, -50, 1, -45, 0);
+      const active = await startJobAt(page, -50, 1, -45, 0, 'J1');
       if (active !== 'J1') throw new Error(`J1 did not start, active=${active}`);
       // PICKUP (goto boulevard_west r=4) completes at once — the
       // panel advances to stage 2 DROP.
