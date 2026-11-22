@@ -336,7 +336,7 @@ async function reverseOut(page, tx, tz) {
   return true;
 }
 
-async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
+async function driveToPoint(page, tx, tz, r, cap, timeoutMs, opts = {}) {
   // DRIVER fix (D2 22 Nov 06:10): sidestep. The BFS graph routes on
   // road CENTERLINES, but the boulevard has a median (x -60..-34.7,
   // z +/-0.7) whose blunt east nose at (-34.7,0) stops a car steering
@@ -382,7 +382,14 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
       // (radius ~3.2u at best, car already ~2.6u off the centreline);
       // reverse-out instead (see reverseOut). Fires only at leg
       // start, never mid-leg.
-      await reverseOut(page, tx, tz);
+      // DRIVER fix (driver-fix 23 Nov ~03:55): SKIP the reverse-out
+      // at a sharp-turn junction (opts.noReverseOut, set by
+      // routeDrive for r=5 waypoints) — the car sits ON the corner
+      // and the reverse displaces it off the road into the block
+      // (M4 ESCAPE: 8 identical failures at (-54,-26), the car
+      // ending (-46,-29) after every reverse-out). At a junction
+      // the forward arc + early turn (r=5) is the right move.
+      if (!opts.noReverseOut) await reverseOut(page, tx, tz);
     }
   }
   let sideStep = 0;
@@ -452,8 +459,21 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
     // fast to turn).
     const approachCap = d < 20 ? Math.max(4, d * 0.6) : cap;
     const effCap = Math.min(approachCap, Math.abs(diff) > 1.5 ? 4 : Math.abs(diff) > 0.7 ? 6 : cap);
-    await setKeys(page, carSteerKeys(diff, c.speed, effCap));
-    await sleep(300);
+    // DRIVER fix (driver-fix 23 Nov ~03:55): BRAKE when close, and
+    // poll every 150 ms (was 300). At FASTSIM=4 the car coasts into
+    // the waypoint faster than the approach cap sheds speed, and a
+    // 300 ms poll is 1.2 s of game time (4.8u at 4 u/s), so it jumps
+    // clean over the 2.5u arrival circle (M5: (-47.5,-39) missed by
+    // 4.9u, then the car never came back). At 150 ms a poll is 0.6 s
+    // game / 2.4u at 4 u/s — under the 2.5u radius, so the car
+    // cannot jump the circle; the active brake inside 6u sheds the
+    // entry speed first.
+    if (d < 6 && Math.abs(c.speed) > 4) {
+      await setKeys(page, { w: false, a: diff > 0.15, d: diff < -0.15, s: true });
+    } else {
+      await setKeys(page, carSteerKeys(diff, c.speed, effCap));
+    }
+    await sleep(150);
   }
   await releaseKeys(page);
   return false;
@@ -476,8 +496,21 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
   // overshot the (-54,0) south turn to (-56.9,-1.1) and gave up
   // 39u from the plaza). Up to 3 re-plans per call, each a fresh
   // BFS from the car's actual position.
+  // DRIVER fix (driver-fix 23 Nov ~03:55): UNSTICK / BACKTRACK. The
+  // old code re-planned the identical failed leg from the wedged
+  // position — M4 retried (-54,-26) 8 times from (-46,-29) and M5
+  // retried (-47.5,-26) 3 times from (-48,-30.5), burning the whole
+  // mission budget. On a waypoint failure the driver now drives back
+  // ONCE per routeDrive call to the last waypoint it genuinely
+  // visited (car within 2.5u — an r=5 proximity "arrival" does not
+  // count), or to the plan-start position if none, and re-plans from
+  // there with a clean approach. A second identical failure from
+  // the same spot returns false instead of looping.
+  let backtracked = false;
+  let lastFailWp = null, lastFailPos = null;
   for (let plan = 0; plan < 4; plan++) {
     const c = await readCar(page);
+    const planStart = { x: c.x, z: c.z };
     const from = roadGraph.nearestNode(c.x, c.z);
     const to = roadGraph.nearestNode(tx, tz);
     const pathIdx = roadGraph.route(from.node, to.node);
@@ -504,6 +537,8 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
     // Re-plans run the centreline (runs 8-10 got the car to
     // (-54.6,-19.1), 21u from the plaza — the furthest so far).
     let failed = false;
+    let failedWp = null;
+    let lastGood = null;
     for (let wi = 0; wi < thin.length; wi++) {
       const wp = thin[wi];
       // DRIVER fix (M10 run 9, 22 Nov ~10:15): arrival radius by TURN
@@ -528,10 +563,11 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
         while (turn < -Math.PI) turn += 2 * Math.PI;
         if (Math.abs(turn) > 0.7) r = 5;
       }
-      const ok = await driveToPoint(page, wp.x, wp.z, r, cap, perWpMs);
+      const ok = await driveToPoint(page, wp.x, wp.z, r, cap, perWpMs, { noReverseOut: r === 5 });
       const cc = await readCar(page);
       console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) r=${r} ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
-      if (!ok) { failed = true; break; }
+      if (ok && Math.hypot(cc.x - wp.x, cc.z - wp.z) <= 2.5) lastGood = { x: wp.x, z: wp.z };
+      if (!ok) { failed = true; failedWp = wp; break; }
     }
     const c2 = await readCar(page);
     const last = thin[thin.length - 1];
@@ -539,6 +575,27 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
     console.log(`[routeDrive] to (${tx},${tz}) car now (${c2.x.toFixed(1)},${c2.z.toFixed(1)}) ${d.toFixed(1)}u from road node (${last.x},${last.z})`);
     if (d < 6) return true;
     if (!failed) return false; // drove the whole plan but still far — no re-plan helps
+    // Backtrack once to the last genuinely visited waypoint (or the
+    // plan-start position), then re-plan from there.
+    if (!backtracked) {
+      backtracked = true;
+      const target = lastGood || planStart;
+      const c3 = await readCar(page);
+      if (Math.hypot(c3.x - target.x, c3.z - target.z) > 2.5) {
+        console.log(`[routeDrive] BACKTRACK to (${target.x.toFixed(1)},${target.z.toFixed(1)}) from (${c3.x.toFixed(1)},${c3.z.toFixed(1)})`);
+        await driveToPoint(page, target.x, target.z, 2.5, 8, 30000);
+      }
+    }
+    // Identical-failure guard: same waypoint failed from the same
+    // spot twice — no re-plan helps, stop burning mission time.
+    if (failedWp) {
+      if (lastFailWp && Math.hypot(failedWp.x - lastFailWp.x, failedWp.z - lastFailWp.z) < 0.5
+        && Math.hypot(c2.x - lastFailPos.x, c2.z - lastFailPos.z) < 1.5) {
+        console.log(`[routeDrive] identical failure at (${failedWp.x.toFixed(1)},${failedWp.z.toFixed(1)}) from same spot — giving up`);
+        return false;
+      }
+      lastFailWp = failedWp; lastFailPos = { x: c2.x, z: c2.z };
+    }
     // else: missed a waypoint — loop and re-plan from the car's actual position
   }
   return false;
@@ -664,7 +721,9 @@ async function followTail(page, timeoutMs) {
     const diff = normAngle(desired - car.angle);
     const cap = d > 10 ? 12 : 6;
     await setKeys(page, carSteerKeys(diff, car.speed, cap));
-    await sleep(300);
+    await sleep(150); // DRIVER fix (driver-fix 23 Nov ~03:55): 150 ms
+    // polls (was 300) — at FASTSIM=4 a 300 ms poll is 1.2 s game
+    // (7.2u at 6 u/s), so the car overshoots the smuggler badly.
   }
   await releaseKeys(page);
   return false;
@@ -777,7 +836,14 @@ async function driveToObjective(page, o, stageHow, stageIdx, stageName, missionI
       await page.keyboard.press('KeyE');
       await sleep(600);
     }
-    if (!exited) return { ok: false, reason: 'could not exit car for final walk' };
+    if (!exited) {
+      // DRIVER fix (driver-fix 23 Nov ~03:55): report the game mode
+      // in the reason — a pause striking mid-exit (the M11 mystery
+      // pause, mode=paused wanted=0) looks identical to a genuine
+      // exit failure without it.
+      const sX = await readState(page);
+      return { ok: false, reason: `could not exit car for final walk (mode=${sX.mode} wanted=${sX.wanted})` };
+    }
     const s2 = await readState(page);
     walkU = Math.hypot(s2.px - o.x, s2.pz - o.z);
     // AUDIT M-2/M-3: walk the detour first (see WALK_VIA above), then
