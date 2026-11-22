@@ -392,7 +392,7 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
     const c = await readCar(page);
     const from = roadGraph.nearestNode(c.x, c.z);
     const to = roadGraph.nearestNode(tx, tz);
-    const pathIdx = roadGraph.bfs(from.node, to.node);
+    const pathIdx = roadGraph.route(from.node, to.node);
     if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz})`); return false; }
     const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
     const thin = [wps[0]];
@@ -404,8 +404,15 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
       console.log(`[routeDrive] RE-PLAN ${plan} to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
     }
     let failed = false;
-    for (const wp of thin) {
-      const ok = await driveToPoint(page, wp.x, wp.z, 2.5, cap, perWpMs);
+    for (let wi = 0; wi < thin.length; wi++) {
+      const wp = thin[wi];
+      // DRIVER fix (M10 run 8, 22 Nov ~10:00): intermediate waypoints
+      // use arrival radius 4u (was 2.5u) so the car starts a 90 deg
+      // turn ~4u before the corner — the 3.2u turning radius plus
+      // ~1 poll of steering lag (2.4u at 4 u/s, FASTSIM=2) means a
+      // 2.5u switch turns the car too late and it exits the turn
+      // off the road. The last waypoint keeps 2.5u (it IS the target).
+      const ok = await driveToPoint(page, wp.x, wp.z, wi === thin.length - 1 ? 2.5 : 4, cap, perWpMs);
       const cc = await readCar(page);
       console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
       if (!ok) { failed = true; break; }
@@ -495,7 +502,7 @@ async function followTail(page, timeoutMs) {
       if (d0 > 25) {
         const from = roadGraph.nearestNode(s.cx, s.cz);
         const to = roadGraph.nearestNode(o.x, o.z);
-        const pathIdx = roadGraph.bfs(from.node, to.node);
+        const pathIdx = roadGraph.route(from.node, to.node);
         if (pathIdx) {
           const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
           const thin = [wps[0]];
@@ -596,9 +603,9 @@ async function boardCar(page) {
 // away (M1: marina -> boulevard_mid, M3/M5 -> boulevard, M4/M6 ->
 // marina, M10 -> quay), so the driver routes along the road network
 // (the same minimap graph as the route test). Built once per page.
-let roadGraph = null; // { nodes, bfs, nearestNode, segments }
+let roadGraph = null; // { nodes, route, nearestNode, segments }
 async function buildRoadGraph(page) {
-  const segments = await page.evaluate(() => window.__game.district.minimap.map((s) => ({ x1: s.x1, z1: s.z1, x2: s.x2, z2: s.z2 })));
+  const segments = await page.evaluate(() => window.__game.district.minimap.map((s) => ({ x1: s.x1, z1: s.z1, x2: s.x2, z2: s.z2, w: s.w || 2 })));
   const nodes = [];
   const nodeOf = new Map();
   function nodeFor(x, z) {
@@ -615,25 +622,50 @@ async function buildRoadGraph(page) {
       // junctions 3.5u apart distinct. Keep in sync with
       // connectivity.mjs CLUSTER_R.
       ni = nodes.findIndex((n) => Math.hypot(n.x - x, n.z - z) < 3);
-      if (ni < 0) { nodes.push({ x, z, adj: new Set() }); ni = nodes.length - 1; }
+      if (ni < 0) { nodes.push({ x, z, adj: new Map() }); ni = nodes.length - 1; }
       nodeOf.set(key, ni);
     }
     return ni;
   }
+  // DRIVER fix (M10 run 8, 22 Nov ~10:00): WIDTH-WEIGHTED routing.
+  // The old unweighted BFS picked the shortest hop-count route —
+  // straight through the old-town w=2 streets (1u of asphalt,
+  // houses flush on both sides, car turning radius 3.2u). A 90 deg
+  // turn at (-54,0) cannot stay on a 1u-wide road: the arc exits
+  // 3.2u west of the centreline, into the house row, and the car
+  // wedged at (-56.4,-16.7) against the house at x -58.4..-55.1,
+  // z -21..-17.2 (its east face sits 0.1u INSIDE the road edge).
+  // A human driver would take the wide ring road instead. Cost =
+  // length x width factor, so Dijkstra prefers the w=7 ring road
+  // (z=-39) and the w=4.8 boulevard over w=2 alleys.
+  function widthFactor(w) { return w >= 7 ? 1 : w >= 4 ? 1.5 : w >= 2 ? 3 : 5; }
   for (const s of segments) {
     const a = nodeFor(s.x1, s.z1);
     const b = nodeFor(s.x2, s.z2);
-    if (a !== b) { nodes[a].adj.add(b); nodes[b].adj.add(a); }
-  }
-  function bfs(a, b) {
-    const prev = new Array(nodes.length).fill(-1);
-    const q = [a]; prev[a] = a;
-    while (q.length) {
-      const n = q.shift();
-      if (n === b) break;
-      for (const m of nodes[n].adj) if (prev[m] < 0) { prev[m] = n; q.push(m); }
+    if (a !== b) {
+      const len = Math.hypot(s.x2 - s.x1, s.z2 - s.z1);
+      const cost = len * widthFactor(s.w);
+      if (!nodes[a].adj.has(b) || nodes[a].adj.get(b) > cost) nodes[a].adj.set(b, cost);
+      if (!nodes[b].adj.has(a) || nodes[b].adj.get(a) > cost) nodes[b].adj.set(a, cost);
     }
-    if (prev[b] < 0) return null;
+  }
+  function route(a, b) {
+    // Dijkstra (weighted shortest path) over the width-weighted graph.
+    const dist = new Array(nodes.length).fill(Infinity);
+    const prev = new Array(nodes.length).fill(-1);
+    const done = new Array(nodes.length).fill(false);
+    dist[a] = 0;
+    for (;;) {
+      let n = -1, bd = Infinity;
+      for (let i = 0; i < nodes.length; i++) if (!done[i] && dist[i] < bd) { bd = dist[i]; n = i; }
+      if (n < 0) break;
+      done[n] = true;
+      if (n === b) break;
+      for (const [m, c] of nodes[n].adj) {
+        if (dist[n] + c < dist[m]) { dist[m] = dist[n] + c; prev[m] = n; }
+      }
+    }
+    if (prev[b] < 0 && a !== b) return null;
     const path = []; let n = b;
     while (n !== a) { path.unshift(n); n = prev[n]; }
     path.unshift(a);
@@ -644,7 +676,7 @@ async function buildRoadGraph(page) {
     nodes.forEach((n, i) => { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = i; } });
     return { node: best, dist: bd };
   }
-  return { nodes, bfs, nearestNode, segments: segments.length };
+  return { nodes, route, nearestNode, segments: segments.length };
 }
 
 // One position-trace line: stage, player + car + target positions,
