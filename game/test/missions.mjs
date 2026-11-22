@@ -215,20 +215,20 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   // The reverse is 3 s so the car backs up far enough to turn.
   let sideStep = 0;
   // U-turn FIRST (angle-based): if the car faces away from the target
-  // (|diff| > 2.2), reverse with inverted steering until the nose is
-  // within ~0.5 rad of the desired heading (max 15 s). The old
-  // distance-based reverse drove the car south off the boulevard into
-  // the front-row buildings at (-12,-6) — M6/M9 wedged there.
-  // Turn rate is ~0 at standstill and grows with |speed|, so reverse
-  // at full speed (up to -8 u/s) to turn fast; stop on ANGLE, not
-  // distance, so the car does not back 13u into the buildings.
-  // 0.5 rad / 6u (was 0.9 / 10u, D2): the loose break left the car
-  // facing south-ish off the boulevard, and the main loop then
-  // reversed it further instead of driving forward west.
+  // (|diff| > 1.0), reverse with inverted steering until the nose is
+  // within ~0.5 rad of the desired heading (max 15 s). DRIVER fix
+  // (M10 22 Nov 07:40): the old 2.2 rad (126 deg) threshold let a car
+  // facing ~90 deg off drive FORWARD into a 90 deg turn at 12 u/s —
+  // turning radius 12/1.9 = 6.3u on a 2.2u street — so it arced into
+  // the buildings: boulevard leg (-9.2,-1.1)->(-22.4,0) wedged at
+  // (-12.8,-4.9) against the (-12,-6) front row, and the x -33.6
+  // junction leg wedged at (-33.1,-33.2). Reversing first moves the
+  // car AWAY from the corner (backward = opposite the nose) while the
+  // nose turns, so the car enters the turn already aligned.
   {
     const c0 = await readCar(page);
     const desired0 = Math.atan2(-(tz - c0.z), tx - c0.x);
-    if (Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
+    if (Math.abs(normAngle(desired0 - c0.angle)) > 1.0) {
       const uStart = Date.now();
       const sx = c0.x, sz = c0.z;
       while (Date.now() - uStart < 15000) {
@@ -289,7 +289,13 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
     }
     const desired = Math.atan2(-(stz - c.z), stx - c.x);
     const diff = normAngle(desired - c.angle);
-    await setKeys(page, carSteerKeys(diff, c.speed, cap));
+    // Brake into corners (M10 22 Nov 07:40): turning radius is
+    // v/1.9, so at 12 u/s it is 6.3u — wider than a 2.2u street and
+    // the car cuts the inside building corner on a bend. At 6 u/s
+    // the radius is ~3.2u. A human brakes for the corner; the
+    // driver caps speed at 6 while the heading error is large.
+    const effCap = Math.abs(diff) > 0.7 ? 6 : cap;
+    await setKeys(page, carSteerKeys(diff, c.speed, effCap));
     await sleep(300);
   }
   await releaseKeys(page);
