@@ -714,7 +714,12 @@ export function buildPromenade() {
   addPlot(-9, 24, 5, 5, () => decoVilla(5, 5, 3.5, PR.peach));
   addPlot(-24, 24, 6, 5, () => decoVilla(6, 5, 3.5, PR.peach));
   addPlot(-14, 24, 6, 5, () => decoVilla(6, 5, 3.5, PR.mint));
-  addPlot(-4, 24, 6, 5, () => decoVilla(6, 5, 3.5, PR.peach));
+  // GAME fix (M11, 22 Nov): the shed at (-4, 24) is REMOVED — the
+  // marina shed row (z 21.5..26.5) ran unbroken from x -35.5 to 3.5, so
+  // a player on foot could never walk from the promenade to the quay;
+  // the M11 escape stuck at (-6.7, 20.4), 14.2u from the quay. The gap
+  // x -6.5..-1.5 (5u = 50 m) is the walkable path from the quay street
+  // to the walkway and quay. The objective sits next to it.
   addPlot(1, 24, 5, 5, () => decoVilla(5, 5, 3.5, PR.mint));
   // 2b: one more shed west on the extended apron (-33, 24).
   addPlot(-33, 24, 5, 5, () => decoVilla(5, 5, 3.5, PR.mint));

@@ -79,7 +79,9 @@ export const ANCHORS = {
   skyline_plaza: { x: -5.9, z: -5.9, district: 'cbd' },
   // The quay at the shore (M7 RETURN, M8 QUAY / SIGNAL, M11 ESCAPE).
   // STAGE 1 part 5: the new quay (z 31..35), at the water's edge.
-  quay_end: { x: 0, z: 33, district: 'quay' },
+  // GAME fix (M11, 22 Nov): moved 2u west so the objective sits next
+  // to the new shed-row gap (x -6.5..-1.5).
+  quay_end: { x: -2, z: 33, district: 'quay' },
   // The race start on the boulevard (side-race LINE UP) — also the drive /
   // night / storm ?shot staging car. GRID REBUILD: north lane z -0.725.
   race_start_1: { x: -30, z: -0.725, angle: 0, district: 'boulevard' },
