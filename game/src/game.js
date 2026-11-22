@@ -191,6 +191,14 @@ export function createGame(container) {
     // old boulevard lanes; the 'promenade-boulevard' sedan still does.)
     { lane: laneIdx('promenade-east'), color: 0x3a6fd9, kind: 'sedan' },
     { lane: laneIdx('oldtown-west'), color: 0xf2f0ea, kind: 'van' },
+    // TRAFFIC (Xian 22 Nov 09:30 brief item B): the res/outer lanes
+    // existed but had ZERO cars — one car on each so the residential
+    // ring and the outer countryside read as driven, not empty.
+    { lane: laneIdx('res-east'), color: 0x7fb069, kind: 'sedan' },
+    { lane: laneIdx('res-west'), color: 0xe07a5f, kind: 'pickup' },
+    { lane: laneIdx('res-north'), color: 0x81b29a, kind: 'van' },
+    { lane: laneIdx('outer-west'), color: 0xf2cc8f, kind: 'pickup' },
+    { lane: laneIdx('outer-east'), color: 0x6d9dc5, kind: 'sedan' },
   ]);
   for (const t of traffic) scene.add(t.mesh);
 
@@ -198,8 +206,8 @@ export function createGame(container) {
   // 7 cars on the grid's own lanes (5 civilian + 2 police patrol):
   // CORSO AZZURRA both ways (3 cars — the avenue is the busiest
   // street), LUNGOMARE both ways, a patrol on VIA DEL SOLE and one
-  // on the z 11.2 street. Total cars in the world: 11 loop + 7 graph
-  // = 18 (was 16 before the 2b cars).
+  // on the z 11.2 street. Total cars in the world: 16 loop + 7 graph
+  // = 23 (was 18 before the res/outer cars).
   const cbdTraffic = createCbdTraffic([
     { axis: 'NS', index: 3, dir: -1, lane: 0, kind: 'sedan', color: 0xd9553a },
     { axis: 'NS', index: 3, dir: 1, lane: 1, kind: 'van', color: 0x3a6fd9 },
