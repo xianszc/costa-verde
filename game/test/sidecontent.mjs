@@ -550,7 +550,12 @@ async function walkToPrompt(page, tx, tz, expectTitle, timeoutMs) {
     if (!s.onFoot) { await releaseKeys(page); return false; }
     const d = Math.hypot(s.px - tx, s.pz - tz);
     if (d < 1.5) { await releaseKeys(page); return true; }
-    if (s.promptVisible && s.prompt.includes(expectTitle)) { await releaseKeys(page); return true; }
+    // Require d < 3.5 as well as the prompt: the prompt shows at
+    // d <= 4, but the player can drift ~0.7u in the 600 ms + evaluate
+    // latency after the keys are released (run 5: arrival fired on a
+    // prompt flicker while walking back west past the door, and the
+    // check 600 ms later found the player 4.4u away, prompt hidden).
+    if (d < 3.5 && s.promptVisible && s.prompt.includes(expectTitle)) { await releaseKeys(page); return true; }
     if (d < lastDist - 0.3) { lastDist = d; lastProgress = Date.now(); }
     if (Date.now() - lastProgress > 20000) { await releaseKeys(page); return false; }
     if (Date.now() < followUntil) { await sleep(300); continue; }
@@ -891,9 +896,19 @@ async function placeCar(page, x, z, angle) {
   }, { x, z, angle });
 }
 async function walkToShopAtDoor(page, x, z, expectTitle) {
-  const ok = await walkToPrompt(page, x, z, expectTitle, 60000);
-  if (!ok) { const s = await readState(page); throw new Error(`walk to shop door (${x},${z}) failed, ${Math.hypot(s.px - x, s.pz - z).toFixed(1)}u short, prompt='${s.prompt}'`); }
-  await sleep(600);
+  // Retry the approach up to 3 times: the prompt can flicker visible
+  // while the player is passing the door (run 5) and be gone 600 ms
+  // later — re-walk from wherever the player ended up instead of
+  // failing the whole test on one flicker.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ok = await walkToPrompt(page, x, z, expectTitle, 60000);
+    if (!ok) { const s = await readState(page); throw new Error(`walk to shop door (${x},${z}) failed, ${Math.hypot(s.px - x, s.pz - z).toFixed(1)}u short, prompt='${s.prompt}'`); }
+    await sleep(600);
+    const s = await readState(page);
+    if (s.promptVisible) break;
+    if (attempt === 2) throw new Error(`no prompt at shop door (${x},${z}) after 3 approaches; prompt='${s.prompt}'`);
+    console.log(`[walkToShopAtDoor] prompt gone after approach ${attempt + 1} at (${x},${z}) — re-walking`);
+  }
   let s = await readState(page);
   if (!s.promptVisible) throw new Error(`no prompt at shop door (${x},${z}); prompt='${s.prompt}'`);
   await page.keyboard.press('KeyE');
