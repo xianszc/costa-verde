@@ -892,6 +892,19 @@ function onKeyDown(e) {
 
 // --- main loop (own rAF; the game loop stays untouched) ---
 let lastNow = 0;
+// Test-only job timer scale (?jobtimer=N, default 1): multiplies the
+// dt fed to the side engine, so a 90 s job limit expires in 90/N
+// game-seconds. The driver can also set it at runtime via
+// window.__side.setTimerScale(n). Off in normal play (no param = 1);
+// it only scales engine time (elapsed / tail timers), never the
+// world sim, and J1–J4 have no tail/race stages.
+let timerScale = 1;
+if (typeof window !== 'undefined') {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    timerScale = Math.max(1, Math.min(100, parseInt(q.get('jobtimer') || '1', 10) || 1));
+  } catch (e) { /* keep default */ }
+}
 let lastPrompt = 0;
 // Previous car position (per side-tick) for stunt-jump gate detection
 // — see the segment-crossing note at the jumps check below.
@@ -955,8 +968,10 @@ function loop(now) {
   // 63 s wall, 00:54 at 263 s). Scaling by the game's fastsim factor
   // (test-only, 1 in normal play) makes the timers track the sim:
   // at fastsim=2 the 90 s timer fires in ~130 wall-s. The cap rises
-  // to 0.25 s to match the game loop's own dt cap.
-  const dt = Math.min(0.25, Math.max(0, (now - lastNow) / 1000 || 0)) * (game.__fastsim || 1);
+  // to 0.25 s to match the game loop's own dt cap. The test-only
+  // ?jobtimer=N scale (timerScale, default 1) multiplies the same dt,
+  // so the FAIL path can be tested without waiting real time.
+  const dt = Math.min(0.25, Math.max(0, (now - lastNow) / 1000 || 0)) * (game.__fastsim || 1) * timerScale;
   lastNow = now;
   const t = now / 1000;
   // Spin the coins + pulse the beacons even on the title screen.
@@ -1196,6 +1211,8 @@ function attach(g) {
   window.__side = {
     getState, buy, applyOwned, startActivity, abandonActivity,
     openMap, closeMap, setWaypoint, toast, openShop, closeShop,
+    setTimerScale(n) { timerScale = Math.max(1, Math.min(100, n | 0)) || 1; },
+    get timerScale() { return timerScale; },
     get active() { return active ? active.def.id : null; },
     get store() { return store; },
   };
