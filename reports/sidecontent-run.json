@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T11:17:05.963Z",
+  "generated": "2026-11-22T11:27:31.041Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -435,8 +435,8 @@
     "jobs": {
       "result": "FAIL",
       "how": "human-like",
-      "ms": 415546,
-      "error": "J1 fail: no TIME UP (timer reset) within 300 s (panel timer last read: '00:09', min: 9s)",
+      "ms": 1179,
+      "error": "page.goto: Target page, context or browser has been closed\nCall log:\n  - navigating to \"http://127.0.0.1:8941/?fastsim=4\", waiting until \"domcontentloaded\"\n",
       "evidence": {}
     }
   }
