@@ -12,7 +12,7 @@
 // old bell tower stands at (-47, -36) — the M4 drop point.
 import * as THREE from '../vendor/three.module.min.js';
 import {
-  M, box, cyl, cone, sph, mergedMesh, mergeStatic, colored, xform,
+  M, box, cyl, cone, sph, mergedMesh, mergeStatic, mergeChunks, colored, xform,
   vertexColorMat, buildHeroBuilding, buildSkylineCluster, fountain,
   treeInstanced, TREE_TYPES, makeTree, lampPost,
 } from './world.js';
@@ -843,6 +843,14 @@ export function buildDistrict4() {
   // stood at z 9.5..11.5, which is CBD block row 4 + the south street
   // now (the quay is paved). The title screen reads from the CBD, the
   // ring and the water instead.
+
+  // --- perf step (Xian 22 Nov 21:00): chunked static merge of the whole
+  // district's unifiable building parts (~50 per spatial chunk). Runs
+  // last, after every sub-group is built and merged; animated bits
+  // (funicular, fountain, beam) are skipped inside mergeChunks. The
+  // result is logged at boot (window.__chunkStats) for the perf report.
+  const chunkStats = mergeChunks(group, 50);
+  if (typeof window !== 'undefined') window.__chunkStats = chunkStats;
 
   return {
     group, colliders, tickers, roads,

@@ -228,6 +228,70 @@ export function mergeStatic(root, keep = [], opts = {}) {
   return root;
 }
 
+// Chunked static merge (perf step, Xian 22 Nov 21:00): fold the already-
+// unified per-building meshes (and any other unifiable matte parts) of a
+// whole district into spatial chunks of ~50 buildings, each chunk ONE
+// vertex-colored mesh. Same baking as mergeStatic's unify path (material
+// color x vertex color -> vertexColorMat, roughness 0.9 / metalness 0.0),
+// so the rendered look is identical. Chunking is spatial (40u z-bands,
+// then x) so each chunk's bounding sphere stays reasonably tight and
+// the renderer's per-mesh frustum culling still works per chunk.
+// Skipped (kept as-is): noMerge / tick subtrees (funicular, fountain,
+// lighthouse beam, windmill sails), InstancedMesh/Points/Lines, parts
+// whose material is not unifiable, and oversized parts (radius > 30,
+// e.g. long road strips — merging one would bloat its chunk's bounds).
+// Colliders are separate AABB data, mission anchors are positions, and
+// combat raycasts character meshes only — none of them touch these
+// visual meshes, so collisions / picking / anchors are unaffected.
+const CHUNK_KEEP_NAMES = new Set(['sails', 'beamPivot']);
+export function mergeChunks(root, chunkSize = 50) {
+  root.updateMatrixWorld(true);
+  const cands = [];
+  const collect = (obj) => {
+    if (obj.userData && (obj.userData.noMerge || obj.userData.tick)) return;
+    if (CHUNK_KEEP_NAMES.has(obj.name)) return;
+    if (obj.isMesh) {
+      if (obj.isInstancedMesh || obj.isPoints || obj.isLine || obj.isSprite) return;
+      const mat = obj.material;
+      if (!isUnifiable(mat)) return;
+      const g = obj.geometry.clone();
+      g.applyMatrix4(obj.matrixWorld);
+      if (!g.boundingSphere) g.computeBoundingSphere();
+      if (g.boundingSphere.radius > 30) return;
+      const mc = mat.color || { r: 1, g: 1, b: 1 };
+      if (g.attributes.color) {
+        const c = g.attributes.color;
+        for (let i = 0; i < c.count; i++) {
+          c.setXYZ(i, c.getX(i) * mc.r, c.getY(i) * mc.g, c.getZ(i) * mc.b);
+        }
+      } else {
+        colored(g, mat.color ? mat.color.getHex() : 0xffffff);
+      }
+      cands.push({ mesh: obj, geo: g, cx: g.boundingSphere.center.x, cz: g.boundingSphere.center.z });
+      return;
+    }
+    for (const c of obj.children) collect(c);
+  };
+  for (const c of [...root.children]) collect(c);
+  if (!cands.length) return { folded: 0, chunks: 0 };
+  const BAND = 40;
+  cands.sort((a, b) => {
+    const az = Math.floor(a.cz / BAND), bz = Math.floor(b.cz / BAND);
+    if (az !== bz) return az - bz;
+    return Math.floor(a.cx / BAND) - Math.floor(b.cx / BAND);
+  });
+  let chunks = 0;
+  for (let i = 0; i < cands.length; i += chunkSize) {
+    const slice = cands.slice(i, i + chunkSize);
+    const m = mergedMesh(slice.map((s) => s.geo), vertexColorMat);
+    m.name = 'chunk-static';
+    root.add(m);
+    chunks++;
+  }
+  for (const s of cands) s.mesh.removeFromParent();
+  return { folded: cands.length, chunks };
+}
+
 // Shared vertex-colored material (trees, merged street props): one material,
 // colors baked per vertex, tinted per instance via instanceColor.
 export const vertexColorMat = new THREE.MeshStandardMaterial({
