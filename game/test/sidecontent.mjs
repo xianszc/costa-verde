@@ -1625,8 +1625,8 @@ async function testJobs() {
       if (!panel.includes('DROP')) throw new Error(`J1 PICKUP did not advance to DROP, panel='${panel}'`);
       if (!(await boardCar(page))) throw new Error('J1: could not board car');
       const before = await readState(page);
-      if (!(await routeDrive(page, 44, 13.6, 6, 20000))) throw new Error('J1: routeDrive to (44,13.6) failed');
-      const legs = [[44, 25, 2, 8], [46.2, 25, 1, 6], [46.2, 32, 2, 8], [35, 32, 2, 8]];
+      if (!(await routeDrive(page, 44, 13.6, 3, 20000))) throw new Error('J1: routeDrive to (44,13.6) failed');
+      const legs = [[44, 25, 2, 5], [46.2, 25, 1, 4], [46.2, 32, 2, 5], [35, 32, 2, 5]];
       for (const [wx, wz, r, cap] of legs) {
         if (!(await driveToPoint(page, wx, wz, r, cap, 60000))) {
           const c = await readCar(page);
