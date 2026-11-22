@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T23:52:01.148Z",
+  "generated": "2026-11-22T00:00:11.933Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -102,20 +102,21 @@
     },
     "M10": {
       "mission": "M10",
-      "result": "STALL",
+      "result": "TIMEOUT",
       "attempts": 2,
       "fails": 1,
       "maxStage": 1,
-      "ms": 381993,
-      "abortReason": "player moved <5m in 60s real (stall)",
+      "ms": 450763,
+      "abortReason": "hard cap 240s reached",
       "trace": [
-        "[trace] M10 stage=0 LINE UP player=(-8.0,-0.7) car=(-43.0,-28.7) target=(-30,-0.725) distPlayer=22.0u distCar=30.8u wanted=0 onFoot=false",
-        "[trace] M10 stage=1 RACE player=(-43.0,-28.7) car=(-45.9,-29.0) target=(35,30) distPlayer=97.6u distCar=100.2u wanted=0 onFoot=false",
-        "[trace] M10 stage=1 RACE player=(-43.0,-28.7) car=(-43.0,-27.3) target=(35,30) distPlayer=97.6u distCar=96.8u wanted=0 onFoot=false"
+        "[trace] M10 stage=0 LINE UP player=(-8.0,-0.7) car=(-35.0,-19.5) target=(-30,-0.725) distPlayer=22.0u distCar=19.4u wanted=0 onFoot=false",
+        "[trace] M10 stage=1 RACE player=(-35.0,-19.5) car=(-38.0,-35.3) target=(-47,-39) distPlayer=23.0u distCar=9.7u wanted=0 onFoot=false",
+        "[trace] M10 stage=1 RACE player=(-35.0,-19.5) car=(-52.4,-40.2) target=(35,30) distPlayer=85.7u distCar=112.1u wanted=0 onFoot=false",
+        "[trace] M10 stage=1 RACE player=(-35.0,-19.5) car=(-60.1,-33.0) target=(35,30) distPlayer=85.7u distCar=114.1u wanted=0 onFoot=false"
       ],
-      "lastTrace": "[trace] M10 stage=1 RACE player=(-43.0,-28.7) car=(-43.0,-27.3) target=(35,30) distPlayer=97.6u distCar=96.8u wanted=0 onFoot=false",
+      "lastTrace": "[trace] M10 stage=1 RACE player=(-35.0,-19.5) car=(-60.1,-33.0) target=(35,30) distPlayer=85.7u distCar=114.1u wanted=0 onFoot=false",
       "errors": 0,
-      "commit": "5585be3"
+      "commit": "unknown"
     },
     "M11": {
       "mission": "M11",
