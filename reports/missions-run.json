@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T19:54:27.005Z",
+  "generated": "2026-11-22T19:58:12.052Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -71,15 +71,14 @@
     "M7": {
       "mission": "M7",
       "result": "PASS",
-      "attempts": 1,
-      "fails": 0,
+      "attempts": 2,
+      "fails": 1,
       "maxStage": 2,
-      "ms": 186087,
-      "money": 5150,
-      "xp": 3172.3269661695977,
+      "ms": 183713,
+      "money": 3400,
+      "xp": 2922.9263139138534,
       "stages": {
         "0": "CROSS: reached by driving (human-like)",
-        "1": "SCAN: drive 0.0u + walk 0.0u (human-like)",
         "2": "RETURN: reached by driving (human-like)"
       },
       "errors": 0,
