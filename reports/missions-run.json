@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T21:00:13.768Z",
+  "generated": "2026-11-22T21:01:40.379Z",
   "commit": "03b6361",
   "missions": {
     "M1": {
@@ -168,19 +168,21 @@
     },
     "M2": {
       "mission": "M2",
-      "result": "FAIL",
+      "result": "PASS",
       "attempts": 1,
-      "fails": 1,
-      "maxStage": 0,
-      "ms": 20350,
-      "stages": {},
-      "abortReason": "could not exit car for final walk",
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 45113,
+      "money": 3150,
+      "xp": 2159.4015933360097,
+      "stages": {
+        "0": "MEET: reached by driving (human-like)",
+        "1": "TAIL: drive, no teleport (human-like)",
+        "2": "DOCK: reached by driving (human-like)"
+      },
       "errors": 0,
-      "commit": "unknown",
-      "open": true,
-      "timeboxMin": 30,
-      "timeboxUsedMin": 1,
-      "note": "M2 did not pass human-like within the 30 min box — fail (open), see position trace in the run log"
+      "how": "human-like",
+      "commit": "03b6361"
     }
   },
   "saveLoad": {
