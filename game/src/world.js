@@ -107,6 +107,26 @@ export function colored(geo, hex) {
   geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
   return geo;
 }
+
+// Sidewalk vertex colours (road look fix item 3b): the top face keeps
+// the material colour (#dccfb8), the kerb faces get #bfb39d. The
+// vertex colour multiplies the material colour, so the kerb tint is
+// the component-wise ratio (0xbf/0xdc, 0xb3/0xcf, 0x9d/0xb8).
+// Sidewalk boxes are translated, never rotated, so the +Y normal is
+// always the top face.
+export function coloredKerb(geo) {
+  const count = geo.attributes.position.count;
+  const n = geo.attributes.normal;
+  const arr = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const top = n.getY(i) > 0.5;
+    arr[i * 3] = top ? 1 : 0.868;
+    arr[i * 3 + 1] = top ? 1 : 0.865;
+    arr[i * 3 + 2] = top ? 1 : 0.853;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+  return geo;
+}
 // One mesh from a list of already-transformed geometries + a material.
 export function mergedMesh(geoms, material) {
   const m = new THREE.Mesh(mergeGeometries(geoms), material);

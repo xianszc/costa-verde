@@ -25,7 +25,7 @@
 //   outer zones: quarry east, countryside west, lighthouse headland (2e)
 import * as THREE from '../vendor/three.module.min.js';
 import {
-  box, mergedMesh, colored, xform, vertexColorMat, M, treeInstanced,
+  box, mergedMesh, colored, coloredKerb, xform, vertexColorMat, M, treeInstanced,
 } from './world.js';
 import { seededRandom, roadRects } from './roads.js';
 import { buildSignAtlas, remapUV, SHOP_NAMES } from './commercial.js';
@@ -67,8 +67,8 @@ export function mergePools(pools, atlas, roadMat) {
     add(pools.signs, new THREE.MeshBasicMaterial({ map: atlas.texture }), 'zones-signs', false);
   }
   add(pools.neons, new THREE.MeshBasicMaterial({ vertexColors: true }), 'zones-neon', false);
-  add(pools.roads, roadMat || new THREE.MeshStandardMaterial({ color: 0x9aa0a4, roughness: 0.92, flatShading: true }), 'zones-roads', false);
-  add(pools.sidewalks, new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true }), 'zones-sidewalks', false);
+  add(pools.roads, roadMat || new THREE.MeshStandardMaterial({ color: 0x6e6a67, roughness: 0.92, flatShading: true }), 'zones-roads', false);
+  add(pools.sidewalks, new THREE.MeshStandardMaterial({ color: 0xdccfb8, roughness: 0.95, flatShading: true }), 'zones-sidewalks', false);
   // Zone markings live in the shared registry (pools.markings), built
   // here as zone-*: the old markingsW/markingsY pools are retired.
   if (pools.markings) pools.markings.build(group, 'zone');
@@ -186,8 +186,8 @@ export function zoneRoadsInto(ns, ew, pools, opts = {}) {
   // Sidewalks: E-W full length, N-S segmented.
   for (const s of ew) {
     const sw = sidewalkW(s);
-    pools.sidewalks.push(colored(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.24, sw), (s.x0 + s.x1) / 2, 0.12, s.z - s.w / 2 - sw / 2), 0xffffff));
-    pools.sidewalks.push(colored(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.24, sw), (s.x0 + s.x1) / 2, 0.12, s.z + s.w / 2 + sw / 2), 0xffffff));
+    pools.sidewalks.push(coloredKerb(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.24, sw), (s.x0 + s.x1) / 2, 0.12, s.z - s.w / 2 - sw / 2)));
+    pools.sidewalks.push(coloredKerb(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.24, sw), (s.x0 + s.x1) / 2, 0.12, s.z + s.w / 2 + sw / 2)));
   }
   const ewSwGaps = allEw.map((s) => {
     const sw = sidewalkW(s);
@@ -196,8 +196,8 @@ export function zoneRoadsInto(ns, ew, pools, opts = {}) {
   for (const s of ns) {
     const sw = sidewalkW(s);
     for (const [a, b] of segmentsAlong(s.z0, s.z1, ewSwGaps)) {
-      pools.sidewalks.push(colored(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x - s.w / 2 - sw / 2, 0.12, (a + b) / 2), 0xffffff));
-      pools.sidewalks.push(colored(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x + s.w / 2 + sw / 2, 0.12, (a + b) / 2), 0xffffff));
+      pools.sidewalks.push(coloredKerb(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x - s.w / 2 - sw / 2, 0.12, (a + b) / 2)));
+      pools.sidewalks.push(coloredKerb(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x + s.w / 2 + sw / 2, 0.12, (a + b) / 2)));
     }
   }
   // Markings (registry — the shared one on pools, built once in
@@ -213,19 +213,19 @@ export function zoneRoadsInto(ns, ew, pools, opts = {}) {
     const stops = stopSpansFor(crossingsNS, false);
     const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
     for (const [a, b] of segs) {
-      for (const off of divs) {
+      for (const off of (s.kind === 'avenue' ? divs : [])) {
         for (const side of [-1, 1]) {
-          for (let z = a + 0.5; z <= b - 0.5; z += 2.5) {
+          for (let z = a + 0.15; z <= b - 0.15; z += 1.2) {
             if (dashBlockedBy(z, side, off, stops, s.kind)) continue;
-            reg.box('dash', s.x + side * off, z, 0.12, 1);
+            reg.box('dash', s.x + side * off, z, 0.012, 0.3);
           }
         }
       }
       for (const side of [-1, 1]) {
         const e = edgeOf(s);
-        reg.box('edge', s.x + side * e, (a + b) / 2, 0.12, b - a);
-        if (s.kind !== 'avenue') reg.box('yellow', s.x + side * 0.08, (a + b) / 2, 0.08, b - a);
-        else reg.box('bus', s.x + side * 1.45, (a + b) / 2, 0.08, b - a);
+        reg.box('edge', s.x + side * e, (a + b) / 2, 0.012, b - a);
+        if (s.kind !== 'avenue') reg.box('yellow', s.x + side * 0.01, (a + b) / 2, 0.01, b - a);
+        else reg.box('bus', s.x + side * 1.45, (a + b) / 2, 0.012, b - a);
       }
     }
   }
@@ -234,19 +234,19 @@ export function zoneRoadsInto(ns, ew, pools, opts = {}) {
     const stops = stopSpansFor(crossingsEW, true);
     const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
     for (const [a, b] of segs) {
-      for (const off of divs) {
+      for (const off of (s.kind === 'avenue' ? divs : [])) {
         for (const side of [-1, 1]) {
-          for (let x = a + 0.5; x <= b - 0.5; x += 2.5) {
+          for (let x = a + 0.15; x <= b - 0.15; x += 1.2) {
             if (dashBlockedBy(x, side, off, stops, s.kind)) continue;
-            reg.box('dash', x, s.z + side * off, 1, 0.12);
+            reg.box('dash', x, s.z + side * off, 0.3, 0.012);
           }
         }
       }
       for (const side of [-1, 1]) {
         const e = edgeOf(s);
-        reg.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.12);
-        if (s.kind !== 'avenue') reg.box('yellow', (a + b) / 2, s.z + side * 0.08, b - a, 0.08);
-        else reg.box('bus', (a + b) / 2, s.z + side * 1.45, b - a, 0.08);
+        reg.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.012);
+        if (s.kind !== 'avenue') reg.box('yellow', (a + b) / 2, s.z + side * 0.01, b - a, 0.01);
+        else reg.box('bus', (a + b) / 2, s.z + side * 1.45, b - a, 0.012);
       }
     }
   }

@@ -29,7 +29,7 @@
 //     row (z -37.5..-31) is gone — those are CBD blocks now.
 import * as THREE from '../vendor/three.module.min.js';
 import {
-  box, mergedMesh, colored, xform, vertexColorMat, M, treeInstanced,
+  box, mergedMesh, colored, coloredKerb, xform, vertexColorMat, M, treeInstanced,
 } from './world.js';
 import { seededRandom } from './world.js';
 import {
@@ -258,7 +258,7 @@ export function buildCBDGrid(opts = {}) {
   g.name = 'cbdGrid';
   const tickers = [];
   const rnd = seededRandom(20261121);
-  const roadMat = opts.roadMat || new THREE.MeshStandardMaterial({ color: 0x9aa0a4, roughness: 0.92, flatShading: true });
+  const roadMat = opts.roadMat || new THREE.MeshStandardMaterial({ color: 0x6e6a67, roughness: 0.92, flatShading: true });
 
   // ---------- road slabs (E-W full length; N-S segmented between them) ----------
   const roadParts = [];
@@ -276,12 +276,12 @@ export function buildCBDGrid(opts = {}) {
   g.add(roadMesh);
 
   // ---------- sidewalks (E-W full length; N-S segmented) ----------
-  const swMat = new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true });
+  const swMat = new THREE.MeshStandardMaterial({ color: 0xdccfb8, roughness: 0.95, flatShading: true });
   const swParts = [];
   for (const s of CBD_EW) {
     const sw = sidewalkW(s);
-    swParts.push(colored(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.24, sw), (s.x0 + s.x1) / 2, 0.12, s.z - s.w / 2 - sw / 2), 0xffffff));
-    swParts.push(colored(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.24, sw), (s.x0 + s.x1) / 2, 0.12, s.z + s.w / 2 + sw / 2), 0xffffff));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.24, sw), (s.x0 + s.x1) / 2, 0.12, s.z - s.w / 2 - sw / 2)));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(s.x1 - s.x0, 0.24, sw), (s.x0 + s.x1) / 2, 0.12, s.z + s.w / 2 + sw / 2)));
   }
   const ewSwGaps = CBD_EW.map((s) => {
     const sw = sidewalkW(s);
@@ -290,8 +290,8 @@ export function buildCBDGrid(opts = {}) {
   for (const s of CBD_NS) {
     const sw = sidewalkW(s);
     for (const [a, b] of segmentsAlong(s.z0, s.z1, ewSwGaps)) {
-      swParts.push(colored(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x - s.w / 2 - sw / 2, 0.12, (a + b) / 2), 0xffffff));
-      swParts.push(colored(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x + s.w / 2 + sw / 2, 0.12, (a + b) / 2), 0xffffff));
+      swParts.push(coloredKerb(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x - s.w / 2 - sw / 2, 0.12, (a + b) / 2)));
+      swParts.push(coloredKerb(xform(new THREE.BoxGeometry(sw, 0.24, b - a), s.x + s.w / 2 + sw / 2, 0.12, (a + b) / 2)));
     }
   }
   const swMesh = mergedMesh(swParts, swMat);
@@ -378,11 +378,11 @@ export function buildCBDGrid(opts = {}) {
     const stops = stopSpans(crossings, false);
     const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
     for (const [a, b] of segs) {
-      for (const off of divs) {
+      for (const off of (s.kind === 'avenue' ? divs : [])) {
         for (const side of [-1, 1]) {
-          for (let z = a + 0.5; z <= b - 0.5; z += 2.5) {
+          for (let z = a + 0.15; z <= b - 0.15; z += 1.2) {
             if (dashBlocked(z, side, off, stops, s.kind)) continue;
-            m.box('dash', s.x + side * off, z, 0.12, 1);
+            m.box('dash', s.x + side * off, z, 0.012, 0.3);
           }
         }
       }
@@ -390,9 +390,9 @@ export function buildCBDGrid(opts = {}) {
     for (const [a, b] of segs) {
       for (const side of [-1, 1]) {
         const e = s.kind === 'avenue' ? 1.7 : 0.6;
-        m.box('edge', s.x + side * e, (a + b) / 2, 0.12, b - a);
-        if (s.kind === 'avenue') m.box('bus', s.x + side * 1.45, (a + b) / 2, 0.08, b - a);
-        else m.box('yellow', s.x + side * 0.08, (a + b) / 2, 0.08, b - a);
+        m.box('edge', s.x + side * e, (a + b) / 2, 0.012, b - a);
+        if (s.kind === 'avenue') m.box('bus', s.x + side * 1.45, (a + b) / 2, 0.012, b - a);
+        else m.box('yellow', s.x + side * 0.01, (a + b) / 2, 0.01, b - a);
       }
     }
   }
@@ -411,11 +411,11 @@ export function buildCBDGrid(opts = {}) {
     const stops = stopSpans(crossings, true);
     const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
     for (const [a, b] of segs) {
-      for (const off of divs) {
+      for (const off of (s.kind === 'avenue' ? divs : [])) {
         for (const side of [-1, 1]) {
-          for (let x = a + 0.5; x <= b - 0.5; x += 2.5) {
+          for (let x = a + 0.15; x <= b - 0.15; x += 1.2) {
             if (dashBlocked(x, side, off, stops, s.kind)) continue;
-            m.box('dash', x, s.z + side * off, 1, 0.12);
+            m.box('dash', x, s.z + side * off, 0.3, 0.012);
           }
         }
       }
@@ -423,9 +423,9 @@ export function buildCBDGrid(opts = {}) {
     for (const [a, b] of segs) {
       for (const side of [-1, 1]) {
         const e = s.kind === 'avenue' ? 1.7 : 0.6;
-        m.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.12);
-        if (s.kind === 'avenue') m.box('bus', (a + b) / 2, s.z + side * 1.45, b - a, 0.08);
-        else m.box('yellow', (a + b) / 2, s.z + side * 0.08, b - a, 0.08);
+        m.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.012);
+        if (s.kind === 'avenue') m.box('bus', (a + b) / 2, s.z + side * 1.45, b - a, 0.012);
+        else m.box('yellow', (a + b) / 2, s.z + side * 0.01, b - a, 0.01);
       }
     }
   }

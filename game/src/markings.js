@@ -2,8 +2,9 @@
 // All three marking systems (CBD grid, ring/connectors, generator zones)
 // record their markings here: one registry, one fixed layer order, one
 // audit. Placement rules (Xian 22 Nov 01:16 brief, item 2):
-//   - one zebra per approach, OUTSIDE the intersection box (bars 2.0
-//     long parallel to traffic, spaced 0.7 across the road width);
+//   - one zebra per approach, OUTSIDE the intersection box (bars 0.3
+//     long parallel to traffic, 0.04 wide, spaced 0.08 across the road
+//     width — realistic 0.40 m markings at 1u = 10 m, item 3b);
 //   - stop line 1.0 m behind the zebra (approach side), spanning the
 //     approach lanes but NOT the bus lane strip, NOT the edge line and
 //     NOT the double yellow;
@@ -24,14 +25,18 @@ export const MARK_Y = {
 };
 
 const MAT_PROPS = {
-  dash: { color: 0xf7ebd7, opacity: 0.75 },
-  edge: { color: 0xf7ebd7, opacity: 0.7 },
-  yellow: { color: 0xe8c33d, opacity: 0.65 },
-  bus: { color: 0x3a9a6a, opacity: 0.55 },
-  zebra: { color: 0xf7ebd7, opacity: 0.7 },
-  stop: { color: 0xf7ebd7, opacity: 0.55 },
-  arrow: { color: 0xf7ebd7, opacity: 0.45 },
-  box: { color: 0xe8c33d, opacity: 0.65 },
+  // Road look fix (Xian 22 Nov 11:48 brief, item 3b): realistic marking
+  // widths (1u = 10 m) and the #e8e6e0 marking colour at 0.9 opacity.
+  // Yellow (centre line / box junction) and the green bus lane keep
+  // their semantic colours.
+  dash: { color: 0xe8e6e0, opacity: 0.9 },
+  edge: { color: 0xe8e6e0, opacity: 0.9 },
+  yellow: { color: 0xe8c33d, opacity: 0.9 },
+  bus: { color: 0x3a9a6a, opacity: 0.9 },
+  zebra: { color: 0xe8e6e0, opacity: 0.9 },
+  stop: { color: 0xe8e6e0, opacity: 0.9 },
+  arrow: { color: 0xe8e6e0, opacity: 0.9 },
+  box: { color: 0xe8c33d, opacity: 0.9 },
 };
 
 // [a,b] minus gap windows (each [g0,g1]) — shared by all three systems.
@@ -227,17 +232,18 @@ export function dashBlockedBy(p, side, off, stops, kind) {
 // Intersection box for a crossing at (cx, cz): N-S road half-width hn,
 // E-W road half-width he. Box: x [cx-hn, cx+hn], z [cz-he, cz+he].
 // A leg zebra crosses ONE road, on ONE leg, outside the box. Its bars
-// are long in the road's direction (parallel to traffic, 2.0 long —
-// one crosswalk width) and spaced across the road's width (0.7 step).
-// The band centre sits (boxHalf + BAR_LEN/2 + 0.4) out from the
-// intersection centre along the leg.
+// are long in the road's direction (parallel to traffic, 0.3 long —
+// one crosswalk width) and spaced across the road's width (0.08 step,
+// 0.04 wide bars with 0.04 gaps — realistic 0.40 m markings at
+// 1u = 10 m). The band centre sits (boxHalf + BAR_LEN/2 + 0.4) out from
+// the intersection centre along the leg.
 // The stop line belongs to the traffic ENTERING the intersection on
 // that leg: 1.5 m before the zebra (further out), spanning the inbound
 // lanes only — NOT the bus lane strip, NOT the edge line (avenue:
 // 0.7..1.35, centre 1.025, len 0.65; street: 0.05..0.55, centre 0.3,
 // len 0.5 — the street stop ends before the edge line at 0.6).
 // inbound general lane (never in the bus lane).
-export const ZEBRA_BAR_LEN = 2.0;
+export const ZEBRA_BAR_LEN = 0.3;
 export const ZEBRA_MARGIN = 0.4;
 export const STOP_GAP = 1.0;
 export const ARROW_BEHIND = 3.5;
@@ -245,12 +251,12 @@ export const ARROW_BEHIND = 3.5;
 export function zebraOffsets(crossHalf, edge) {
   // Symmetric offsets, no centre bar (the centre holds the median on
   // avenues and the double yellow on streets — a stripe must not cover
-  // either), step 0.7, capped so the outermost stripe ends 0.05 clear
-  // of the edge line. `edge` is the edge line's offset from the
-  // centreline (avenue 1.7, street 0.6, connector 3.2).
-  const maxOff = (edge === undefined ? crossHalf - 0.5 : edge) - 0.225;
+  // either), step 0.08 (0.04 bar + 0.04 gap), capped so the outermost
+  // stripe ends 0.05 clear of the edge line. `edge` is the edge line's
+  // offset from the centreline (avenue 1.7, street 0.6, connector 3.2).
+  const maxOff = (edge === undefined ? crossHalf - 0.5 : edge) - 0.07;
   const offs = [];
-  for (let o = 0.35; o <= maxOff + 0.001; o += 0.7) offs.push(-+o.toFixed(2), +o.toFixed(2));
+  for (let o = 0.04; o <= maxOff + 0.001; o += 0.08) offs.push(-+o.toFixed(2), +o.toFixed(2));
   return offs.length ? offs.sort((a, b) => a - b) : [0];
 }
 
@@ -271,9 +277,9 @@ export function zebraApproach(m, cx, cz, leg, crossHalf, boxHalf, edge) {
   if (leg === 'N') { bx = cx; bz = cz + d; }
   if (leg === 'W' || leg === 'E') {
     // Bars long in x (parallel to E-W traffic), spaced in z across the road.
-    for (const dz of offs) m.box('zebra', bx, bz + dz, ZEBRA_BAR_LEN, 0.35);
+    for (const dz of offs) m.box('zebra', bx, bz + dz, ZEBRA_BAR_LEN, 0.04);
   } else {
-    for (const dx of offs) m.box('zebra', bx + dx, bz, 0.35, ZEBRA_BAR_LEN);
+    for (const dx of offs) m.box('zebra', bx + dx, bz, 0.04, ZEBRA_BAR_LEN);
   }
   return { x: bx, z: bz };
 }
@@ -292,10 +298,10 @@ export function stopForApproach(m, bandCentre, leg, kind, laneOverride) {
   const lane = laneOverride || (kind === 'avenue' ? { len: 0.65, c: 1.025 } : { len: 0.35, c: 0.325 });
   const d = ZEBRA_BAR_LEN / 2 + STOP_GAP + 0.2;
   let sx = bandCentre.x, sz = bandCentre.z;
-  if (leg === 'W') { sx -= d; m.box('stop', sx, bandCentre.z + lane.c, 0.4, lane.len); }
-  if (leg === 'E') { sx += d; m.box('stop', sx, bandCentre.z - lane.c, 0.4, lane.len); }
-  if (leg === 'S') { sz -= d; m.box('stop', bandCentre.x - lane.c, sz, lane.len, 0.4); }
-  if (leg === 'N') { sz += d; m.box('stop', bandCentre.x + lane.c, sz, lane.len, 0.4); }
+  if (leg === 'W') { sx -= d; m.box('stop', sx, bandCentre.z + lane.c, 0.04, lane.len); }
+  if (leg === 'E') { sx += d; m.box('stop', sx, bandCentre.z - lane.c, 0.04, lane.len); }
+  if (leg === 'S') { sz -= d; m.box('stop', bandCentre.x - lane.c, sz, lane.len, 0.04); }
+  if (leg === 'N') { sz += d; m.box('stop', bandCentre.x + lane.c, sz, lane.len, 0.04); }
   return { x: sx, z: sz, lane };
 }
 
@@ -346,17 +352,18 @@ export function arrowsForApproach(m, stop, leg, kind, lanesOverride) {
   return placed;
 }
 
-// A small turn arrow (1.0 long, 0.16 wide), pointing north (+Y) in the
+// A small turn arrow (0.7 long, 0.112 wide — 70% of the old 1.0 x 0.16,
+// road look fix item 3b), pointing north (+Y) in the
 // shape's own plane at ry 0 — the registry's shape() flattens it
 // (rotateX -PI/2) and turns it, so this geometry must stay UNROTATED
-// (rotating it here would stand it upright again). 0.16 wide so it
+// (rotating it here would stand it upright again). 0.112 wide so it
 // sits inside one lane without touching the lane dividers (avenue
 // dividers at +/-1.0/1.35, street divider at +/-0.3).
 export function arrowGeometry() {
   const sh = new THREE.Shape();
-  sh.moveTo(-0.04, -0.5); sh.lineTo(0.04, -0.5); sh.lineTo(0.04, 0.1);
-  sh.lineTo(0.08, 0.1); sh.lineTo(0, 0.5); sh.lineTo(-0.08, 0.1);
-  sh.lineTo(-0.04, 0.1); sh.closePath();
+  sh.moveTo(-0.028, -0.35); sh.lineTo(0.028, -0.35); sh.lineTo(0.028, 0.07);
+  sh.lineTo(0.056, 0.07); sh.lineTo(0, 0.35); sh.lineTo(-0.056, 0.07);
+  sh.lineTo(-0.028, 0.07); sh.closePath();
   return new THREE.ShapeGeometry(sh);
 }
 

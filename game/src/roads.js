@@ -15,7 +15,7 @@
 // showcase now has traffic, pedestrians, varied facades and a non-flat
 // horizon (hills + skyline).
 import * as THREE from '../vendor/three.module.min.js';
-import { M, mergedMesh, colored, xform, vertexColorMat, buildSkylineCluster } from './world.js';
+import { M, mergedMesh, colored, coloredKerb, xform, vertexColorMat, buildSkylineCluster } from './world.js';
 import {
   createMarkings, segmentsAlong, zebraApproach, stopForApproach,
   arrowsForApproach, boxJunction, allCrossingGaps,
@@ -51,7 +51,7 @@ export const SURFACES = {
   // mapping + the warm golden-hour sun darken and warm the albedo by
   // roughly a third, so the canvas base must sit well above #8a8580 and
   // lean blue for the road to READ as light warm grey, not tan.
-  asphalt: { base: '#9aa0a4', kind: 'asphalt' },
+  asphalt: { base: '#6e6a67', kind: 'asphalt' }, // road look fix item 3b
   cobble: { base: '#a8a9a8', kind: 'cobble' },
   boardwalk: { base: '#a9805a', kind: 'boardwalk' },
   gravel: { base: '#b5a888', kind: 'gravel' },
@@ -116,8 +116,10 @@ export function roadTexture(surface, seed = 7) {
         ctx.fillRect(x - r, y - r, r * 2, r * 2);
       });
     }
-    // Patched repairs: slightly darker/lighter rectangles.
-    for (let i = 0; i < 8; i++) {
+    // Patched repairs: slightly darker/lighter rectangles (concrete
+    // only — the road look fix keeps the asphalt to noise + tyre
+    // tracks, no patches).
+    if (def.kind === 'concrete') for (let i = 0; i < 8; i++) {
       const px = rnd() * 200, py = rnd() * 200, pw = 24 + rnd() * 40, ph = 16 + rnd() * 28;
       const col = shade(def.base, 0.9 + rnd() * 0.2);
       wrap(() => {
@@ -136,8 +138,8 @@ export function roadTexture(surface, seed = 7) {
     ctx.fillStyle = 'rgba(40,36,32,0.10)';
     ctx.fillRect(0, 66, 256, 14);
     ctx.fillRect(0, 176, 256, 14);
-    // Oil stains.
-    for (let i = 0; i < 5; i++) {
+    // Oil stains (concrete only — see above).
+    if (def.kind === 'concrete') for (let i = 0; i < 5; i++) {
       const ox = rnd() * 256, oy = rnd() * 256, rx = 8 + rnd() * 14, ry = 5 + rnd() * 8;
       wrap(() => {
         ctx.fillStyle = 'rgba(20,18,16,0.16)';
@@ -650,35 +652,35 @@ export function buildRoadNetwork() {
   }
   // Sidewalks (light warm grey, one step lighter than the road) with a
   // physical height step (y 0.12) and visible curbs.
-  const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true });
+  const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xdccfb8, roughness: 0.95, flatShading: true });
   const swParts = [];
   for (const cx of CROSS_X) {
-    swParts.push(colored(xform(new THREE.BoxGeometry(2, 0.24, 48), cx - CROSS.half - 1, 0.12, -18), 0xffffff));
-    swParts.push(colored(xform(new THREE.BoxGeometry(2, 0.24, 48), cx + CROSS.half + 1, 0.12, -18), 0xffffff));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(2, 0.24, 48), cx - CROSS.half - 1, 0.12, -18)));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(2, 0.24, 48), cx + CROSS.half + 1, 0.12, -18)));
   }
   // Ring avenue sidewalks + ring street sidewalks.
-  swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_W.x1 - RING_AVENUE_W.x0, 0.24, 2), (RING_AVENUE_W.x0 + RING_AVENUE_W.x1) / 2, 0.12, -46.5), 0xffffff));
-  swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_W.x1 - RING_AVENUE_W.x0, 0.24, 2), (RING_AVENUE_W.x0 + RING_AVENUE_W.x1) / 2, 0.12, -37.5), 0xffffff));
-  swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.24, 2), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.12, -46.5), 0xffffff));
-  swParts.push(colored(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.24, 2), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.12, -37.5), 0xffffff));
+  swParts.push(coloredKerb(xform(new THREE.BoxGeometry(RING_AVENUE_W.x1 - RING_AVENUE_W.x0, 0.24, 2), (RING_AVENUE_W.x0 + RING_AVENUE_W.x1) / 2, 0.12, -46.5)));
+  swParts.push(coloredKerb(xform(new THREE.BoxGeometry(RING_AVENUE_W.x1 - RING_AVENUE_W.x0, 0.24, 2), (RING_AVENUE_W.x0 + RING_AVENUE_W.x1) / 2, 0.12, -37.5)));
+  swParts.push(coloredKerb(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.24, 2), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.12, -46.5)));
+  swParts.push(coloredKerb(xform(new THREE.BoxGeometry(RING_AVENUE_E.x1 - RING_AVENUE_E.x0, 0.24, 2), (RING_AVENUE_E.x0 + RING_AVENUE_E.x1) / 2, 0.12, -37.5)));
   for (const s of RING_STREETS) {
     const len = s.z1 - s.z0;
     const zc = (s.z0 + s.z1) / 2;
-    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x - RING_STREET_HALF - 0.35, 0.12, zc), 0xffffff));
-    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x + RING_STREET_HALF + 0.35, 0.12, zc), 0xffffff));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x - RING_STREET_HALF - 0.35, 0.12, zc)));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x + RING_STREET_HALF + 0.35, 0.12, zc)));
   }
   // Ring boundary street sidewalks.
   for (const s of RING_STREETS_EW) {
     const len = s.x1 - s.x0;
     const xc = (s.x0 + s.x1) / 2;
-    swParts.push(colored(xform(new THREE.BoxGeometry(len, 0.24, 0.7), xc, 0.12, s.z - RING_STREET_HALF - 0.35), 0xffffff));
-    swParts.push(colored(xform(new THREE.BoxGeometry(len, 0.24, 0.7), xc, 0.12, s.z + RING_STREET_HALF + 0.35), 0xffffff));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(len, 0.24, 0.7), xc, 0.12, s.z - RING_STREET_HALF - 0.35)));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(len, 0.24, 0.7), xc, 0.12, s.z + RING_STREET_HALF + 0.35)));
   }
   for (const s of RING_BOUNDARY_NS) {
     const len = s.z1 - s.z0;
     const zc = (s.z0 + s.z1) / 2;
-    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x - RING_STREET_HALF - 0.35, 0.12, zc), 0xffffff));
-    swParts.push(colored(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x + RING_STREET_HALF + 0.35, 0.12, zc), 0xffffff));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x - RING_STREET_HALF - 0.35, 0.12, zc)));
+    swParts.push(coloredKerb(xform(new THREE.BoxGeometry(0.7, 0.24, len), s.x + RING_STREET_HALF + 0.35, 0.12, zc)));
   }
   const sw = mergedMesh(swParts, sidewalkMat);
   sw.name = 'sidewalks';
@@ -706,19 +708,18 @@ export function buildRoadNetwork() {
   const m = createMarkings();
   const WIDE_LANE = { len: 2.8, c: 1.6 }; // 7-wide roads, 1 lane per direction
   const wideArrowRy = { W: -Math.PI / 2, E: Math.PI / 2, S: Math.PI, N: 0 };
-  // Centre dash (0.12 x 1.0, every 2.5) + edges for one road, cut at
-  // the crossings. `road` is {axis:'x'|'z', at, from, to, kind} and
-  // `crossings` is [{c, h}] along the road. Centre dashes sit on the
-  // centreline, so stops (which span the lanes) never touch them.
+  // Edges only for one road, cut at the crossings. `road` is
+  // {axis:'x'|'z', at, from, to, kind} and `crossings` is [{c, h}]
+  // along the road. The ring streets are 1 lane per direction, so
+  // (road look fix item 3b: no dashes on side streets narrower than
+  // 2 lanes per direction) they carry no centre dash — edges only.
   const centreDashRoad = (road, crossings) => {
     const segs = segmentsAlong(road.from, road.to, allCrossingGaps(crossings));
     for (const [a, b] of segs) {
       if (road.axis === 'z') {
-        for (let p = a + 0.5; p <= b - 0.5; p += 2.5) m.box('dash', road.at, p, 0.12, 1);
-        for (const side of [-1, 1]) m.box('edge', road.at + side * 0.85, (a + b) / 2, 0.12, b - a);
+        for (const side of [-1, 1]) m.box('edge', road.at + side * 0.85, (a + b) / 2, 0.012, b - a);
       } else {
-        for (let p = a + 0.5; p <= b - 0.5; p += 2.5) m.box('dash', p, road.at, 1, 0.12);
-        for (const side of [-1, 1]) m.box('edge', (a + b) / 2, road.at + side * 0.85, b - a, 0.12);
+        for (const side of [-1, 1]) m.box('edge', (a + b) / 2, road.at + side * 0.85, b - a, 0.012);
       }
     }
   };
@@ -730,8 +731,8 @@ export function buildRoadNetwork() {
     const crossings = [{ c: -42, h: 3.5 }, { c: 0, h: 2.4 }];
     const segs = segmentsAlong(CROSS.z0, CROSS.z1, allCrossingGaps(crossings));
     for (const [a, b] of segs) {
-      for (let z = a + 0.5; z <= b - 0.5; z += 2.5) m.box('dash', cx, z, 0.12, 1);
-      for (const side of [-1, 1]) m.box('edge', cx + side * 3.2, (a + b) / 2, 0.12, b - a);
+      for (let z = a + 0.15; z <= b - 0.15; z += 1.2) m.box('dash', cx, z, 0.012, 0.3);
+      for (const side of [-1, 1]) m.box('edge', cx + side * 3.2, (a + b) / 2, 0.012, b - a);
     }
   }
   // --- ring avenue (E-W, z -42, 7 wide) ---
@@ -741,8 +742,8 @@ export function buildRoadNetwork() {
     const crossings = CROSS_X.map((cx) => ({ c: cx, h: 3.5 })).filter(({ c }) => c >= seg.x0 && c <= seg.x1);
     const segs = segmentsAlong(seg.x0, seg.x1, allCrossingGaps(crossings));
     for (const [a, b] of segs) {
-      for (let x = a + 0.5; x <= b - 0.5; x += 2.5) m.box('dash', x, -42, 1, 0.12);
-      for (const side of [-1, 1]) m.box('edge', (a + b) / 2, -42 + side * 3.2, b - a, 0.12);
+      for (let x = a + 0.15; x <= b - 0.15; x += 1.2) m.box('dash', x, -42, 0.3, 0.012);
+      for (const side of [-1, 1]) m.box('edge', (a + b) / 2, -42 + side * 3.2, b - a, 0.012);
     }
   }
   // --- ring streets (N-S + E-W + boundary, 2 wide) ---
@@ -947,10 +948,10 @@ export function buildRoadShowcase() {
   const cob = new THREE.Mesh(new THREE.BoxGeometry(6, 0.3, 11.4), cobMat);
   cob.position.set(20, 0.05, 0);
   g.add(cob);
-  const swMat = new THREE.MeshStandardMaterial({ color: 0xc9c2b2, roughness: 0.95, flatShading: true });
+  const swMat = new THREE.MeshStandardMaterial({ color: 0xdccfb8, roughness: 0.95, flatShading: true });
   const sw = mergedMesh([
-    colored(xform(new THREE.BoxGeometry(44, 0.24, 2.4), 0, 0.12, -6.9), 0xffffff),
-    colored(xform(new THREE.BoxGeometry(44, 0.24, 2.4), 0, 0.12, 6.9), 0xffffff),
+    coloredKerb(xform(new THREE.BoxGeometry(44, 0.24, 2.4), 0, 0.12, -6.9)),
+    coloredKerb(xform(new THREE.BoxGeometry(44, 0.24, 2.4), 0, 0.12, 6.9)),
   ], swMat);
   g.add(sw);
   const road = mergedMesh(parts, roadMat);
