@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T12:05:29.742Z",
+  "generated": "2026-11-22T12:35:05.860Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -518,6 +518,67 @@
           "jobsDone": {
             "J1": 1
           }
+        }
+      }
+    },
+    "ranks": {
+      "result": "PASS",
+      "how": "human-like",
+      "ms": 99806,
+      "evidence": {
+        "start": {
+          "money": 1500,
+          "xp": 1240,
+          "rank": "DECKHAND",
+          "outfit": "street"
+        },
+        "deckhandReward": {
+          "owned": true,
+          "locked": false,
+          "price": 400
+        },
+        "wheelman": {
+          "money": 2550,
+          "xp": 1515,
+          "rank": "WHEELMAN",
+          "coins": 11
+        },
+        "wheelmanReward": {
+          "owned": true,
+          "locked": false,
+          "price": 900
+        },
+        "gate": {
+          "harvest": {
+            "disabled": true,
+            "text": "LOCKED"
+          },
+          "casino": {
+            "disabled": false,
+            "text": "BUY"
+          }
+        },
+        "casinoBuy": {
+          "moneyBefore": 2550,
+          "moneyAfter": 1750,
+          "outfitBefore": "street",
+          "outfitAfter": "casino"
+        },
+        "saved": {
+          "money": 1750,
+          "outfit": "casino",
+          "coins": 11,
+          "saveMsg": "Saved to slot 1."
+        },
+        "afterReload": {
+          "money": 1250,
+          "coins": 11,
+          "outfit": "casino"
+        },
+        "afterLoad": {
+          "money": 1750,
+          "outfit": "casino",
+          "coins": 11
         }
       }
     }
