@@ -75,7 +75,7 @@ import { fileURLToPath } from 'node:url';
 const CODE_BY_ID = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M11', 'M12'];
 const ID_BY_CODE = Object.fromEntries(CODE_BY_ID.map((c, i) => [c, i]));
 const LAST_ID = CODE_BY_ID.length - 1; // 10 = M12
-const ORDER = [3, 4, 5, 6, 7, 8, 9, 10, 1]; // ids: M4..M12, M2
+const ORDER = [0, 3, 4, 5, 6, 7, 8, 9, 10, 1]; // ids: M1, M4..M12, M2 (M1 was missing — --only M1 silently skipped it, 22 Nov)
 const PRIOR_PASS = {
   M1: { mission: 'M1', result: 'PASS', how: 'human-like', ms: 134000, attempts: 1, fails: 0, maxStage: 2, evidence: '/tmp/missions-run-20261122-0200.log (HEAD f7a574e), not re-run in this pass' },
   M3: { mission: 'M3', result: 'PASS', how: 'human-like', ms: 61000, attempts: 1, fails: 0, maxStage: 2, evidence: '/tmp/missions-run-20261122-0130.log (HEAD f7a574e), not re-run in this pass' },
@@ -302,10 +302,23 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   // 3-point turn for ordinary 90 deg junction turns, and its drift
   // wedged the car (M10 run 4: (-30.8,-9.6) on the (-40,0) turn and
   // (-23.7,-26.0) on the x -22.4 turn).
+  // Close target behind the car (<8u, facing away): REVERSE toward
+  // it instead of a 3-point turn — the turn's drift wedges the car
+  // on the narrow boulevard (M5 RECON: car stuck at (4.2,-2.3)
+  // facing east, target (0,0) 4.3u west; the turn wedged it on the
+  // kerb and 3 re-plans never moved it). Far targets still use the
+  // 3-point turn. Reverse steering is inverted (see carSteerKeys),
+  // same convention as the stall-reverse below.
   {
     const c0 = await readCar(page);
+    const d0 = Math.hypot(tx - c0.x, tz - c0.z);
     const desired0 = Math.atan2(-(tz - c0.z), tx - c0.x);
-    if (Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
+    if (d0 < 8 && Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
+      const diff0 = normAngle(desired0 - c0.angle);
+      await setKeys(page, { s: true, a: diff0 < 0, d: diff0 >= 0 });
+      await sleep(2000);
+      await releaseKeys(page);
+    } else if (Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
       await threePointTurn(page, tx, tz);
     }
   }
@@ -663,10 +676,22 @@ async function driveToObjective(page, o, stageHow, stageIdx, stageName) {
   }
   const d2 = Math.hypot(s.cx - o.x, s.cz - o.z);
   if (d2 > (o.r || 5)) {
-    await page.keyboard.press('KeyE'); // exit the car
-    await sleep(600);
+    // Exit the car (E). E is consumed by a mission interact first
+    // (game.js KeyE handler), so retry up to 3 times; if an E
+    // completed the stage instead, that counts as reached.
+    let exited = false;
+    for (let i = 0; i < 3; i++) {
+      const s2 = await readState(page);
+      if (s2.onFoot) { exited = true; break; }
+      if (s2.stage !== stageIdx) {
+        if (stageHow) stageHow[stageIdx] = `${stageName}: reached by driving (human-like)`;
+        return { ok: true, driveU, walkU: 0, advanced: true };
+      }
+      await page.keyboard.press('KeyE');
+      await sleep(600);
+    }
+    if (!exited) return { ok: false, reason: 'could not exit car for final walk' };
     const s2 = await readState(page);
-    if (!s2.onFoot) return { ok: false, reason: 'could not exit car for final walk' };
     walkU = Math.hypot(s2.px - o.x, s2.pz - o.z);
     const ok = await walkToPoint(page, o.x, o.z, o.r || 5, 120000);
     if (!ok) {
@@ -777,6 +802,11 @@ async function playMission(page, id, label, maxAttempts = 2) {
   let attempts = 0;
   let fails = 0;
   let maxStage = 0;
+  const stageHow = {}; // per-stage human-like labels (item 2); declared
+  // HERE, not inside the attempts loop — the FAIL return below is
+  // outside the loop and threw ReferenceError: stageHow is not
+  // defined (M5 ERROR, 22 Nov). Same for failReason.
+  let failReason = '';
   while (attempts < maxAttempts) {
     attempts += 1;
     await page.evaluate((mid) => { window.__game.missions.start(mid); }, id);
@@ -801,8 +831,6 @@ async function playMission(page, id, label, maxAttempts = 2) {
     let lastWanted = 0, lastWantedDropGame = 0, lastWantedDropReal = Date.now();
     let lastTraceLine = '';
     const traceBuf = [];
-    const stageHow = {}; // per-stage human-like labels (item 2)
-    let failReason = '';
     // FAST-FAIL (Xian 22 Nov 02:15): hard cap 240 s real per mission
     // (480 s for M2; +240 s once for any mission still making
     // progress at the cap — the long-escape case). A stuck mission
@@ -909,7 +937,13 @@ async function playMission(page, id, label, maxAttempts = 2) {
           const d = Math.hypot(s.px - o.x, s.pz - o.z);
           if (d > (o.r || 4)) {
             const r = await driveToObjective(page, o, stageHow, s.stage, s.stageName);
-            if (!r.ok) { failReason = r.reason; fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-drive] ${label} ${s.stageName}: ${r.reason}`); break; }
+            if (!r.ok) {
+              // The drive may have completed the stage anyway (E
+              // interact / proximity) — do not fail a finished stage.
+              const sNow = await readState(page);
+              if (sNow.missionId > id || sNow.stage !== s.stage) { await sleep(400); continue; }
+              failReason = r.reason; fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-drive] ${label} ${s.stageName}: ${r.reason}`); break;
+            }
             // The drive may have completed this stage already (driving
             // into the radius) — do not press E for the NEXT stage.
             const sAfter = await readState(page);
@@ -1071,7 +1105,13 @@ async function playMission(page, id, label, maxAttempts = 2) {
         // when --human-like is off (and then the pass is 'workaround').
         if (HUMAN_LIKE) {
           const r = await driveToObjective(page, o, stageHow, s.stage, s.stageName);
-          if (!r.ok) { failReason = r.reason; fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-drive] ${label} ${s.stageName}: ${r.reason}`); break; }
+          if (!r.ok) {
+            // The drive may have completed the stage anyway (E
+            // interact / proximity) — do not fail a finished stage.
+            const sNow = await readState(page);
+            if (sNow.missionId > id || sNow.stage !== s.stage) { await sleep(400); continue; }
+            failReason = r.reason; fails += 1; result = 'FAIL-EVENT'; console.log(`[fail-drive] ${label} ${s.stageName}: ${r.reason}`); break;
+          }
         } else {
           // If the player is still in the car from the previous mission,
           // get out FIRST — teleporting the player while in the car
@@ -1092,11 +1132,22 @@ async function playMission(page, id, label, maxAttempts = 2) {
       return { mission: label, result: 'PASS', attempts, fails, maxStage, ms: Date.now() - started, money: s.money, xp: s.xp, stages: stageHow };
     }
     if (result === 'FAIL-EVENT') continue; // retry once from scratch
-    // Timeout: final trace with a fresh state read. The trace tail
-    // (last 6 samples) rides in the JSON record so the failure
-    // survives /tmp wipes.
-    traceLine(label, await readState(page), 'trace-timeout');
-    return { mission: label, result: 'TIMEOUT', attempts, fails, maxStage, ms: Date.now() - started, abortReason: 'hard cap ' + Math.round(baseCapMs / 1000) + 's reached', trace: traceBuf.slice(-6), lastTrace: lastTraceLine, stages: stageHow };
+    // A long blocking drive can complete the mission AFTER the
+    // deadline — re-read state before recording TIMEOUT (M2: the
+    // DOCK drive finished during the final driveToObjective, after
+    // the 480 s cap; the loop exited without re-checking completion
+    // and recorded FAIL for a mission that had actually passed).
+    {
+      const sEnd = await readState(page);
+      if ((id < LAST_ID && sEnd.missionId > id) || (id === LAST_ID && sEnd.done)) {
+        return { mission: label, result: 'PASS', attempts, fails, maxStage, ms: Date.now() - started, money: sEnd.money, xp: sEnd.xp, stages: stageHow };
+      }
+      // Timeout: final trace with a fresh state read. The trace tail
+      // (last 6 samples) rides in the JSON record so the failure
+      // survives /tmp wipes.
+      traceLine(label, sEnd, 'trace-timeout');
+      return { mission: label, result: 'TIMEOUT', attempts, fails, maxStage, ms: Date.now() - started, abortReason: 'hard cap ' + Math.round(baseCapMs / 1000) + 's reached', trace: traceBuf.slice(-6), lastTrace: lastTraceLine, stages: stageHow };
+    }
   }
   return { mission: label, result: 'FAIL', attempts, fails, maxStage, ms: Date.now() - started, stages: stageHow, abortReason: failReason || undefined };
 }
