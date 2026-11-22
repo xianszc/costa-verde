@@ -110,6 +110,11 @@ export function createWanted(scene, opts) {
     const prev = level;
     level = Math.max(0, Math.min(5, l));
     heat = Math.max(heat, THRESHOLDS[level]);
+    // AUDIT m-8: on a level drop, cap the heat just below the next
+    // threshold — otherwise the leftover heat re-raises the star the
+    // moment the decay pauses. (Safe: a drop always lands at level
+    // <= 4, so level+1 is in range; level 0 is forced to heat 0 below.)
+    if (level < prev) heat = Math.min(heat, THRESHOLDS[level + 1] - 1);
     if (level === 0) heat = 0;
     // AUDIO: game.js passes onLevel — wanted up/down stings.
     if (level !== prev && opts.onLevel) opts.onLevel(level, prev);
@@ -174,24 +179,45 @@ export function createWanted(scene, opts) {
     g.position.set(px + fx * 18, ROAD_Y, pz + fz * 18);
     g.rotation.y = heading;
     scene.add(g);
-    roadblock = { group: g, cars, x: g.position.x, z: g.position.z };
+    // AUDIT m-20: the roadblock is SOLID — a collider on the shared
+    // colliders list, so the player's car (and the pursuing units)
+    // cannot drive through the barrier. The barrier's long axis is the
+    // group's local z (9u + the two cruisers at +/-2.6); the AABB is
+    // the union rotated by the heading (half-extents 1.0 along the
+    // road, 4.8 across it).
+    const hx = Math.abs(Math.cos(heading)) * 1.0 + Math.abs(Math.sin(heading)) * 4.8;
+    const hz = Math.abs(Math.sin(heading)) * 1.0 + Math.abs(Math.cos(heading)) * 4.8;
+    const col = {
+      x0: g.position.x - hx, z0: g.position.z - hz,
+      x1: g.position.x + hx, z1: g.position.z + hz, id: 'roadblock',
+    };
+    colliders.push(col);
+    roadblock = { group: g, cars, x: g.position.x, z: g.position.z, collider: col };
   }
   function clearRoadblock() {
     if (!roadblock) return;
     scene.remove(roadblock.group);
+    if (roadblock.collider) {
+      const i = colliders.indexOf(roadblock.collider);
+      if (i >= 0) colliders.splice(i, 1);
+    }
     roadblock = null;
   }
   function desiredUnits() {
     // cruisers, interceptors per star level.
+    // AUDIT M-8: level 5 had no entry and fell to [0,0] — no units at
+    // 5 stars. The ladder continues the pattern: 5 cruisers, 2
+    // interceptors.
     return [
-      [1, 0], [2, 0], [2, 1], [3, 2], [4, 2],
+      [1, 0], [2, 0], [2, 1], [3, 2], [4, 2], [5, 2],
     ][level] || [0, 0];
   }
   function nearestUnitDist(px, pz) {
+    // AUDIT M-9: only GROUND units count — the heli (pinned at 60)
+    // and the static roadblock made "lose the heat at 90 m" impossible
+    // at 3+ stars, because neither can ever be 90 m away.
     let d = Infinity;
     for (const u of units) d = Math.min(d, Math.hypot(u.car.x - px, u.car.z - pz));
-    if (heli.active) d = Math.min(d, 60);
-    if (roadblock) d = Math.min(d, Math.hypot(roadblock.x - px, roadblock.z - pz));
     return d;
   }
 
@@ -215,10 +241,27 @@ export function createWanted(scene, opts) {
       heli.mesh.visible = false;
       clearRoadblock();
     } else {
-      if (haveCruisers < wantCruisers) spawnUnit('cruiser', clampSpawn(px + 30 + Math.random() * 20, -58, 58), clampSpawn(pz + (Math.random() - 0.5) * 20, -40, 12));
-      // Interceptors spawn AHEAD of the player (they cut you off) and
-      // the cruisers converge from behind — never on top of the player.
-      if (haveInterceptors < wantInterceptors) spawnUnit('interceptor', clampSpawn(px + 45, -58, 58), clampSpawn(pz + (Math.random() - 0.5) * 8, -40, 12));
+      // AUDIT m-1/m-2: spawns follow the player's HEADING — the
+      // interceptor cuts off AHEAD (45u along the heading), the
+      // cruiser converges from BEHIND (30-50u back), never on top of
+      // the player. The old code spawned both east of the player
+      // whatever way they faced. Clamps widened to the land limits
+      // (x -58..108, z -86..12.5); units clamp themselves the same
+      // way in the pursuit loop below.
+      const fx = Math.cos(p.angle || 0), fz = -Math.sin(p.angle || 0);
+      const lx = Math.sin(p.angle || 0), lz = Math.cos(p.angle || 0);
+      if (haveCruisers < wantCruisers) {
+        const back = 30 + Math.random() * 20, lat = (Math.random() - 0.5) * 20;
+        spawnUnit('cruiser',
+          clampSpawn(px - fx * back + lx * lat, -58, 108),
+          clampSpawn(pz - fz * back + lz * lat, -86, 12.5));
+      }
+      if (haveInterceptors < wantInterceptors) {
+        const lat = (Math.random() - 0.5) * 8;
+        spawnUnit('interceptor',
+          clampSpawn(px + fx * 45 + lx * lat, -58, 108),
+          clampSpawn(pz + fz * 45 + lz * lat, -86, 12.5));
+      }
       if (level >= 3 && !heli.active) spawnUnit('heli', px, pz);
       if (level < 3 && heli.active) { heli.active = false; heli.mesh.visible = false; }
       if (level >= 4 && !roadblock) spawnRoadblock(px, pz, p.angle || 0);
@@ -358,20 +401,9 @@ export function createWanted(scene, opts) {
     }
     if (heli.active) rows.push({ name: 'Gull-1 · HELI', dist: 60, st: 'INBOUND' });
     if (roadblock) rows.push({ name: 'Roadblock · BLVD', dist: Math.round(Math.hypot(roadblock.x - p.x, roadblock.z - p.z)), st: 'SET UP' });
-    // NEW PLAN step 6 (2a): the pad rows are city patrol units now —
-    // the old BOAT/TOWER rows read wrong in the city (the boats belong
-    // to the harbor, the tower to the lighthouse headland, neither
-    // patrols the streets the dispatch panel covers).
-    const pad = [
-      { name: 'Falco-2 · CRUISER', dist: 240 + level * 40, st: level >= 1 ? 'EN ROUTE' : 'PATROL' },
-      { name: 'Vespa-1 · BIKE', dist: 310 + level * 30, st: level >= 2 ? 'EN ROUTE' : 'PATROL' },
-      { name: 'Lupo-3 · CRUISER', dist: 420, st: 'PATROL' },
-    ];
-    for (const r of pad) {
-      if (rows.length >= 3) break;
-      if (seen.has(r.name)) continue;
-      rows.push(r);
-    }
+    // AUDIT m-3: the pad rows (Falco-2 / Vespa-1 / Lupo-3) were fake —
+    // no such units exist in the world. Only real units are listed;
+    // the panel hides the empty rows (game.js updateHUD).
     return rows.slice(0, 3);
   }
   function reset() {
@@ -382,6 +414,12 @@ export function createWanted(scene, opts) {
     clearRoadblock();
     level = 0;
     heat = 0;
+    // AUDIT m-34: the reset left the quiet clock and the callsign
+    // counters running, so a fresh pursuit started with a stale
+    // quietTimer and reused callsigns.
+    quietTimer = 0;
+    cruiserSeq = 0;
+    interceptorSeq = 0;
     coolTimer = 0;
     bustedTimer = 0;
   }
