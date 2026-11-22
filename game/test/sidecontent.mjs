@@ -1343,12 +1343,18 @@ function jumpXZ(id) {
 }
 // Drive straight through the gate (the player is already in the car,
 // facing the gate, 4u back). Full throttle, W only — no steering on a
-// straight road. For the slow pass, tap W to hold ~7 m/s. `before` is
-// the jumpsDone COUNT before the drive (readState's side.jumpsDone is
-// a count, not the array) — the jump registered when the count rises.
-// Returns whether the jump registered and the max speed within 5u of
-// the gate.
-async function driveThroughGate(page, gate, before, slow) {
+// straight road. For the slow pass, REVERSE through the gate: reverse
+// is hard-capped at -8 in the physics (vehicles.js), so the car
+// provably cannot reach the 10 gate no matter how coarse the headless
+// sampling is — forward W-taps overshoot past 10 (two slow-pass FAILs
+// at gate 10: the control loop holds W for ~1 game-second per
+// iteration and gains up to +15). The gate is direction-agnostic by
+// design, so reversing through it at 8 is a clean negative control
+// for the speed gate. `before` is the jumpsDone COUNT before the
+// drive (readState's side.jumpsDone is a count, not the array) — the
+// jump registered when the count rises. Returns whether the jump
+// registered and the max speed within 5u of the gate.
+async function driveThroughGate(page, gate, before, slow, reverse = false) {
   const dx = gate.dir === 'ew' ? 1 : 0;
   const dz = gate.dir === 'ew' ? 0 : 1;
   const started = Date.now();
@@ -1360,17 +1366,14 @@ async function driveThroughGate(page, gate, before, slow) {
     const d = Math.hypot(c.x - gate.x, c.z - gate.z);
     if (d < 5) maxSpeedAtGate = Math.max(maxSpeedAtGate, Math.abs(c.speed));
     const beyond = (c.x - gate.x) * dx + (c.z - gate.z) * dz;
-    if (beyond > 6) break;
-    // Slow pass: crawl at ~4 m/s (W only below 3.5, brake above 4.5 —
-    // the brake at 24/s is far stronger than the 15 accel, so the
-    // speed stays in a tight 3.5-4.5 band despite the coarse
-    // headless sampling; a W-tap can gain at most ~6 in one
-    // iteration, so the peak stays under the 10 gate).
-    if (slow) await setKeys(page, { w: Math.abs(c.speed) < 3.5, a: false, d: false, s: Math.abs(c.speed) > 4.5 });
+    if (reverse ? beyond < -6 : beyond > 6) break;
+    if (reverse) await setKeys(page, { w: false, a: false, d: false, s: true });
+    else if (slow) await setKeys(page, { w: Math.abs(c.speed) < 3.5, a: false, d: false, s: Math.abs(c.speed) > 4.5 });
     else await setKeys(page, { w: true, a: false, d: false, s: false });
     await sleep(200);
   }
   await releaseKeys(page);
+  if (reverse) return { ok: false, maxSpeed: maxSpeedAtGate }; // drag stops the car; next leg re-places it
   for (let i = 0; i < 15; i++) {
     const c = await readCar(page);
     if (Math.abs(c.speed) < 0.5) break;
@@ -1392,13 +1395,16 @@ async function testJumps() {
       evidence.start = { money: s0.money, xp: s0.xp, jumpsDone: s0.side.jumpsDone, rank: s0.side.rank };
       if (s0.money !== 1500) throw new Error(`fresh money ${s0.money}, expected 1500 (1250 + DECKHAND 250)`);
       if (s0.side.jumpsDone !== 0) throw new Error(`fresh jumpsDone ${s0.side.jumpsDone}, expected 0`);
-      // Slow pass first, on SJ1: drive through at ~7 m/s — the gate
-      // must NOT trigger (speed gate is the feature).
+      // Slow pass first, on SJ1: REVERSE through the gate at <=8 —
+      // the gate must NOT trigger (speed gate is the feature). The
+      // car starts 4u past the gate facing east and reverses west
+      // through it; reverse is hard-capped at -8 (vehicles.js), so
+      // the gate at 10 provably cannot fire.
       const g1 = jumpXZ('SJ1');
-      await placeCar(page, g1.x - 4, g1.z, 0);
-      await placePlayer(page, g1.x - 4, g1.z + 1.5, 0);
+      await placeCar(page, g1.x + 4, g1.z, 0);
+      await placePlayer(page, g1.x + 4, g1.z + 1.5, 0);
       if (!(await boardCar(page))) throw new Error('slow pass: could not board car');
-      const slow = await driveThroughGate(page, g1, 0, true);
+      const slow = await driveThroughGate(page, g1, 0, true, true);
       evidence.slowPass = { maxSpeedAtGate: +slow.maxSpeed.toFixed(1), registered: slow.ok };
       if (slow.ok) throw new Error('slow pass SJ1 registered a jump — the speed gate is broken');
       if (slow.maxSpeedAtGate >= 10) throw new Error(`slow pass max speed ${slow.maxSpeedAtGate} m/s, not a slow pass`);
