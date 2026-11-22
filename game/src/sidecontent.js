@@ -33,7 +33,7 @@ function defaults() {
     jobsDone: {}, racesBest: {}, jumpsDone: [], collectiblesDone: [],
     standing, outfitsOwned: ['street'], paintsOwned: ['coral'],
     outfit: 'street', paint: STOCK_PAINT, tunes: { engine: 0, brakes: 0 },
-    ranksClaimed: [],
+    ranksClaimed: [], coinsBonusClaimed: false, jumpsBonusClaimed: false,
   };
 }
 function loadStore() {
@@ -479,6 +479,15 @@ function buildDOM() {
     p.style.display = 'none';
     document.body.appendChild(p);
   }
+  // Side HUD chip (3c.3): coins / jumps / jobs / rank, bottom-left.
+  // The CSS (#side-hud) existed but no element ever did — the chip
+  // never showed. Built here, updated by updateSideHud() in the loop.
+  if (!el('side-hud')) {
+    const h = document.createElement('div');
+    h.id = 'side-hud';
+    h.style.display = 'none';
+    document.body.appendChild(h);
+  }
 }
 function updateJobPanel(force) {
   const now = performance.now();
@@ -849,6 +858,21 @@ function onKeyDown(e) {
 // --- main loop (own rAF; the game loop stays untouched) ---
 let lastNow = 0;
 let lastPrompt = 0;
+let lastHud = 0;
+function updateSideHud() {
+  const now = performance.now();
+  if (now - lastHud < 500) return;
+  lastHud = now;
+  const h = el('side-hud');
+  if (!h) return;
+  if (!game || game.state.mode !== 'play') {
+    h.style.display = 'none';
+    return;
+  }
+  const jobsDone = Object.keys(store.jobsDone).length;
+  h.innerHTML = `COINS <b>${store.collectiblesDone.length}/${COLLECTIBLES.length}</b> &middot; JUMPS <b>${store.jumpsDone.length}/${SIDE_JUMPS.length}</b> &middot; JOBS <b>${jobsDone}/${SIDE_JOBS.length}</b> &middot; <b>${rankForXp(game.state.xp)}</b>`;
+  h.style.display = 'block';
+}
 function updatePrompt() {
   const now = performance.now();
   if (now - lastPrompt < 200) return;
@@ -903,6 +927,7 @@ function loop(now) {
     return;
   }
   updatePrompt();
+  updateSideHud();
   // Job start beacons show only while no side activity is running.
   for (const j of markers.jobs) j.mesh.visible = !active;
   const px = game.state.onFoot ? game.player.x : game.car.x;
@@ -978,6 +1003,13 @@ function loop(now) {
       addStanding(c.def.district, 1);
       persist();
       toast(`Ledger coin ${store.collectiblesDone.length}/${COLLECTIBLES.length} — +S 50 · +25 XP.`);
+      // Completion bonus (3c.3): all 20 coins, once.
+      if (store.collectiblesDone.length === COLLECTIBLES.length && !store.coinsBonusClaimed) {
+        store.coinsBonusClaimed = true;
+        game.state.money += 500;
+        persist();
+        toast(`ALL LEDGER COINS — 20/20! Completion bonus +S 500.`);
+      }
     }
   }
   // Rank unlocks: claim once when XP first crosses each threshold.
