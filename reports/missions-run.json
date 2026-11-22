@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T21:30:17.975Z",
+  "generated": "2026-11-22T21:31:12.981Z",
   "commit": "b9bb5d5",
   "missions": {
     "M1": {
@@ -118,11 +118,41 @@
       "attempts": 2,
       "fails": 2,
       "maxStage": 0,
-      "ms": 18055,
+      "ms": 16302,
       "stages": {},
-      "abortReason": "cannot board car (player-car 8.2u)",
+      "abortReason": "cannot board car (player-car 4.7u)",
+      "modeTrap": [
+        {
+          "at": 40489,
+          "from": "play",
+          "stack": "    at Object.set [as mode] (eval at evaluate (:370:30), <anonymous>:14:29) |     at doWasted (http://127.0.0.1:8941/src/game.js:752:16) |     at onDamage (http://127.0.0.1:8941/src/game.js:526:30) |     at Object.update (http://127.0.0.1:8941/src/combat.js:407:9) |     at step (http://127.0.0.1:8941/src/game.js:1475:14)",
+          "busted": false,
+          "wasted": true,
+          "health": 0,
+          "wanted": 0,
+          "shop": "none",
+          "map": "none",
+          "hub": false,
+          "hidden": false,
+          "title": "WASTED"
+        },
+        {
+          "at": 49921,
+          "from": "play",
+          "stack": "    at Object.set [as mode] (eval at evaluate (:370:30), <anonymous>:14:29) |     at doWasted (http://127.0.0.1:8941/src/game.js:752:16) |     at onDamage (http://127.0.0.1:8941/src/game.js:526:30) |     at Object.update (http://127.0.0.1:8941/src/combat.js:407:9) |     at step (http://127.0.0.1:8941/src/game.js:1475:14)",
+          "busted": false,
+          "wasted": true,
+          "health": 0,
+          "wanted": 0,
+          "shop": "none",
+          "map": "none",
+          "hub": false,
+          "hidden": false,
+          "title": "WASTED"
+        }
+      ],
       "errors": 0,
-      "commit": "03b6361"
+      "commit": "b9bb5d5"
     },
     "M11": {
       "mission": "M11",
