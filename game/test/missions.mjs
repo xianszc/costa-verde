@@ -707,7 +707,21 @@ async function boardCar(page) {
 // (quay, pavilion, fortress plaza) need a longer final leg because the
 // road graph ends at the nearest road node; the exact walk distance is
 // recorded in the stage label so it stays honest.
-async function driveToObjective(page, o, stageHow, stageIdx, stageName) {
+// AUDIT M-2/M-3 (DRIVER-ONLY fix — the game map is untouched; the
+// geometry change needs Xian's decision): the final on-foot leg of two
+// stages walks straight into a building collider. M1 STEAL (target
+// harbormaster_pavilion (5,20)) ends ~(9.8,30) and the straight line
+// crosses the deco shop (collider x 8..12, z 21..28); the driver
+// detours via the walkway at (6,29), clear of kiosks and palms. M7
+// RETURN (target quay_end (-2,33)) starts ~(0,11.2) and clips the
+// warehouse (collider x -1.5..3.5, z 21.5..26.5); the driver detours
+// via the gap at (-4,24) — the shed there was removed for M11.
+// A human would walk around the building the same way.
+const WALK_VIA = {
+  '0:STEAL': [{ x: 6, z: 29 }],
+  '6:RETURN': [{ x: -4, z: 24 }],
+};
+async function driveToObjective(page, o, stageHow, stageIdx, stageName, missionId) {
   const s0 = await readState(page);
   const startD = Math.hypot(s0.cx - o.x, s0.cz - o.z);
   let walkU = 0;
@@ -756,6 +770,16 @@ async function driveToObjective(page, o, stageHow, stageIdx, stageName) {
     if (!exited) return { ok: false, reason: 'could not exit car for final walk' };
     const s2 = await readState(page);
     walkU = Math.hypot(s2.px - o.x, s2.pz - o.z);
+    // AUDIT M-2/M-3: walk the detour first (see WALK_VIA above), then
+    // the final leg — a straight line into a building is not a walk.
+    const vias = WALK_VIA[`${missionId}:${stageName}`] || [];
+    for (const v of vias) {
+      const viaOk = await walkToPoint(page, v.x, v.z, 2, 60000);
+      if (!viaOk) {
+        const s3 = await readState(page);
+        return { ok: false, reason: `final walk detour failed at (${v.x},${v.z}), ${Math.hypot(s3.px - o.x, s3.pz - o.z).toFixed(1)}u short of objective` };
+      }
+    }
     const ok = await walkToPoint(page, o.x, o.z, o.r || 5, 120000);
     if (!ok) {
       const s3 = await readState(page);
@@ -1004,7 +1028,7 @@ async function playMission(page, id, label, maxAttempts = 2) {
         if (HUMAN_LIKE) {
           const d = Math.hypot(s.px - o.x, s.pz - o.z);
           if (d > (o.r || 4)) {
-            const r = await driveToObjective(page, o, stageHow, s.stage, s.stageName);
+            const r = await driveToObjective(page, o, stageHow, s.stage, s.stageName, id);
             if (!r.ok) {
               // The drive may have completed the stage anyway (E
               // interact / proximity) — do not fail a finished stage.
@@ -1172,7 +1196,7 @@ async function playMission(page, id, label, maxAttempts = 2) {
         // final leg (driveToObjective). The old teleport is kept only
         // when --human-like is off (and then the pass is 'workaround').
         if (HUMAN_LIKE) {
-          const r = await driveToObjective(page, o, stageHow, s.stage, s.stageName);
+          const r = await driveToObjective(page, o, stageHow, s.stage, s.stageName, id);
           if (!r.ok) {
             // The drive may have completed the stage anyway (E
             // interact / proximity) — do not fail a finished stage.
