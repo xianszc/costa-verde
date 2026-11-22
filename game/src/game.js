@@ -411,6 +411,39 @@ export function createGame(container) {
   const saveSystem = createSaveSystem();
   const missions = createMissionEngine();
   missions.start(0);
+  // PAUSE-FLAKE FIX (23 Nov, spy run M7): a mission (re)started while
+  // the BUSTED/WASTED overlay is up must leave a playable game. The
+  // driver retries a failed mission with missions.start() — but the
+  // game stayed paused with hp 0 and wasted=true (doWasted sets
+  // mode='paused'; only Enter on the overlay clears it), so attempt 2
+  // inherited the death and failed instantly. The in-game callers are
+  // unaffected: respawnAfterEnd clears the end state BEFORE calling
+  // start(), and init/load/complete call it with a live player — the
+  // reset below only fires when busted/wasted is actually set.
+  const missionStart = missions.start.bind(missions);
+  missions.start = (id) => {
+    const m = missionStart(id);
+    if (state.busted || state.wasted) {
+      const ov = document.getElementById('busted-overlay');
+      if (ov) ov.style.display = 'none';
+      player.x = ANCHORS.player_spawn.x;
+      player.z = ANCHORS.player_spawn.z;
+      player.angle = ANCHORS.player_spawn.angle;
+      state.onFoot = true;
+      playerMesh.visible = true;
+      playerMesh.position.set(player.x, 0, player.z);
+      state.health = 100;
+      state.armour = 60;
+      state.busted = false;
+      state.wasted = false;
+      state.mode = 'play';
+      state.missionTime = MISSION_TIME_START; // AUDIT M-4
+      missionFailed = null;
+      wantedForMission = -1;
+      clearDuelTarget();
+    }
+    return m;
+  };
   const wanted = createWanted(scene, {
     lanes: district.lanes,
     colliders,
