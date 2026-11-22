@@ -3,7 +3,7 @@
 // District 4 (real scene — layered hills, bay water, quay, ground detail),
 // never flat color bands. Enter starts play (walk / drive / chase camera /
 // traffic / pedestrians / wired HUD / day-night / storm / wanted / combat /
-// hub / radio / save / missions 1–4).
+// hub / radio / save / missions M1–M12 (M10 was cut).
 //
 // ?shot=title|drive|walk|night|storm|road|wanted|combat|hub|mission stages
 // that scene deterministically (fixed steps, scripted inputs), paints it
@@ -50,9 +50,9 @@ window.__game = game;
 // Test-only fast simulation: ?fastsim=N steps the game logic at a
 // fixed 1/60 s dt without rendering, ~N× wall-clock in headless.
 // OFF in normal play (no param = factor 1, behaviour identical).
-// Factor 2 is the verified safe max for the mission driver (its
-// 300 ms polls still catch the 4u waypoints); 4-8× needs poll
-// retuning in game/test/missions.mjs.
+// AUDIT m-38: factor 4 is the proven max for the mission driver
+// (fastsim-proof.md: J1/M1 outcomes identical at fastsim=4 vs 1);
+// 8x needs poll retuning in game/test/missions.mjs.
 const fastsim = Math.max(1, Math.min(8, parseInt(params.get('fastsim') || '1', 10) || 1));
 if (fastsim > 1) game.setFastSim(fastsim);
 
@@ -84,7 +84,8 @@ function stageWheels() {
     }
   }
   // Park everything else out of the frame; the target gets a clean spot.
-  // North lane (z -3.4) — the south lane has quay props in the way.
+  // North lane (z -0.725, anchors.js wheels_spot_*) — the south lane
+  // has quay props in the way. (AUDIT m-38: the old "z -3.4" was wrong.)
   // Spots and far spots are named anchors (anchors.js).
   const spots = {
     player: [ANCHORS.wheels_spot_player.x, ANCHORS.wheels_spot_player.z],
@@ -196,10 +197,8 @@ if (debugSkip && params.get('at') === 'cbd_center') {
 if (params.get('hud') === '0') document.body.classList.add('hud0');
 
 // Auto-pause when the tab hides mid-game (never run unseen).
+// AUDIT m-32: through setPaused() — the old code set the mode +
+// overlay by hand and left the hub open over the pause menu.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && game.state.mode === 'play') {
-    game.state.mode = 'paused';
-    const ov = document.getElementById('pause-overlay');
-    if (ov) ov.style.display = 'flex';
-  }
+  if (document.hidden && game.state.mode === 'play') game.setPaused(true);
 });

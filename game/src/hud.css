@@ -346,9 +346,13 @@ html, body {
   white-space: nowrap;
 }
 #side-prompt b { color: var(--terra); }
-/* Side HUD chip: coins / jumps / jobs / rank, bottom-left. */
+/* Side HUD chip: coins / jumps / jobs / rank, bottom-left ABOVE the
+   minimap. AUDIT m-10: at bottom 16px it sat exactly on the mapbox
+   (left 16, bottom 16) and covered the minimap district label — the
+   mapbox is a 150px circle + label, ~190px tall from bottom 16, so
+   210px clears it. */
 #side-hud {
-  position: fixed; left: 16px; bottom: 16px; z-index: 30;
+  position: fixed; left: 16px; bottom: 210px; z-index: 30;
   background: var(--panel-dark); color: #f7ebd7; border: 1px solid rgba(242,165,65,0.5);
   border-radius: 8px; padding: 7px 12px; font-size: 11px; font-weight: 800;
   letter-spacing: 1px; display: none;
@@ -423,4 +427,5 @@ html, body {
    one-time inline hide — the class survives elements created later. */
 body.hud0 #hud-stage, body.hud0 #topbar, body.hud0 #title-card,
 body.hud0 #version, body.hud0 #side-toast, body.hud0 #side-hud,
-body.hud0 #side-job-panel, body.hud0 #side-prompt { display: none !important; }
+body.hud0 #side-job-panel, body.hud0 #side-prompt,
+body.hud0 #toast, body.hud0 #crosshair, body.hud0 #cover-indicator { display: none !important; }

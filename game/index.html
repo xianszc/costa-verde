@@ -19,7 +19,7 @@
   <div class="rule"></div>
   <p class="tag">A CLIFFSIDE RIVIERA &middot; A HARBOR FULL OF SECRETS &middot; ONE LAST SCORE</p>
   <p class="press">PRESS ENTER</p>
-  <p class="controls">WASD MOVE &middot; E ENTER / EXIT CAR &middot; SPACE HANDBRAKE &middot; R RADIO &middot; C CROUCH &middot; TAB LOGBOOK &middot; 1-5 WEAPONS &middot; ESC PAUSE</p>
+  <p class="controls">WASD MOVE &middot; E ENTER / EXIT CAR &middot; SPACE HANDBRAKE &middot; R RADIO &middot; C CROUCH &middot; TAB LOGBOOK &middot; M MAP &middot; 1-5 WEAPONS &middot; ESC PAUSE</p>
 </div>
 <div id="topbar"><span>PORTO AZZURA</span><span id="clock">18:42 &middot; GOLDEN HOUR</span><span>S 1,250</span></div>
 
@@ -38,7 +38,7 @@
   <section class="panel mission">
     <div class="label" id="hud-mission-chapter">Mission &middot; Chapter 1</div>
     <h2><span class="chip" id="hud-mission-chip">M1</span><span id="hud-mission-title">THE FERRY JOB</span></h2>
-    <div class="stages"><div class="stage active" id="hud-stage-1"></div><div class="stage" id="hud-stage-2"></div><div class="stage" id="hud-stage-3"></div></div>
+    <div class="stages"><div class="stage active" id="hud-stage-1"></div><div class="stage" id="hud-stage-2"></div><div class="stage" id="hud-stage-3"></div><div class="stage" id="hud-stage-4"></div></div>
     <div class="stage-names" id="hud-stage-names"><span>1 &middot; RECON</span><span>2 &middot; STEAL</span><span>3 &middot; ESCAPE</span></div>
     <p id="hud-mission-brief">Steal the ferry manifest from the harbormaster&rsquo;s office, then lose the Guard on the promenade.</p>
     <p class="objective" id="hud-mission-objective">Reach the harbormaster pavilion at the east end of the quay.</p>
@@ -58,9 +58,9 @@
   <section class="panel-dark police">
     <div class="label">Guardia del Porto</div>
     <h3>DISPATCH &middot; RESPONSE</h3>
-    <div class="unit"><b id="hud-police-1-name">Gull-1 &middot; HELI</b><span class="dist" id="hud-police-1-dist">320 m</span><span class="st warm" id="hud-police-1-st">PATROL</span></div>
-    <div class="unit"><b id="hud-police-2-name">Anchor-2 &middot; CRUISER</b><span class="dist" id="hud-police-2-dist">180 m</span><span class="st warm" id="hud-police-2-st">PATROL</span></div>
-    <div class="unit"><b id="hud-police-3-name">Beacon-3 &middot; BOAT</b><span class="dist" id="hud-police-3-dist">240 m</span><span class="st warm" id="hud-police-3-st">RESPONDING</span></div>
+    <div class="unit" id="hud-police-row-1"><b id="hud-police-1-name">Gull-1 &middot; HELI</b><span class="dist" id="hud-police-1-dist">320 m</span><span class="st warm" id="hud-police-1-st">PATROL</span></div>
+    <div class="unit" id="hud-police-row-2"><b id="hud-police-2-name">Anchor-2 &middot; CRUISER</b><span class="dist" id="hud-police-2-dist">180 m</span><span class="st warm" id="hud-police-2-st">PATROL</span></div>
+    <div class="unit" id="hud-police-row-3"><b id="hud-police-3-name">Beacon-3 &middot; BOAT</b><span class="dist" id="hud-police-3-dist">240 m</span><span class="st warm" id="hud-police-3-st">RESPONDING</span></div>
   </section>
 
   <div class="mapbox">
@@ -115,9 +115,9 @@
     <div class="bar hp"><i id="hud-health-bar"></i></div>
     <div class="row"><span>ARMOUR</span><span id="hud-armour-num">60</span></div>
     <div class="bar ar"><i id="hud-armour-bar"></i></div>
-    <div class="row"><span>WHEELMAN &middot; XP</span><span id="hud-xp-num">1,240 / 2,000</span></div>
+    <div class="row"><span>WHEELMAN &middot; XP</span><span id="hud-xp-num">1,240 / 10,000</span></div>
     <div class="bar xp"><i id="hud-xp-bar"></i></div>
-    <div class="xp-line">Next rank: <b>FIXER</b> &middot; unlocks Tamburo SMG</div>
+    <div class="xp-line" id="hud-next-rank">Next rank: <b>WHEELMAN</b> &middot; unlocks Harbor Teal paint</div>
   </section>
 </div>
 
@@ -145,7 +145,7 @@
 <div id="pause-overlay" style="display:none">
   <div class="pause-card">
     <h2>PAUSED</h2>
-    <p>AZZURA HEIST &middot; M2 — core systems</p>
+    <p>AZZURA HEIST &middot; PORTO AZZURA</p>
     <button id="pause-resume">RESUME</button>
     <div class="pause-row">
       <label>Volume <input type="range" id="pause-volume" min="0" max="100" value="70"></label>
@@ -175,7 +175,7 @@
   </div>
 </div>
 
-<div id="version">AZZURA HEIST &middot; M2 core systems &middot; Three.js &middot; procedural &middot; offline</div>
+<div id="version">AZZURA HEIST &middot; Porto Azzura &middot; Three.js &middot; procedural &middot; offline</div>
 <script>
   // Scale the fixed 1280x720 HUD stage to any viewport, centred.
   var stage = document.getElementById('hud-stage');

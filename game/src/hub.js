@@ -2,8 +2,10 @@
 // A leather-bound book UI over the game: Logbook (story missions),
 // Crew (crews + abilities), Chart (map), Garage (vehicles), Vault
 // (bank + money + save slots), Waves (radio). Every tab reads live game
-// state through the api the game passes in — nothing here is a mockup
-// number. The hub pauses the simulation while open (Tab / H to open,
+// state through the api the game passes in — live numbers, and anything
+// not wired yet (crew abilities, unowned garage vehicles) is marked
+// "coming soon" instead of reading as a working system (AUDIT m-14).
+// The hub pauses the simulation while open (Tab / H to open,
 // Esc / Tab to close).
 // AUDIO (22 Nov 23:31): the Waves tab holds the per-bus volume sliders
 // + mute (persisted by the engine in localStorage); tab/station/
@@ -65,7 +67,7 @@ export function createHub(api) {
           <b style="color:${c.color}">${c.name}</b>
           <span>${c.unlocked ? 'RECRUITED' : 'LOCKED — finish its chapter'}</span>
           <p>Leader: ${c.leader} · ${c.item}</p>
-          <p class="hub-sub">${c.ability}</p>
+          <p class="hub-sub">${c.ability} <i>(coming soon)</i></p>
         </div>`).join('');
     } else if (tab === 'Chart') {
       body.innerHTML = `<h3>Chart of Porto Azzura</h3>
@@ -75,7 +77,7 @@ export function createHub(api) {
     } else if (tab === 'Garage') {
       body.innerHTML = `<h3>Garage</h3>` + GARAGE.map((v) => `
         <div class="hub-row${v.owned ? ' active' : ''}">
-          <b>${v.name}</b><span>${v.owned ? 'OWNED' : 'Unlocks at ' + v.rank}</span>
+          <b>${v.name}</b><span>${v.owned ? 'OWNED' : 'Coming soon · unlocks at ' + v.rank}</span>
           <p>${v.desc}</p>
         </div>`).join('');
     } else if (tab === 'Vault') {
@@ -90,7 +92,7 @@ export function createHub(api) {
             <button data-save="${i}">Save</button>
             <button data-load="${i}"${sv.empty ? ' disabled' : ''}>Load</button>
           </div>`).join('')}</div>
-        <p class="hub-note" id="hub-save-msg">${s.saveMsg || 'Saving is refused while wanted.'}</p>`;
+        <p class="hub-note" id="hub-save-msg">${s.saveMsg || 'Saving is allowed while the Guard is off your back.'}</p>`;
       body.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', () => { getAudioEngine()?.ui('ui_click'); api.save(+b.dataset.save); render(); }));
       body.querySelectorAll('[data-load]').forEach((b) => b.addEventListener('click', () => { getAudioEngine()?.ui('ui_click'); api.load(+b.dataset.load); }));
     } else { // Waves
