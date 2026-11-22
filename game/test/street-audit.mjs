@@ -129,8 +129,9 @@ function pointToSegDist(x, z, s) {
 }
 const pointOnRoad = (x, z) => raw.minimap.some((s) => pointToSegDist(x, z, s) <= (s.w || 7) / 2);
 // SAT: AABB (centre a, half-extents ahx/ahz) vs OBB (centre c, half-extents
-// hu along unit u, hv along unit v). Axes: x, z, u, v.
-function aabbHitsObb(x0, z0, x1, z1, o) {
+// hu along unit u, hv along unit v). Axes: x, z, u, v. Returns the
+// minimum penetration depth (>0 when overlapping), else 0.
+function aabbObbDepth(x0, z0, x1, z1, o) {
   const acx = (x0 + x1) / 2, acz = (z0 + z1) / 2, ahx = (x1 - x0) / 2, ahz = (z1 - z0) / 2;
   const dx = o.x2 - o.x1, dz = o.z2 - o.z1;
   const len = Math.hypot(dx, dz) || 1;
@@ -138,17 +139,25 @@ function aabbHitsObb(x0, z0, x1, z1, o) {
   const hu = len / 2, hv = (o.w || 7) / 2;
   const dcx = o.cx - acx, dcz = o.cz - acz;
   const axes = [[1, 0], [0, 1], [ux, uz], [vx, vz]];
+  let depth = Infinity;
   for (const [ax, az] of axes) {
     const aR = ahx * Math.abs(ax) + ahz * Math.abs(az);
     const oR = hu * Math.abs(ux * ax + uz * az) + hv * Math.abs(vx * ax + vz * az);
-    if (Math.abs(dcx * ax + dcz * az) >= aR + oR) return false;
+    const pen = aR + oR - Math.abs(dcx * ax + dcz * az);
+    if (pen <= 0) return 0;
+    if (pen < depth) depth = pen;
   }
-  return true;
+  return depth;
 }
 const onAsphalt = [];
 for (const c of raw.colliders) {
   if (c.x0 === undefined) continue;
-  if (roadOBBs.some((o) => aabbHitsObb(c.x0, c.z0, c.x1, c.z1, o))) onAsphalt.push({ id: c.id || '?', x0: c.x0, z0: c.z0, x1: c.x1, z1: c.z1 });
+  let best = 0, bestSeg = null;
+  for (const o of roadOBBs) {
+    const d = aabbObbDepth(c.x0, c.z0, c.x1, c.z1, o);
+    if (d > best) { best = d; bestSeg = { x1: o.x1, z1: o.z1, x2: o.x2, z2: o.z2, w: o.w }; }
+  }
+  if (best > 0) onAsphalt.push({ id: c.id || '?', x0: c.x0, z0: c.z0, x1: c.x1, z1: c.z1, depth: +best.toFixed(2), road: bestSeg });
 }
 const onAsphaltById = {};
 for (const o of onAsphalt) {
@@ -182,7 +191,7 @@ const result = {
   generated: new Date().toISOString(),
   markings: { registries: perRegistry, registryTotal, registrySkipped, itemsTotal: allItems.length, independentOverlaps: overlapPairs.size, overlapSamples, byType, byRegion },
   roads: { minimapSegments: raw.minimap.length, roadOBBs: roadOBBs.length },
-  furnitureOnAsphalt: { count: onAsphalt.length, byIdPrefix: onAsphaltById, sample: onAsphalt.slice(0, 20) },
+  furnitureOnAsphalt: { count: onAsphalt.length, byIdPrefix: onAsphaltById, deep: onAsphalt.filter((o) => o.depth >= 0.5).length, shallow: onAsphalt.filter((o) => o.depth < 0.5).length, sample: onAsphalt.slice(0, 20), all: onAsphalt },
   pedPaths: { checked: allPaths.length, flagged: pedPathFlags.length, flags: pedPathFlags.slice(0, 20) },
   peds: { count: raw.pedCount },
   traffic: { count: raw.trafficCount, cbdCount: raw.cbdTrafficCount, keys: raw.trafficKeys },
