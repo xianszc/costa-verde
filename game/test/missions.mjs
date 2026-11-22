@@ -70,7 +70,12 @@ import { fileURLToPath } from 'node:url';
 // --- Crash-safe resumable runner (Xian 22 Nov 01:16, item 1) ---
 // Order: M4-M12 first, then M2 (M1 134 s and M3 61 s already pass
 // human-like — recorded from the prior logs, not re-run).
-const ORDER = [3, 4, 5, 6, 7, 8, 9, 10, 11, 1]; // ids: M4..M12, M2
+// Mission codes by engine id. M10 was CUT 22 Nov 2026 — ids are NOT
+// mission numbers any more: id 9 = M11, id 10 = M12 (the last).
+const CODE_BY_ID = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M11', 'M12'];
+const ID_BY_CODE = Object.fromEntries(CODE_BY_ID.map((c, i) => [c, i]));
+const LAST_ID = CODE_BY_ID.length - 1; // 10 = M12
+const ORDER = [3, 4, 5, 6, 7, 8, 9, 10, 1]; // ids: M4..M12, M2
 const PRIOR_PASS = {
   M1: { mission: 'M1', result: 'PASS', how: 'human-like', ms: 134000, attempts: 1, fails: 0, maxStage: 2, evidence: '/tmp/missions-run-20261122-0200.log (HEAD f7a574e), not re-run in this pass' },
   M3: { mission: 'M3', result: 'PASS', how: 'human-like', ms: 61000, attempts: 1, fails: 0, maxStage: 2, evidence: '/tmp/missions-run-20261122-0130.log (HEAD f7a574e), not re-run in this pass' },
@@ -760,11 +765,12 @@ async function playMission(page, id, label, maxAttempts = 2) {
       const s = await readState(page);
       // Completion: the engine auto-starts the NEXT mission on
       // complete (done is true only transiently, inside the same
-      // synchronous handleMissionEvent call) — so for M1-M11, PASS
-      // is missionId advancing past id; for M12 (the last) done
-      // stays true because there is no next mission to start.
-      if (id < 11 && s.missionId > id) { result = 'PASS'; break; }
-      if (id === 11 && s.done) { result = 'PASS'; break; }
+      // synchronous handleMissionEvent call) — so for every mission
+      // except the last, PASS is missionId advancing past id; for
+      // the last (M12, LAST_ID) done stays true because there is
+      // no next mission to start.
+      if (id < LAST_ID && s.missionId > id) { result = 'PASS'; break; }
+      if (id === LAST_ID && s.done) { result = 'PASS'; break; }
       if (s.stage > maxStage) maxStage = s.stage;
       // BUSTED: the mode leaves 'play' (pursuers caught the on-foot
       // player) — missions.update stops, so the mission can never
@@ -1135,19 +1141,19 @@ const onlyArg = process.argv.find((a) => a.startsWith('--only'));
 if (onlyArg) {
   const eq = onlyArg.split('=')[1];
   const want = eq !== undefined ? eq : process.argv[process.argv.indexOf(onlyArg) + 1];
-  const ids = String(want).split(',').map((s) => parseInt(s.replace(/^M/i, ''), 10) - 1).filter((n) => ORDER.includes(n));
+  const ids = String(want).split(',').map((s) => ID_BY_CODE[s.trim().toUpperCase()]).filter((n) => n !== undefined && ORDER.includes(n));
   if (ids.length) ORDER_RUN = ORDER.filter((id) => ids.includes(id));
-  console.log(`--only: running ${ORDER_RUN.map((id) => 'M' + (id + 1)).join(',')}`);
+  console.log(`--only: running ${ORDER_RUN.map((id) => CODE_BY_ID[id]).join(',')}`);
 }
 let fromIdx = 0;
 const fromArg = process.argv.find((a) => a.startsWith('--from'));
 if (fromArg) {
   const eq = fromArg.split('=')[1];
   const want = eq !== undefined ? eq : process.argv[process.argv.indexOf(fromArg) + 1];
-  const n = parseInt(String(want).replace(/^M/i, ''), 10);
-  const pos = ORDER.indexOf(n - 1);
+  const code = String(want).trim().toUpperCase();
+  const pos = ORDER.indexOf(ID_BY_CODE[code]);
   if (pos >= 0) fromIdx = pos;
-  console.log(`--from M${n}: starting at ORDER[${fromIdx}]`);
+  console.log(`--from ${code}: starting at ORDER[${fromIdx}]`);
 }
 
 // Seed prior passes (M1, M3) into the results file first.
@@ -1165,7 +1171,7 @@ const saveLoad = await checkSaveLoad();
 
 for (let i = fromIdx; i < ORDER_RUN.length; i++) {
   const id = ORDER_RUN[i];
-  const label = `M${id + 1}`;
+  const label = CODE_BY_ID[id];
   // M2 time-box: 30 min max for the whole M2 block (attempt + one
   // browser-close restart). playMission gets 1 attempt for M2.
   const blockStart = Date.now();
