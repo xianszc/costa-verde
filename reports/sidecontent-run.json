@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T07:44:09.385Z",
+  "generated": "2026-11-22T08:14:59.361Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -41,10 +41,9 @@
       "pageErrors": []
     },
     "shops-near": {
-      "result": "FAIL",
+      "result": "PASS",
       "how": "human-like",
-      "ms": 224107,
-      "error": "walk to shop door (29,29) failed, 3.2u short",
+      "ms": 181823,
       "evidence": {
         "start": {
           "money": 1500,
@@ -56,15 +55,20 @@
           "rank": "DECKHAND",
           "outfit": "street"
         },
-        "damageBeforeRepair": 9.25677720074258,
+        "rankRewardAtBoot": {
+          "money": 1500,
+          "harbourOwned": true,
+          "harbourLocked": false
+        },
+        "damageBeforeRepair": 12.587654036946855,
         "repair": {
           "moneyBefore": 1550,
           "moneyAfter": 1400,
-          "damageBefore": 15.95586606001037,
+          "damageBefore": 17.443087308136157,
           "damageAfter": 0
         },
         "fuel": {
-          "fuelBefore": 99.7127042111112,
+          "fuelBefore": 99.78710800967276,
           "fuelAfter": 100,
           "moneyBefore": 1400,
           "moneyAfter": 1320
@@ -78,18 +82,39 @@
           "moneyAfter": 1200,
           "reserveBefore": 48,
           "reserveAfter": 72
+        },
+        "harbourOwned": {
+          "owned": true,
+          "applied": false,
+          "locked": false,
+          "price": 400
+        },
+        "outfit": {
+          "moneyBefore": 1200,
+          "moneyAfter": 1200,
+          "outfitBefore": "street",
+          "outfitAfter": "harbour"
+        },
+        "saved": {
+          "money": 1200,
+          "p9reserve": 72,
+          "armour": 60,
+          "outfit": "harbour",
+          "coins": 1,
+          "saveMsg": "Saved to slot 1."
+        },
+        "afterReload": {
+          "money": 1250,
+          "p9reserve": 48,
+          "coins": 1
+        },
+        "afterLoad": {
+          "money": 1200,
+          "p9reserve": 72,
+          "armour": 60,
+          "outfit": "harbour"
         }
-      },
-      "state": {
-        "money": 1250,
-        "onFoot": true,
-        "px": 29.677973782949724,
-        "pz": 32.148549644468886,
-        "cx": -6.356831713762488,
-        "cz": 21.020935451305554,
-        "mode": "play"
-      },
-      "pageErrors": []
+      }
     }
   }
 }
