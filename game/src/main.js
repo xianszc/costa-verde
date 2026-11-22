@@ -196,6 +196,21 @@ if (params.get('hud') === '0') {
   }
 }
 
+// ?time=H locks a staged shot to an hour (12 midday clear sky, 22 night:
+// lit windows, street lamps, headlights). Applies after staging, so it
+// overrides the shot's default golden hour (18.7); the scene is static
+// in 'shot' mode, so re-render twice to show the new lighting. No-op in
+// normal play (mode is 'title'/'play', not 'shot').
+const timeParam = params.get('time');
+if (timeParam !== null && game.state.mode === 'shot') {
+  const h = parseFloat(timeParam);
+  if (Number.isFinite(h)) {
+    game.setTime(h);
+    game.renderer.render(game.scene, game.camera);
+    game.renderer.render(game.scene, game.camera);
+  }
+}
+
 // Auto-pause when the tab hides mid-game (never run unseen).
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && game.state.mode === 'play') {

@@ -1932,6 +1932,14 @@ export function createGame(container) {
     // wall-clock-keyed cosmetics run slower relative to game time.
     setFastSim(n) { fastsimFactor = Math.max(1, Math.min(8, n | 0)); },
     get __fastsim() { return fastsimFactor; },
+    // Time-of-day staging (?time=H in main.js): lock the clock to an
+    // hour and re-apply lighting (sky, sun/moon, lit windows, lamps,
+    // headlights all derive from state.time in updateLighting()).
+    setTime(h) {
+      const hour = Number.isFinite(h) ? Math.max(0, Math.min(23.99, h)) : state.time;
+      state.time = hour;
+      updateLighting();
+    },
     run() { requestAnimationFrame(frame); },
   };
 }
