@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T15:25:02.297Z",
+  "generated": "2026-11-22T19:59:59.222Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -43,7 +43,7 @@
     "shops-near": {
       "result": "PASS",
       "how": "human-like",
-      "ms": 144203,
+      "ms": 94370,
       "evidence": {
         "start": {
           "money": 1500,
@@ -60,26 +60,26 @@
           "harbourOwned": true,
           "harbourLocked": false
         },
-        "damageBeforeRepair": 73.63941220405096,
+        "damageBeforeRepair": 36.37325307189619,
         "repair": {
-          "moneyBefore": 2350,
-          "moneyAfter": 2200,
-          "damageBefore": 73.63941220405096,
+          "moneyBefore": 1550,
+          "moneyAfter": 1400,
+          "damageBefore": 43.076309219388186,
           "damageAfter": 0
         },
         "fuel": {
-          "fuelBefore": 99.50518135118847,
+          "fuelBefore": 99.63525118323834,
           "fuelAfter": 100,
-          "moneyBefore": 2200,
-          "moneyAfter": 2120
+          "moneyBefore": 1400,
+          "moneyAfter": 1320
         },
         "tamburoLocked": {
           "disabled": true,
           "text": "LOCKED"
         },
         "ammoP9": {
-          "moneyBefore": 2120,
-          "moneyAfter": 2000,
+          "moneyBefore": 1320,
+          "moneyAfter": 1200,
           "reserveBefore": 48,
           "reserveAfter": 72
         },
@@ -90,13 +90,13 @@
           "price": 400
         },
         "outfit": {
-          "moneyBefore": 2000,
-          "moneyAfter": 2000,
+          "moneyBefore": 1200,
+          "moneyAfter": 1200,
           "outfitBefore": "street",
           "outfitAfter": "harbour"
         },
         "saved": {
-          "money": 2000,
+          "money": 1200,
           "p9reserve": 72,
           "armour": 60,
           "outfit": "harbour",
@@ -109,7 +109,7 @@
           "coins": 1
         },
         "afterLoad": {
-          "money": 2000,
+          "money": 1200,
           "p9reserve": 72,
           "armour": 60,
           "outfit": "harbour"
