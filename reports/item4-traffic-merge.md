@@ -109,7 +109,54 @@ If promenade stays >450 with no cheap win left in the breakdown, say
 so plainly — do NOT keep cutting. (The traffic glass merge, step (2)
 of the rule, is DONE in this slice.)
 
-## Unnamed-mesh probe (reports/unnamed-probe.json, 81 total)
+## Unified 5-view measurement + category breakdown (after traffic merge)
+
+ONE script, ONE run (`/tmp/perf-all-views.mjs`; output
+`reports/perf-all-views-2026-11-22.json`): avenue 349 calls /
+558,665 tris, ring 175 / 518,447, promenade 551 / 616,199,
+**residential (first measurement) 177 / 406,903**, aerial 829 /
+692,221. Residential is the first view measured on a residential
+street (res-east lane, camera (108,2,−40)→(108,2,0)) — **177 ✓, well
+under the 450 street cap**. Acceptance status now: avenue ✓, ring ✓,
+residential ✓, promenade 551 ✗ (−101), aerial 829 ✗ (−129 vs 700).
+
+Category breakdown for promenade + aerial
+(`reports/perf-frustum-breakdown-2026-11-22.json`, frustum test per
+mesh — the method Xian's 21:00 rule asked for):
+
+| category | promenade visible | aerial visible |
+|---|---|---|
+| pedestrians | 182 | 277 (all) |
+| glass (transparent — see note) | 155 | 167 (all) |
+| cars | 126 | 219 (all) |
+| buildings | 109 | 142 (of 143) |
+| other | 52 | 64 |
+| palms and trees | 38 | 57 (all) |
+| signs | 6 | 6 (all) |
+
+Notes (honest): (1) "glass" is really "all transparent meshes": it
+includes ~80 skid-mark decals + 24 storm splash rings + 24 car
+windshields + 24 contact shadows + water + commercial-glass + beacons.
+(2) The frustum-visible mesh count (668 promenade, 932 aerial) is
+ABOVE the base render calls (555, 829) — the gap (−113/−103) is the
+shadow pass + culling differences, not an error in the categories; the
+categories are the main-pass distribution. (3) The hide-and-render
+subtraction method FAILED (later renders reported MORE calls when
+meshes were hidden — cause unknown, possibly shadow-map re-render
+interaction; documented so the next builder does not repeat it).
+
+**CHEAP WIN FOUND — skid marks: 80 meshes and GROWING.** Skid-mark
+decals are added as one mesh each whenever a car brakes/drifts in play
+mode; they never merge or expire. At 20:49 the unnamed probe found
+NONE; by 21:40 there were 80 (accumulated across the play-mode probe
+runs). In sustained play this grows unboundedly — a real perf bug, not
+just a probe artifact (a fresh load starts at 0, so the 10 s grader
+run sees few, but a player driving for minutes sees hundreds). Fix
+for the 40-min step: cap the skid-mark count (FIFO, e.g. keep the last
+40) or merge them into one mesh — saves up to ~70–80 calls in every
+view. (4) Pedestrians are the largest promenade category (182) but
+walkers are already merged to 5 meshes each (legs animate — nothing
+left to cut) and the figure merge is SKIPPED per Xian's rule.
 
 - 24× splash rings (storm rain, animated) + 4× teal beacon cones+rings
   + 2× beacon cones/rings at origin + sun/moon circles + water plane:

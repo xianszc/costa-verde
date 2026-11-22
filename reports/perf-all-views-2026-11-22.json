@@ -1,0 +1,33 @@
+{
+  "method": "One script, one run: 5 manual renders per view (camera re-set inside every iteration), calls+tris read from renderer.info after the last manual render. ms/frame NOT measured (deleted from acceptance, Xian 21:00 WIB). The hide-and-render category subtraction in this script DRIFTED (later renders reported MORE calls when meshes were hidden) \u2014 its numbers are DISCARDED; the trustworthy category breakdown is the frustum-based probe in reports/perf-frustum-breakdown-2026-11-22.json.",
+  "when": "2026-11-22T14:40:00Z",
+  "views": {
+    "avenue": {
+      "calls": 349,
+      "triangles": 558665,
+      "camera": "pos (0, 0.2, -20) -> look (0, 0.5, 20)"
+    },
+    "ring": {
+      "calls": 175,
+      "triangles": 518447,
+      "camera": "pos (44, 2, -20) -> look (44, 2, -60)"
+    },
+    "promenade": {
+      "calls": 551,
+      "triangles": 616199,
+      "camera": "pos (35, 2, 29) -> look (-20, 2, 29)"
+    },
+    "residential": {
+      "calls": 177,
+      "triangles": 406903,
+      "camera": "pos (108, 2, -40) -> look (108, 2, 0) [res-east lane]"
+    },
+    "aerial": {
+      "calls": 829,
+      "triangles": 692221,
+      "camera": "pos (0, 200, 40) -> look (0, 0, 0)"
+    }
+  },
+  "breakdown": "FAILED - hide-and-render subtraction drifted (see method). Use the frustum breakdown instead.",
+  "errors": []
+}

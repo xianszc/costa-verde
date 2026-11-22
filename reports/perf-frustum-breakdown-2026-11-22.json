@@ -1,0 +1,179 @@
+{
+  "method": "Frustum test per mesh (planes from projectionMatrix * matrixWorldInverse). Category = first named ancestor label + material + radius heuristic (see notes). Shadow pass NOT split by category: the category sum is the MAIN-pass distribution; the gap to the base total is the shadow pass + any culling difference. One manual render per view for the base total.",
+  "when": "2026-11-22T14:24:25.065Z",
+  "views": {
+    "promenade": {
+      "base": {
+        "calls": 555,
+        "triangles": 617689
+      },
+      "totalMeshes": 934,
+      "cats": {
+        "other": {
+          "meshes_total": 65,
+          "meshes_visible": 52,
+          "tris_visible": 10852
+        },
+        "buildings": {
+          "meshes_total": 143,
+          "meshes_visible": 109,
+          "tris_visible": 320784
+        },
+        "glass": {
+          "meshes_total": 167,
+          "meshes_visible": 155,
+          "tris_visible": 102706
+        },
+        "palms and trees": {
+          "meshes_total": 57,
+          "meshes_visible": 38,
+          "tris_visible": 9156
+        },
+        "signs": {
+          "meshes_total": 6,
+          "meshes_visible": 6,
+          "tris_visible": 1128
+        },
+        "pedestrians": {
+          "meshes_total": 277,
+          "meshes_visible": 182,
+          "tris_visible": 19272
+        },
+        "cars": {
+          "meshes_total": 219,
+          "meshes_visible": 126,
+          "tris_visible": 65278
+        }
+      },
+      "topLabels": {
+        "walker": {
+          "meshes_total": 170,
+          "meshes_visible": 120
+        },
+        "skid-marks": {
+          "meshes_total": 80,
+          "meshes_visible": 80
+        },
+        "unnamed": {
+          "meshes_total": 81,
+          "meshes_visible": 71
+        },
+        "figure": {
+          "meshes_total": 107,
+          "meshes_visible": 62
+        },
+        "traffic-sedan": {
+          "meshes_total": 108,
+          "meshes_visible": 48
+        },
+        "promenade": {
+          "meshes_total": 64,
+          "meshes_visible": 42
+        },
+        "traffic-van": {
+          "meshes_total": 54,
+          "meshes_visible": 42
+        },
+        "oldTown": {
+          "meshes_total": 35,
+          "meshes_visible": 34
+        },
+        "traffic-pickup": {
+          "meshes_total": 45,
+          "meshes_visible": 24
+        },
+        "district4": {
+          "meshes_total": 24,
+          "meshes_visible": 17
+        }
+      }
+    },
+    "aerial": {
+      "base": {
+        "calls": 829,
+        "triangles": 692221
+      },
+      "totalMeshes": 934,
+      "cats": {
+        "other": {
+          "meshes_total": 65,
+          "meshes_visible": 64,
+          "tris_visible": 11540
+        },
+        "buildings": {
+          "meshes_total": 143,
+          "meshes_visible": 142,
+          "tris_visible": 324476
+        },
+        "glass": {
+          "meshes_total": 167,
+          "meshes_visible": 167,
+          "tris_visible": 102762
+        },
+        "palms and trees": {
+          "meshes_total": 57,
+          "meshes_visible": 57,
+          "tris_visible": 13120
+        },
+        "signs": {
+          "meshes_total": 6,
+          "meshes_visible": 6,
+          "tris_visible": 1128
+        },
+        "pedestrians": {
+          "meshes_total": 277,
+          "meshes_visible": 277,
+          "tris_visible": 28504
+        },
+        "cars": {
+          "meshes_total": 219,
+          "meshes_visible": 219,
+          "tris_visible": 113712
+        }
+      },
+      "topLabels": {
+        "walker": {
+          "meshes_total": 170,
+          "meshes_visible": 170
+        },
+        "traffic-sedan": {
+          "meshes_total": 108,
+          "meshes_visible": 108
+        },
+        "figure": {
+          "meshes_total": 107,
+          "meshes_visible": 107
+        },
+        "unnamed": {
+          "meshes_total": 81,
+          "meshes_visible": 80
+        },
+        "skid-marks": {
+          "meshes_total": 80,
+          "meshes_visible": 80
+        },
+        "promenade": {
+          "meshes_total": 64,
+          "meshes_visible": 64
+        },
+        "traffic-van": {
+          "meshes_total": 54,
+          "meshes_visible": 54
+        },
+        "traffic-pickup": {
+          "meshes_total": 45,
+          "meshes_visible": 45
+        },
+        "oldTown": {
+          "meshes_total": 35,
+          "meshes_visible": 35
+        },
+        "district4": {
+          "meshes_total": 24,
+          "meshes_visible": 24
+        }
+      }
+    }
+  },
+  "errors": []
+}
