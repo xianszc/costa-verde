@@ -1892,10 +1892,14 @@ export function createGame(container) {
         acc -= STEP;
       }
     }
-    // Fast-sim: skip rendering (the driver reads state, not pixels);
-    // render + HUD one frame in 30 so the canvas stays alive.
+    // Fast-sim: skip rendering entirely (the driver reads state, not
+    // pixels). Measured 22 Nov (parent probe, ?fastsim=4): render every
+    // 30th frame = 0.59 sim-s/wall-s (one full-city SwiftShader render
+    // is > 250 ms, so the dt cap below eats sim time); no render at all
+    // = 4.00 sim-s/wall-s, exactly the 4x target. Test-only: with
+    // fastsimFactor == 1 the game renders every frame, as before.
     frameCount++;
-    if (fastsimFactor <= 1 || frameCount % 30 === 0) renderer.render(scene, camera);
+    if (fastsimFactor <= 1) renderer.render(scene, camera);
     if (fastsimFactor <= 1 || frameCount % 30 === 0) updateHUD(now);
   }
 
