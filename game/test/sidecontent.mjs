@@ -929,6 +929,14 @@ async function testShopsNear() {
     const s0 = await readState(page);
     evidence.start = { money: s0.money, armour: s0.armour, health: s0.health, fuel: s0.fuel, damage: s0.damage, p9reserve: s0.ammo[1].reserve, rank: s0.side.rank, outfit: s0.side.outfit };
     console.log(`[shops-near] start money=${s0.money} rank=${s0.side.rank} fuel=${s0.fuel} damage=${s0.damage} outfit=${s0.side.outfit}`);
+    // Rank-reward proof (3c.6): fresh money is 1250 in game.js, so
+    // start money 1500 proves the DECKHAND reward (+S 250) fired on
+    // the first side tick (fresh XP 1240 >= 500) — and 'harbour'
+    // must already be owned. Assert now, at boot, not later.
+    const startHarbour = s0.side.shops.find((s) => s.id === 'clothes').items.find((i) => i.id === 'outfit-harbour');
+    evidence.rankRewardAtBoot = { money: s0.money, harbourOwned: startHarbour.owned, harbourLocked: startHarbour.locked };
+    if (s0.money !== 1500) throw new Error(`start money ${s0.money}, expected 1500 (1250 + 250 DECKHAND rank reward)`);
+    if (!startHarbour.owned) throw new Error('outfit-harbour NOT owned at boot — DECKHAND rank reward did not fire');
 
     // 1. Garage (Gus' Garage, marina door (-1,20)): player starts
     // 2.5u west of the door on foot, car starts 1.5u due south of
@@ -991,14 +999,30 @@ async function testShopsNear() {
     // starts 2.5u WEST of the door on the open walkway, walks east
     // in. (Run 3: the east start (31.5,29) is blocked — the player
     // slid south along the casino face to (29.7,32.2), 3.2u short.)
+    // NOTE (run 6): outfit-harbour is NOT bought for S 400 on a fresh
+    // game — the DECKHAND rank reward fires on the first side tick
+    // (fresh XP 1240 >= 500): +S 250 (1250 -> 1500 at start) and
+    // 'harbour' lands in outfitsOwned free, so buy() charges 0 for
+    // it. That IS the rank unlock working (3c.6), not a bug: prove
+    // the reward at the start, then prove the free apply here.
+    // A money-deduction proof for clothes would need a non-granted
+    // outfit — casino/harvest/king are all rank-locked at fresh XP.
     await placePlayer(page, 26.5, 29, 0);
     await walkToShopAtDoor(page, 29, 29, 'Sartoria');
+    const harbour = await page.evaluate(() => {
+      const st = window.__side.getState();
+      const sec = st.shops.find((s) => s.id === 'clothes');
+      const it = sec.items.find((i) => i.id === 'outfit-harbour');
+      return { owned: it.owned, applied: it.applied, locked: it.locked, price: it.price };
+    });
+    evidence.harbourOwned = harbour;
+    if (!harbour.owned) throw new Error(`outfit-harbour NOT owned at start — DECKHAND rank reward did not fire (owned=${harbour.owned})`);
     const outfit = await clickBuy(page, 'outfit-harbour');
     evidence.outfit = { moneyBefore: outfit.before.money, moneyAfter: outfit.after.money, outfitBefore: outfit.before.side.outfit, outfitAfter: outfit.after.side.outfit };
-    if (outfit.after.money !== outfit.before.money - 400) throw new Error(`outfit-harbour: money expected -400`);
+    if (outfit.after.money !== outfit.before.money) throw new Error(`outfit-harbour (owned via rank): money ${outfit.before.money} -> ${outfit.after.money}, expected unchanged (price 0)`);
     if (outfit.after.side.outfit !== 'harbour') throw new Error(`outfit-harbour: outfit ${outfit.after.side.outfit}, expected harbour`);
     await closeShop(page);
-    console.log('[shops-near] clothes OK: Harbor Stripes worn');
+    console.log('[shops-near] clothes OK: Harbor Stripes applied free (DECKHAND rank reward)');
 
     // 4. Save (slot 1) -> reload -> load slot 1: money/ammo/armour restored.
     let st = await readState(page);
