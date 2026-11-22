@@ -829,8 +829,169 @@ async function testShops() {
   }
 }
 
+// --- T2b shops-near: start 25 m (2.5u) from each shop door ---
+// Xian 22 Nov 14:33 brief item 1: do NOT fix the CBD veer first.
+// Each leg starts the player 25 m from the shop marker (a TEST start
+// position set once per leg via page.evaluate — not a mission teleport)
+// and walks/drives in with real keys. Proves purchase, price, effect,
+// save/load. 20 min max for all three shops.
+async function placePlayer(page, x, z, angle) {
+  await page.evaluate(({ x, z, angle }) => {
+    const g = window.__game;
+    g.player.x = x; g.player.z = z; g.player.angle = angle;
+    g.state.onFoot = true;
+  }, { x, z, angle });
+}
+async function placeCar(page, x, z, angle) {
+  await page.evaluate(({ x, z, angle }) => {
+    const g = window.__game;
+    g.car.x = x; g.car.z = z; g.car.angle = angle; g.car.speed = 0;
+  }, { x, z, angle });
+}
+async function walkToShopAtDoor(page, x, z, expectTitle) {
+  const ok = await walkToPoint(page, x, z, 1.5, 60000);
+  if (!ok) { const s = await readState(page); throw new Error(`walk to shop door (${x},${z}) failed, ${Math.hypot(s.px - x, s.pz - z).toFixed(1)}u short`); }
+  await sleep(600);
+  let s = await readState(page);
+  if (!s.promptVisible) throw new Error(`no prompt at shop door (${x},${z}); prompt='${s.prompt}'`);
+  await page.keyboard.press('KeyE');
+  await sleep(800);
+  s = await readState(page);
+  if (!s.shopOpen) throw new Error(`shop did not open at (${x},${z})`);
+  const title = await page.evaluate(() => (document.getElementById('shop-title') || {}).textContent || '');
+  if (expectTitle && !title.includes(expectTitle)) throw new Error(`shop title '${title}' does not include '${expectTitle}'`);
+  return title;
+}
+
+async function testShopsNear() {
+  const label = 'shops-near';
+  const started = Date.now();
+  const { ctx, page, errors } = await newPage();
+  const evidence = {};
+  try {
+    const s0 = await readState(page);
+    evidence.start = { money: s0.money, armour: s0.armour, health: s0.health, fuel: s0.fuel, damage: s0.damage, p9reserve: s0.ammo[1].reserve, rank: s0.side.rank, outfit: s0.side.outfit };
+    console.log(`[shops-near] start money=${s0.money} rank=${s0.side.rank} fuel=${s0.fuel} damage=${s0.damage} outfit=${s0.side.outfit}`);
+
+    // 1. Garage (Gus' Garage, marina door (-1,20)): player starts
+    // 2.5u west of the door on foot, car starts 1.5u due south of
+    // the player (clear straight walk, door 2.5u away so E hits the
+    // car, not the door). Board, ram the pavilion wall (5,20) for
+    // damage, back out, walk in, buy repair + fuel.
+    await placePlayer(page, -3.5, 20, 0);
+    await placeCar(page, -3.5, 18.5, 0);
+    if (!await boardCar(page)) throw new Error('garage: could not board car at start');
+    let dmg = (await readState(page)).damage;
+    for (let i = 0; i < 3 && dmg < 5; i++) {
+      await driveToPoint(page, 5, 20, 1.5, 12, 20000);
+      await sleep(500);
+      dmg = (await readState(page)).damage;
+      console.log(`[shops-near] garage ram ${i + 1}: damage=${dmg.toFixed(1)}`);
+      // Back STRAIGHT off the wall (S, no steering): the car faces
+      // east into the wall; a driveToPoint back-out 3-point-turns
+      // and wanders south (run 2: car ended (4.4,32), walk blocked
+      // at z~31.7). Reverse retraces the approach lane westward and
+      // ends beside the door.
+      await setKeys(page, { s: true, a: false, d: false, w: false });
+      await sleep(2000);
+      await releaseKeys(page);
+    }
+    evidence.damageBeforeRepair = dmg;
+    if (dmg < 5) throw new Error(`garage: could not damage the car for the repair test (damage=${dmg.toFixed(1)})`);
+    if (!await exitCar(page)) throw new Error('garage: could not exit car');
+    await walkToShopAtDoor(page, -1, 20, 'Garage');
+    const rep = await clickBuy(page, 'repair-full');
+    evidence.repair = { moneyBefore: rep.before.money, moneyAfter: rep.after.money, damageBefore: rep.before.damage, damageAfter: rep.after.damage };
+    if (rep.after.damage !== 0) throw new Error(`repair: damage ${rep.after.damage}, expected 0`);
+    if (rep.after.money !== rep.before.money - 150) throw new Error(`repair: money expected -150`);
+    const fuelBefore = (await readState(page)).fuel;
+    const ful = await clickBuy(page, 'fuel-full');
+    evidence.fuel = { fuelBefore, fuelAfter: ful.after.fuel, moneyBefore: ful.before.money, moneyAfter: ful.after.money };
+    if (fuelBefore >= 100) throw new Error(`fuel: fuel was already 100 before buying — effect unproven`);
+    if (ful.after.fuel !== 100) throw new Error(`fuel: ${ful.after.fuel}, expected 100`);
+    if (ful.after.money !== ful.before.money - 80) throw new Error(`fuel: money expected -80`);
+    await closeShop(page);
+    console.log(`[shops-near] garage OK: repair 0, fuel ${fuelBefore.toFixed(1)} -> 100`);
+
+    // 2. Weapons (Kelo Arms, old town door (-48,-39)): player starts
+    // 2.5u east of the door ON the main street, walks west in.
+    await placePlayer(page, -45.5, -39, Math.PI);
+    await walkToShopAtDoor(page, -48, -39, 'Kelo Arms');
+    const tamburoLocked = await page.evaluate(() => {
+      const b = document.querySelector('[data-buy="ammo-tamburo"]');
+      return b ? { disabled: b.disabled, text: b.textContent } : null;
+    });
+    evidence.tamburoLocked = tamburoLocked;
+    if (!tamburoLocked || !tamburoLocked.disabled) throw new Error('ammo-tamburo NOT locked below FIXER (expected disabled LOCKED button)');
+    const p9 = await clickBuy(page, 'ammo-p9');
+    evidence.ammoP9 = { moneyBefore: p9.before.money, moneyAfter: p9.after.money, reserveBefore: p9.before.ammo[1].reserve, reserveAfter: p9.after.ammo[1].reserve };
+    if (p9.after.money !== p9.before.money - 120) throw new Error(`P9 ammo: money ${p9.before.money} -> ${p9.after.money}, expected -120`);
+    if (p9.after.ammo[1].reserve !== p9.before.ammo[1].reserve + 24) throw new Error(`P9 ammo: reserve ${p9.before.ammo[1].reserve} -> ${p9.after.ammo[1].reserve}, expected +24`);
+    await closeShop(page);
+    console.log('[shops-near] weapons OK: P9 ammo bought, Tamburo locked');
+
+    // 3. Clothes (Sartoria Azzura, promenade door (29,29)): player
+    // starts 2.5u east of the door on the walkway, walks west in.
+    await placePlayer(page, 31.5, 29, Math.PI);
+    await walkToShopAtDoor(page, 29, 29, 'Sartoria');
+    const outfit = await clickBuy(page, 'outfit-harbour');
+    evidence.outfit = { moneyBefore: outfit.before.money, moneyAfter: outfit.after.money, outfitBefore: outfit.before.side.outfit, outfitAfter: outfit.after.side.outfit };
+    if (outfit.after.money !== outfit.before.money - 400) throw new Error(`outfit-harbour: money expected -400`);
+    if (outfit.after.side.outfit !== 'harbour') throw new Error(`outfit-harbour: outfit ${outfit.after.side.outfit}, expected harbour`);
+    await closeShop(page);
+    console.log('[shops-near] clothes OK: Harbor Stripes worn');
+
+    // 4. Save (slot 1) -> reload -> load slot 1: money/ammo/armour restored.
+    let st = await readState(page);
+    for (let i = 0; i < 12 && st.wanted > 0; i++) { await sleep(5000); st = await readState(page); }
+    if (st.wanted > 0) throw new Error(`wanted ${st.wanted} — cannot save`);
+    const savedMoney = st.money, savedP9 = st.ammo[1].reserve, savedArmour = st.armour, savedOutfit = st.side.outfit;
+    const savedCoins = st.side.coinsDone;
+    await page.keyboard.press('Escape');
+    await sleep(800);
+    await page.click('#pause-save');
+    await sleep(500);
+    st = await readState(page);
+    evidence.saved = { money: savedMoney, p9reserve: savedP9, armour: savedArmour, outfit: savedOutfit, coins: savedCoins, saveMsg: await page.evaluate(() => window.__game.state.saveMsg) };
+    await page.keyboard.press('Escape'); // resume
+    await sleep(500);
+    await page.goto(PAGE_URL, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.__gameReady, null, { timeout: 120000 });
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.__game && window.__game.state.mode === 'play' && window.__side, null, { timeout: 60000 });
+    await sleep(2000);
+    const fresh = await readState(page);
+    evidence.afterReload = { money: fresh.money, p9reserve: fresh.ammo[1].reserve, coins: fresh.side.coinsDone };
+    if (fresh.money === savedMoney) throw new Error(`after reload money ${fresh.money} == saved ${savedMoney} — reload did not reset (slot not loaded yet, unproven)`);
+    if (fresh.side.coinsDone !== savedCoins) throw new Error(`side store coins ${fresh.side.coinsDone} != ${savedCoins} after reload`);
+    await page.keyboard.press('Escape');
+    await sleep(800);
+    await page.click('#pause-load');
+    await sleep(800);
+    const loaded = await readState(page);
+    evidence.afterLoad = { money: loaded.money, p9reserve: loaded.ammo[1].reserve, armour: loaded.armour, outfit: loaded.side.outfit };
+    if (loaded.money !== savedMoney) throw new Error(`after load money ${loaded.money} != saved ${savedMoney}`);
+    if (loaded.ammo[1].reserve !== savedP9) throw new Error(`after load P9 reserve ${loaded.ammo[1].reserve} != saved ${savedP9}`);
+    if (loaded.armour !== savedArmour) throw new Error(`after load armour ${loaded.armour} != saved ${savedArmour}`);
+    if (loaded.side.outfit !== savedOutfit) throw new Error(`after load outfit ${loaded.side.outfit} != saved ${savedOutfit}`);
+    console.log('[shops-near] save/load OK');
+
+    if (errors.length) throw new Error('page errors: ' + errors.slice(0, 3).join(' | '));
+    const rec = { result: 'PASS', how: 'human-like', ms: Date.now() - started, evidence };
+    await saveResult(label, rec);
+    await ctx.close();
+    return rec;
+  } catch (e) {
+    const s = await readState(page).catch(() => null);
+    const rec = { result: 'FAIL', how: 'human-like', ms: Date.now() - started, error: String(e.message || e), evidence, state: s ? { money: s.money, onFoot: s.onFoot, px: s.px, pz: s.pz, cx: s.cx, cz: s.cz, mode: s.mode } : null, pageErrors: errors.slice(0, 5) };
+    await saveResult(label, rec);
+    await ctx.close();
+    return rec;
+  }
+}
+
 // --- Runner ---
-const TESTS = { shops: testShops };
+const TESTS = { shops: testShops, 'shops-near': testShopsNear };
 const selected = ONLY ? [ONLY] : Object.keys(TESTS);
 let allPass = true;
 for (const label of selected) {

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T07:21:35.469Z",
+  "generated": "2026-11-22T07:44:09.385Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -36,6 +36,57 @@
         "pz": -9.698210321582987,
         "cx": 10.62741644841401,
         "cz": -34.75345442326139,
+        "mode": "play"
+      },
+      "pageErrors": []
+    },
+    "shops-near": {
+      "result": "FAIL",
+      "how": "human-like",
+      "ms": 224107,
+      "error": "walk to shop door (29,29) failed, 3.2u short",
+      "evidence": {
+        "start": {
+          "money": 1500,
+          "armour": 60,
+          "health": 100,
+          "fuel": 100,
+          "damage": 0,
+          "p9reserve": 48,
+          "rank": "DECKHAND",
+          "outfit": "street"
+        },
+        "damageBeforeRepair": 9.25677720074258,
+        "repair": {
+          "moneyBefore": 1550,
+          "moneyAfter": 1400,
+          "damageBefore": 15.95586606001037,
+          "damageAfter": 0
+        },
+        "fuel": {
+          "fuelBefore": 99.7127042111112,
+          "fuelAfter": 100,
+          "moneyBefore": 1400,
+          "moneyAfter": 1320
+        },
+        "tamburoLocked": {
+          "disabled": true,
+          "text": "LOCKED"
+        },
+        "ammoP9": {
+          "moneyBefore": 1320,
+          "moneyAfter": 1200,
+          "reserveBefore": 48,
+          "reserveAfter": 72
+        }
+      },
+      "state": {
+        "money": 1250,
+        "onFoot": true,
+        "px": 29.677973782949724,
+        "pz": 32.148549644468886,
+        "cx": -6.356831713762488,
+        "cz": 21.020935451305554,
         "mode": "play"
       },
       "pageErrors": []
