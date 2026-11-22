@@ -612,8 +612,7 @@ async function renderMap() {
   const heading = game.state.onFoot ? game.player.angle : game.car.angle;
   let svg = `<svg viewBox="0 0 ${MAP.w} ${MAP.h}" class="map-svg" role="img" aria-label="Map of Porto Azzura">
     <rect width="${MAP.w}" height="${MAP.h}" fill="#d8cbb2"/>
-    <rect x="0" y="${mapY(14.5)}" width="${MAP.w}" height="${MAP.h - mapY(14.5)}" fill="#5fa8b5"/>
-    <text x="${MAP.w - 10}" y="${MAP.h - 12}" font-size="12" font-weight="800" fill="#e9f4f6" text-anchor="end">THE BAY</text>`;
+    <rect x="0" y="${mapY(14.5)}" width="${MAP.w}" height="${MAP.h - mapY(14.5)}" fill="#5fa8b5"/>`;
   for (const b of blocks) {
     if (b.kind === 'park') svg += `<rect x="${mapX(b.x0)}" y="${mapY(b.z0)}" width="${mapX(b.x1) - mapX(b.x0)}" height="${mapY(b.z1) - mapY(b.z0)}" fill="#7a8b5a" opacity="0.7"/>`;
     else if (b.kind === 'plaza') svg += `<rect x="${mapX(b.x0)}" y="${mapY(b.z0)}" width="${mapX(b.x1) - mapX(b.x0)}" height="${mapY(b.z1) - mapY(b.z0)}" fill="#e8a33d" opacity="0.45"/>`;
@@ -656,6 +655,9 @@ async function renderMap() {
     svg += `<circle cx="${mapX(a.x + (c.dx || 0))}" cy="${mapY(a.z + (c.dz || 0))}" r="3" fill="#f2d27a" stroke="#1e2a32" stroke-width="0.8"/>`;
   }
   for (const s of spots) svg += markerSvg(s.kind, mapX(s.x), mapY(s.z), s.label, s.wp);
+  // THE BAY label: top-centre of the bay, painted AFTER the markers so
+  // no marker can cover it (was bottom-right, hidden behind a jump marker).
+  svg += `<text x="${MAP.w / 2}" y="${mapY(17)}" font-size="12" font-weight="800" fill="#e9f4f6" text-anchor="middle">THE BAY</text>`;
   // Waypoint + player.
   if (waypoint) {
     svg += `<g><polygon points="${mapX(waypoint.x)},${mapY(waypoint.z) - 11} ${mapX(waypoint.x) + 9},${mapY(waypoint.z)} ${mapX(waypoint.x)},${mapY(waypoint.z) + 11} ${mapX(waypoint.x) - 9},${mapY(waypoint.z)}" fill="none" stroke="#f2a541" stroke-width="2.5"/></g>`;
