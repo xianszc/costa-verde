@@ -199,8 +199,6 @@ if (params.get('hud') === '0') document.body.classList.add('hud0');
 // Auto-pause when the tab hides mid-game (never run unseen).
 // AUDIT m-32: through setPaused() — the old code set the mode +
 // overlay by hand and left the hub open over the pause menu.
-// TEMP DIAGNOSTIC (revert after the pause hunt): log every transition.
 document.addEventListener('visibilitychange', () => {
-  console.error('[vis-trace] visibilitychange hidden=' + document.hidden + ' mode=' + game.state.mode);
   if (document.hidden && game.state.mode === 'play') game.setPaused(true);
 });
