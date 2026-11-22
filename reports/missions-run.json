@@ -1,23 +1,17 @@
 {
-  "generated": "2026-11-22T19:39:41.246Z",
+  "generated": "2026-11-22T19:44:13.448Z",
   "commit": "unknown",
   "missions": {
     "M1": {
       "mission": "M1",
-      "result": "PASS",
+      "result": "FAIL",
       "attempts": 2,
-      "fails": 1,
-      "maxStage": 2,
-      "ms": 187356,
-      "money": 2810,
-      "xp": 2578.6838235380355,
-      "stages": {
-        "0": "RECON: reached by driving (human-like)",
-        "1": "STEAL: drive 0.0u + walk 0.0u (human-like)",
-        "2": "ESCAPE: drive + walk final leg (human-like)"
-      },
+      "fails": 2,
+      "maxStage": 0,
+      "ms": 26844,
+      "stages": {},
+      "abortReason": "cannot board car (player-car 3.4u)",
       "errors": 0,
-      "how": "human-like",
       "commit": "unknown"
     },
     "M3": {
