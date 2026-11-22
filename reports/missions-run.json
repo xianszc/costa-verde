@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T19:44:13.448Z",
+  "generated": "2026-11-22T19:47:53.787Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -64,16 +64,20 @@
     },
     "M7": {
       "mission": "M7",
-      "result": "FAIL",
-      "attempts": 2,
-      "fails": 2,
-      "maxStage": 1,
-      "ms": 14870,
+      "result": "PASS",
+      "attempts": 1,
+      "fails": 0,
+      "maxStage": 2,
+      "ms": 186087,
+      "money": 5150,
+      "xp": 3172.3269661695977,
       "stages": {
-        "0": "CROSS: reached by driving (human-like)"
+        "0": "CROSS: reached by driving (human-like)",
+        "1": "SCAN: drive 0.0u + walk 0.0u (human-like)",
+        "2": "RETURN: reached by driving (human-like)"
       },
-      "abortReason": "cannot board car (player-car 21.2u)",
       "errors": 0,
+      "how": "human-like",
       "commit": "unknown"
     },
     "M8": {
