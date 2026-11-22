@@ -931,8 +931,10 @@ async function testShopsNear() {
     console.log('[shops-near] weapons OK: P9 ammo bought, Tamburo locked');
 
     // 3. Clothes (Sartoria Azzura, promenade door (29,29)): player
-    // starts 2.5u east of the door on the walkway, walks west in.
-    await placePlayer(page, 31.5, 29, Math.PI);
+    // starts 2.5u WEST of the door on the open walkway, walks east
+    // in. (Run 3: the east start (31.5,29) is blocked — the player
+    // slid south along the casino face to (29.7,32.2), 3.2u short.)
+    await placePlayer(page, 26.5, 29, 0);
     await walkToShopAtDoor(page, 29, 29, 'Sartoria');
     const outfit = await clickBuy(page, 'outfit-harbour');
     evidence.outfit = { moneyBefore: outfit.before.money, moneyAfter: outfit.after.money, outfitBefore: outfit.before.side.outfit, outfitAfter: outfit.after.side.outfit };
