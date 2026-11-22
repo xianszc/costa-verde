@@ -122,11 +122,30 @@ export const ROAD_Y = 0.2;
 
 // Side glass panels for a cabin block: two thin dark panes on the body
 // sides, so the cabin reads as windows instead of a solid slab.
-function sideGlass(g, x, y, len, halfWidth) {
-  // 2b draw-call cut: both side panes in one merged mesh.
-  const mat = new THREE.MeshStandardMaterial({ color: 0x1a2e40, roughness: 0.15, metalness: 0.3 });
-  const geos = [-1, 1].map((s) => xform(new THREE.BoxGeometry(len, 0.32, 0.04), x, y, s * (halfWidth + 0.01)));
-  g.add(mergedMesh(geos, mat));
+// Item 4 perf: the panes are vertex-colored geometries baked into the
+// body mesh (one mesh per car instead of a separate glossy one) — they
+// keep their exact dark blue-grey color, only the specular sheen goes
+// away; at traffic distances the sheen is invisible.
+function sideGlassGeos(x, y, len, halfWidth) {
+  return [-1, 1].map((s) => colored(xform(new THREE.BoxGeometry(len, 0.32, 0.04), x, y, s * (halfWidth + 0.01)), 0x1a2e40));
+}
+
+// Bake the two REAR brake discs (+calipers) into the body geometry.
+// Rear wheels never steer (updateWheelRig passes 0 steer for the rear)
+// and the discs never spin, so their transform relative to the car is
+// fixed — except the ±0.02 suspension bob, which the baked discs no
+// longer follow (a ≤3px offset at close range, invisible in practice).
+// Front discs stay as separate meshes: their axis follows the steering.
+function bakeRearDiscs(g, rigs, parts) {
+  g.updateMatrixWorld(true);
+  for (const rig of [rigs[2], rigs[3]]) {
+    const sm = rig.userData.staticMesh;
+    if (!sm) continue;
+    const geo = sm.geometry.clone();
+    geo.applyMatrix4(sm.matrixWorld);
+    parts.push(geo);
+    rig.userData.axle.remove(sm);
+  }
 }
 
 // Rectangular headlamp: a slim emissive box, not a white sphere.
@@ -162,6 +181,13 @@ export function buildStella() {
     colored(xform(new THREE.BoxGeometry(0.5, 0.3, 1.7), -2.1, 0.6, 0), 0xc0392b),
     ...archParts(wheelPos.map(([x, z, rr]) => [x, z, rr]), 0.95),
   ];
+  // Side windows + rear window baked into the body (item 4 perf).
+  body.push(...sideGlassGeos(-0.2, 1.0, 1.5, 0.85));
+  body.push(colored(xform(new THREE.BoxGeometry(0.06, 0.42, 1.4), -1.52, 1.0, 0), 0x1a2e40));
+  // Wheels first: the rear brake discs bake into the body below.
+  // (mountWheels adds the spinning rigs + the contact shadow.)
+  const { rigs } = mountWheels(g, wheelPos, 0.95);
+  bakeRearDiscs(g, rigs, body);
   g.add(mergedMesh(body, vertexColorMat));
   // Windshield: kept INSIDE the roofline (cabin top is y 1.20) — short
   // pane, slight rake, top edge at ~1.19. No transparent fin above it.
@@ -172,36 +198,28 @@ export function buildStella() {
   glass.position.set(0.8, 0.98, 0);
   glass.rotation.z = -0.25;
   g.add(glass);
-  // Side windows on the cabin block.
-  sideGlass(g, -0.2, 1.0, 1.5, 0.85);
+  // Side windows on the cabin block (baked into the body above, item 4).
   // Rectangular headlamps + taillights (2b draw-call cut: each pair in
   // one merged mesh instead of two).
   const headMat = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 });
   g.add(mergedMesh([-0.6, 0.6].map((s) => xform(new THREE.BoxGeometry(0.1, 0.16, 0.36), 2.22, 0.62, s)), headMat));
   const tailMat = new THREE.MeshStandardMaterial({ color: 0xc0392b, emissive: 0xff2a2a, emissiveIntensity: 0.5 });
   g.add(mergedMesh([-0.6, 0.6].map((s) => xform(new THREE.BoxGeometry(0.08, 0.16, 0.3), -2.22, 0.62, s)), tailMat));
-  // Rear window + chrome rear bumper so the car reads from behind.
-  const rearWindow = new THREE.Mesh(
-    new THREE.BoxGeometry(0.06, 0.42, 1.4),
-    new THREE.MeshStandardMaterial({ color: 0x1a2e40, roughness: 0.15, metalness: 0.3 }),
-  );
-  rearWindow.position.set(-1.52, 1.0, 0);
+  // Rear window baked into the body above (item 4 perf; same dark glass
+  // as the side windows) + chrome rear bumper so the car reads from behind.
   const bumper = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, 0.14, 1.9),
     new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.3, metalness: 0.7 }),
   );
   bumper.position.set(-2.24, 0.35, 0);
-  g.add(rearWindow, bumper);
-  // Wheels: flush with the body side (half-width 0.95, tyre width 0.30
-  // → center at ±0.805, outer face at 0.955) — arches already merged
-  // into the body above; mountWheels adds the spinning rigs.
-  mountWheels(g, wheelPos, 0.95);
+  g.add(bumper);
+  // Wheels already mounted above (mountWheels adds the spinning rigs).
   g.userData.headMat = headMat;
   g.userData.tailMat = tailMat;
   return g;
 }
 
-export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null) {
+export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null, extras = {}) {
   const g = new THREE.Group();
   g.name = 'traffic-' + kind;
   const specName = wheelSpec || (kind === 'pickup' ? 'pickup' : kind === 'van' ? 'van' : 'sedan');
@@ -235,16 +253,22 @@ export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null) {
     parts.push(colored(xform(new THREE.BoxGeometry(1.9, 0.4, 1.4), -0.2, 0.95, 0), 0x2e4a5e));
   }
   parts.push(...archParts(wheelPos.map(([x, z, rr]) => [x, z, rr]), halfWidth));
+  // Side windows baked into the body (item 4 perf).
+  if (kind === 'van') parts.push(...sideGlassGeos(1.6, 1.05, 0.9, 0.85));
+  else if (kind === 'pickup') parts.push(...sideGlassGeos(1.2, 1.15, 1.1, 0.85));
+  else parts.push(...sideGlassGeos(-0.2, 1.05, 1.5, 0.8));
+  // Police side stripe baked into the body (item 4 perf).
+  if (extras.stripe) {
+    for (const s of [-1, 1]) parts.push(colored(xform(new THREE.BoxGeometry(2.2, 0.16, 0.02), 0.3, 0.55, s * 0.928), extras.stripe));
+  }
+  // Wheels first: the rear brake discs bake into the body below.
+  const { rigs } = mountWheels(g, wheelPos, halfWidth);
+  bakeRearDiscs(g, rigs, parts);
   g.add(mergedMesh(parts, vertexColorMat));
-  // Side windows on the cabin.
-  if (kind === 'van') sideGlass(g, 1.6, 1.05, 0.9, 0.85);
-  else if (kind === 'pickup') sideGlass(g, 1.2, 1.15, 1.1, 0.85);
-  else sideGlass(g, -0.2, 1.05, 1.5, 0.8);
   // Rectangular headlamps (no white round eyes). 2b draw-call cut:
   // both lamps in one merged mesh.
   const headMat = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 });
   g.add(mergedMesh([-0.55, 0.55].map((s) => xform(new THREE.BoxGeometry(0.1, 0.15, 0.32), 2.1, 0.6, s)), headMat));
-  mountWheels(g, wheelPos, halfWidth);
   g.userData.headMat = headMat;
   return g;
 }
@@ -253,15 +277,10 @@ export function buildPoliceCruiser() {
   // Gabbiano Harbor Guard cruiser: navy + white side stripe, light bar.
   // Police wheels use the spoked steel spec like the other cars (the
   // plain dished discs read as flat grey circles). No floating white
-  // board on the side — a thin white stripe, flush with the body.
-  const g = buildTrafficCar(0x16324f, 'sedan', 'sedan');
+  // board on the side — a thin white stripe, flush with the body
+  // (baked into the body mesh, item 4 perf).
+  const g = buildTrafficCar(0x16324f, 'sedan', 'sedan', { stripe: 0xf4f1ea });
   g.name = 'police-cruiser';
-  const stripeMat = M(0xf4f1ea);
-  for (const s of [-1, 1]) {
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.16, 0.02), stripeMat);
-    stripe.position.set(0.3, 0.55, s * 0.928);
-    g.add(stripe);
-  }
   const bar = new THREE.Mesh(
     new THREE.BoxGeometry(0.9, 0.14, 0.3),
     new THREE.MeshStandardMaterial({ color: 0xff2a2a, emissive: 0xff2a2a, emissiveIntensity: 1.4 }),

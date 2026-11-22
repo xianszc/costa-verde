@@ -173,6 +173,7 @@ export function buildWheelRig(specName) {
   axle.add(staticMesh);
   pivot.userData.spin = spin;
   pivot.userData.axle = axle;
+  pivot.userData.staticMesh = staticMesh; // brake disc + caliper (never spins; rear ones may be baked into the car body)
   return pivot;
 }
 
