@@ -403,28 +403,21 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
     } else {
       console.log(`[routeDrive] RE-PLAN ${plan} to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
     }
-    // DRIVER fix (M10 run 10, 22 Nov ~10:35): LANE OFFSET per re-plan.
-    // The boulevard median nose at (-34.7,0) blocked the westbound
-    // leg THREE times in a row in run 10: the car steers to the
-    // centreline waypoint z=0, its body (half-width ~0.5u) scrapes
-    // the median nose (z ±0.65), and the sidestep fires it off the
-    // road (once to (-33.9,10.4)). A human who hits an obstacle
-    // tries a different line. Plan 0 drives the centreline; plan 1
-    // offsets every waypoint +1.5u to one side of the leg, plan 2
-    // -1.5u to the other side, plan 3 +1.5u again. The last waypoint
-    // (the target) is never offset.
-    const latOff = [0, 1.5, -1.5, 1.5][plan];
-    const eff = thin.map((wp, i) => {
-      if (latOff === 0 || i === thin.length - 1) return wp;
-      const prev = i === 0 ? { x: c.x, z: c.z } : thin[i - 1];
-      const dx = wp.x - prev.x, dz = wp.z - prev.z;
-      const len = Math.hypot(dx, dz) || 1;
-      return { x: wp.x + (-dz / len) * latOff, z: wp.z + (dx / len) * latOff };
-    });
-    if (latOff !== 0) console.log(`[routeDrive] plan ${plan} lane offset ${latOff}u: ` + eff.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
+    // NOTE (M10 run 11, 22 Nov ~10:50): a lane offset per re-plan was
+    // tried here and REVERTED — it made things worse. The offset
+    // pushed the N-S waypoints to x=-55.5 on the w=2 old-town street,
+    // INSIDE the west house face (x=-55.1), and the first waypoint of
+    // a re-plan (computed from an off-road car position) sent the car
+    // south into the CBD blocks; run 11 never got west of x=-30.
+    // A lane offset is only safe when clamped to the road half-width
+    // minus the car half-width (1.5u clears the median nose but the
+    // w=2 streets tolerate at most 0.4u) — the graph does not carry
+    // per-waypoint widths, so the offset stays OFF until that lands.
+    // Re-plans run the centreline (runs 8-10 got the car to
+    // (-54.6,-19.1), 21u from the plaza — the furthest so far).
     let failed = false;
     for (let wi = 0; wi < thin.length; wi++) {
-      const wp = eff[wi];
+      const wp = thin[wi];
       // DRIVER fix (M10 run 9, 22 Nov ~10:15): arrival radius by TURN
       // ANGLE, not one radius for all. Run 8's flat 4u backfired on
       // STRAIGHT legs: the car "arrived" at (-54,-16) while still at
