@@ -127,7 +127,17 @@ function pointToSegDist(x, z, s) {
   t = Math.max(0, Math.min(1, t));
   return Math.hypot(x - (s.x1 + dx * t), z - (s.z1 + dz * t));
 }
-const pointOnRoad = (x, z) => raw.minimap.some((s) => pointToSegDist(x, z, s) <= (s.w || 7) / 2);
+// Pedestrian-only areas: paths inside these rects are NOT on a road,
+// even when a minimap segment runs underneath (the old-town plaza is a
+// pedestrian island with a fountain in the middle of the main street;
+// the segment passes under it). Alleys are NOT excluded: they are
+// minimap roads (w 2) with no sidewalk strip, so a path down an alley
+// centre is genuinely on the road and stays flagged.
+const PEDESTRIAN_AREAS = [
+  { x0: -52, z0: -43, x1: -42, z1: -35 }, // old-town plaza (fountain)
+];
+const inPedArea = (x, z) => PEDESTRIAN_AREAS.some((r) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1);
+const pointOnRoad = (x, z) => !inPedArea(x, z) && raw.minimap.some((s) => pointToSegDist(x, z, s) <= (s.w || 7) / 2);
 // SAT: AABB (centre a, half-extents ahx/ahz) vs OBB (centre c, half-extents
 // hu along unit u, hv along unit v). Axes: x, z, u, v. Returns the
 // minimum penetration depth (>0 when overlapping), else 0.

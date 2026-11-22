@@ -472,9 +472,14 @@ export function buildOldTown() {
     { name: 'oldtown-plaza', pts: loopPath(-51, -42, -43, -36, 2), speed: 5 },
   ];
   const pedPaths = [
-    // EW path on the ring avenue's SOUTH sidewalk (z -37.5, centre of
-    // the -38.5..-36.5 strip) — the old z -43.5 line ran mid-avenue.
-    { a: { x: -70, z: -37.5 }, b: { x: -36, z: -37.5 } },
+    // EW path on the ring avenue / old-town corridor's SOUTH sidewalk
+    // (z -34.5, centre of the -35.5..-33.5 strip — the corridor's ONLY
+    // real sidewalk). The old z -37.5 line ran on the main street
+    // (road z -42.5..-35.5); the first fix moved it to z -43.5, but
+    // that is ON the ring avenue (road z -45.5..-38.5) — the audit
+    // still flagged it at 0.85. Same line as the path below; the pool
+    // keeps both so peds distribute along the one real sidewalk.
+    { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
     { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
     { a: { x: -67.5, z: -50 }, b: { x: -67.5, z: -28 } },
     { a: { x: -57.5, z: -50 }, b: { x: -57.5, z: -28 } },

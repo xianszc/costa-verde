@@ -955,11 +955,17 @@ export function buildRoadShowcase() {
   g.add(sw);
   const road = mergedMesh(parts, roadMat);
   g.add(road);
-  // Markings: dashed center, yellow edges, ONE narrow zebra (3 stripes)
-  // at the single cross street, worn and patchy.
+  // Markings: dashed center, yellow edges, ONE zebra at the single
+  // cross street. Registry standard (markings.js): bars 2.0 long
+  // parallel to traffic, spaced 0.7 across the road width. The old
+  // zebra was 5 bars of BoxGeometry(0.3, 0.01, 1.8) spaced 1.6 in z —
+  // bars perpendicular to traffic, overlapping into one solid band.
   const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.62 });
   const dashes = [];
-  for (let x = -20; x <= 20; x += 5) dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, 0), 0xffffff));
+  for (let x = -20; x <= 20; x += 5) {
+    if (x === -15) continue; // would land on the zebra band (x -17..-15)
+    dashes.push(colored(xform(new THREE.BoxGeometry(3, 0.01, 0.22), x, 0.22, 0), 0xffffff));
+  }
   g.add(mergedMesh(dashes, dashMat));
   const yellowMat = new THREE.MeshBasicMaterial({ color: 0xe8c33d, transparent: true, opacity: 0.5 });
   const edges = [
@@ -969,8 +975,8 @@ export function buildRoadShowcase() {
   g.add(mergedMesh(edges, yellowMat));
   const zebraMat = new THREE.MeshBasicMaterial({ color: 0xf7ebd7, transparent: true, opacity: 0.5 });
   const zebras = [];
-  for (let dz = -3.2; dz <= 3.2; dz += 1.6) {
-    zebras.push(colored(xform(new THREE.BoxGeometry(0.3, 0.01, 1.8), -16, 0.22, dz), 0xffffff));
+  for (let dz = -4.9; dz <= 4.9; dz += 0.7) {
+    zebras.push(colored(xform(new THREE.BoxGeometry(2.0, 0.01, 0.5), -16, 0.22, dz), 0xffffff));
   }
   g.add(mergedMesh(zebras, zebraMat));
   // Marina boardwalk strip by the water (hairline gaps, 6 wide planks),
