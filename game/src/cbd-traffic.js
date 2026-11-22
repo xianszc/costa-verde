@@ -160,7 +160,11 @@ export function placeCbdCar(car, axis, index, dir, lane, seg, s = 0) {
   car.z = p.z;
   car.angle = HEADING[axis][dir];
   car.mesh.position.set(car.x, ROAD_Y, car.z);
-  car.mesh.rotation.y = car.angle + Math.PI / 2;
+  // AUDIT M-1: NO +PI/2 — the traffic-car model is long on X (body
+  // 4.2 x 1.9), so rotation.y = angle already points it along its
+  // heading (cos a, -sin a), like the hero car and the ring traffic.
+  // The old +PI/2 turned every CBD car 90 deg sideways to its lane.
+  car.mesh.rotation.y = car.angle;
 }
 
 // Spawn the CBD traffic: defs = [{ axis:'NS'|'EW', index, dir, lane,
@@ -296,7 +300,8 @@ export function stepCbdTraffic(cars, dt, obstacles = []) {
       }
     }
     c.mesh.position.set(c.x, ROAD_Y, c.z);
-    c.mesh.rotation.y = c.angle + Math.PI / 2;
+    // AUDIT M-1: same fix as the spawn above — no +PI/2 (see comment).
+    c.mesh.rotation.y = c.angle;
     updateCarWheels(c, dt, c.speed);
   }
 }
