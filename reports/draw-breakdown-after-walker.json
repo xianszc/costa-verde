@@ -1,0 +1,248 @@
+{
+  "city": {
+    "totalMeshes": 1005,
+    "renderCalls": 970,
+    "renderTris": 692065,
+    "top": [
+      {
+        "label": "walker :: MeshStandardMaterial",
+        "meshes": 238,
+        "tris": 21352
+      },
+      {
+        "label": "traffic-sedan :: MeshStandardMaterial",
+        "meshes": 132,
+        "tris": 56784
+      },
+      {
+        "label": "figure :: MeshStandardMaterial",
+        "meshes": 107,
+        "tris": 7152
+      },
+      {
+        "label": "traffic-van :: MeshStandardMaterial",
+        "meshes": 66,
+        "tris": 28320
+      },
+      {
+        "label": "traffic-pickup :: MeshStandardMaterial",
+        "meshes": 55,
+        "tris": 23600
+      },
+      {
+        "label": "unnamed :: MeshBasicMaterial",
+        "meshes": 53,
+        "tris": 5548
+      },
+      {
+        "label": "promenade :: MeshStandardMaterial",
+        "meshes": 49,
+        "tris": 17444
+      },
+      {
+        "label": "oldTown :: MeshStandardMaterial",
+        "meshes": 34,
+        "tris": 17522
+      },
+      {
+        "label": "police-cruiser :: MeshStandardMaterial",
+        "meshes": 30,
+        "tris": 9560
+      },
+      {
+        "label": "unnamed :: MeshStandardMaterial",
+        "meshes": 28,
+        "tris": 256
+      },
+      {
+        "label": "commercialRing :: MeshStandardMaterial",
+        "meshes": 20,
+        "tris": 240
+      },
+      {
+        "label": "district4 :: MeshStandardMaterial",
+        "meshes": 15,
+        "tris": 2786
+      },
+      {
+        "label": "promenade :: MeshBasicMaterial",
+        "meshes": 15,
+        "tris": 93
+      },
+      {
+        "label": "stella :: MeshStandardMaterial",
+        "meshes": 15,
+        "tris": 4960
+      },
+      {
+        "label": "traffic-sedan :: MeshBasicMaterial",
+        "meshes": 12,
+        "tris": 24
+      }
+    ]
+  },
+  "promenade": {
+    "totalMeshes": 1005,
+    "renderCalls": 816,
+    "renderTris": 650403,
+    "top": [
+      {
+        "label": "walker :: MeshStandardMaterial",
+        "meshes": 238,
+        "tris": 21352
+      },
+      {
+        "label": "traffic-sedan :: MeshStandardMaterial",
+        "meshes": 132,
+        "tris": 56784
+      },
+      {
+        "label": "figure :: MeshStandardMaterial",
+        "meshes": 107,
+        "tris": 7152
+      },
+      {
+        "label": "traffic-van :: MeshStandardMaterial",
+        "meshes": 66,
+        "tris": 28320
+      },
+      {
+        "label": "traffic-pickup :: MeshStandardMaterial",
+        "meshes": 55,
+        "tris": 23600
+      },
+      {
+        "label": "unnamed :: MeshBasicMaterial",
+        "meshes": 53,
+        "tris": 5548
+      },
+      {
+        "label": "promenade :: MeshStandardMaterial",
+        "meshes": 49,
+        "tris": 17444
+      },
+      {
+        "label": "oldTown :: MeshStandardMaterial",
+        "meshes": 34,
+        "tris": 17522
+      },
+      {
+        "label": "police-cruiser :: MeshStandardMaterial",
+        "meshes": 30,
+        "tris": 9560
+      },
+      {
+        "label": "unnamed :: MeshStandardMaterial",
+        "meshes": 28,
+        "tris": 256
+      },
+      {
+        "label": "commercialRing :: MeshStandardMaterial",
+        "meshes": 20,
+        "tris": 240
+      },
+      {
+        "label": "district4 :: MeshStandardMaterial",
+        "meshes": 15,
+        "tris": 2786
+      },
+      {
+        "label": "promenade :: MeshBasicMaterial",
+        "meshes": 15,
+        "tris": 93
+      },
+      {
+        "label": "stella :: MeshStandardMaterial",
+        "meshes": 15,
+        "tris": 4960
+      },
+      {
+        "label": "traffic-sedan :: MeshBasicMaterial",
+        "meshes": 12,
+        "tris": 24
+      }
+    ]
+  },
+  "avenue": {
+    "totalMeshes": 1005,
+    "renderCalls": 792,
+    "renderTris": 634723,
+    "top": [
+      {
+        "label": "walker :: MeshStandardMaterial",
+        "meshes": 238,
+        "tris": 21352
+      },
+      {
+        "label": "traffic-sedan :: MeshStandardMaterial",
+        "meshes": 132,
+        "tris": 56784
+      },
+      {
+        "label": "figure :: MeshStandardMaterial",
+        "meshes": 107,
+        "tris": 7152
+      },
+      {
+        "label": "traffic-van :: MeshStandardMaterial",
+        "meshes": 66,
+        "tris": 28320
+      },
+      {
+        "label": "traffic-pickup :: MeshStandardMaterial",
+        "meshes": 55,
+        "tris": 23600
+      },
+      {
+        "label": "unnamed :: MeshBasicMaterial",
+        "meshes": 53,
+        "tris": 5548
+      },
+      {
+        "label": "promenade :: MeshStandardMaterial",
+        "meshes": 49,
+        "tris": 17444
+      },
+      {
+        "label": "oldTown :: MeshStandardMaterial",
+        "meshes": 34,
+        "tris": 17522
+      },
+      {
+        "label": "police-cruiser :: MeshStandardMaterial",
+        "meshes": 30,
+        "tris": 9560
+      },
+      {
+        "label": "unnamed :: MeshStandardMaterial",
+        "meshes": 28,
+        "tris": 256
+      },
+      {
+        "label": "commercialRing :: MeshStandardMaterial",
+        "meshes": 20,
+        "tris": 240
+      },
+      {
+        "label": "district4 :: MeshStandardMaterial",
+        "meshes": 15,
+        "tris": 2786
+      },
+      {
+        "label": "promenade :: MeshBasicMaterial",
+        "meshes": 15,
+        "tris": 93
+      },
+      {
+        "label": "stella :: MeshStandardMaterial",
+        "meshes": 15,
+        "tris": 4960
+      },
+      {
+        "label": "traffic-sedan :: MeshBasicMaterial",
+        "meshes": 12,
+        "tris": 24
+      }
+    ]
+  }
+}

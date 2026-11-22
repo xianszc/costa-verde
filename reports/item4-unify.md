@@ -49,15 +49,36 @@ No missing buildings, no white/black patches, no color shift
 (differences are JPEG artifacts + moved traffic cars only).
 After-shot saved as `cbd-shots/ortho-whole-city-after-unify.jpg`.
 
-## Status
+## Slice 2 — walker torso+head merge (GAME, same run)
 
-- City 970 (target <600, still −370), promenade 816 in the
-  breakdown view / 707 in the perf view (target <450). The unify
-  cut 60 — the remaining big chunks are walkers 238, traffic 283,
-  figures 107, unnamed 81 (53 basic + 28 standard, unidentified).
-- Next slices (for the next builder): walker torso+head merge
-  (~68 calls; verify head never animates independently), traffic
-  body+glass merge (~23) + static wheel merge (~69, loses 2 cm
-  per-wheel brake-disc bounce), identify + merge the unnamed 81.
+`makeWalker` (game/src/people.js): torso box + head sphere + hair cap
+baked into ONE vertex-colored mesh (7 → 5 meshes per walker). Safe:
+`animateWalk` only swings legs + arms; the torso/head groups never
+move relative to the root; `findLimbs` only scans Group children, so
+the merged Mesh child is invisible to it. Same geometries, colors and
+root-space positions. (Two bugs caught while editing: `shoulderY` was
+used before its `const` declaration — moved above; the old head group
+was still added — deleted.)
+
+Measured (`/tmp/draw-breakdown.json` re-run): walker meshes 238 →
+170 (−68), total meshes 1,005 → 937, city calls 970 → 903 (−67),
+tris 692,065 → 692,101 (+36, 0.005% — probe counting artifact on the
+partial-sphere hair cap; geometry is the same three primitives).
+Avenue view 326 → 299 calls, 0 errors.
+
+Visual verification: avenue midday, new code
+(`/tmp/proof-avenue-after-walker.png`) vs committed
+`cbd-shots/avenue-midday-item4.jpg`: IDENTICAL — same 3 peds
+crossing (pink dress, white shirt, teal), same towers/zebra/van/HUD.
+After-shot saved as `cbd-shots/avenue-after-walker-merge.jpg`.
+
+## Status (updated)
+
+- City 903 (target <600, still −303), promenade 816 in the
+  breakdown view / 707 in the perf view (target <450). Unify cut 60,
+  walker merge cut 68 — total −128 from 1,030.
+- Next slices (for the next builder): traffic body+glass merge (~23)
+  + static wheel merge (~69, loses 2 cm per-wheel brake-disc bounce),
+  identify + merge the unnamed 81 (53 basic + 28 standard).
   Still OPEN: 9 peds on asphalt, proof images 4/6 + 5/6, BUNDLE
   check level-36, screenshot candidates (§5b), regression ONCE.
