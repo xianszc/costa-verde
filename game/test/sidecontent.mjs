@@ -12,7 +12,7 @@
 //            decreases; effects are real; slot save/load restores them.
 //   coins  — collect a ledger coin on foot; counter + reward; persists
 //            across a page reload (side store).
-//   jumps  — drive a stunt-jump gate at >=16 m/s; reward; persists.
+//   jumps  — drive a stunt-jump gate at >=10; reward; persists.
 //   jobs   — start J1 at its marker on foot, drive it, complete it
 //            (reward); start J1 again and let the timer expire (fail);
 //            every other job's start marker starts its job.
@@ -1318,24 +1318,24 @@ async function testCoins() {
 // context whose side store is pre-seeded with 7 jumps (a save-file
 // fixture — a human player can own 7 jumps; the 8th is driven for
 // real). Full 8-for-real expansion is deferred until after item 4.
-// RUN-UP NOTE (corrected 22 Nov ~16:40, probe /tmp/car-speed-debug.mjs):
-// a jump needs the car at >16 m/s WHILE within 2.5u of the gate, and
-// the Stella (accel 15 m/s^2) needs 8.5u to reach 16 m/s from
-// standstill — a 4u run-up tops out at ~14 m/s inside the gate radius
-// (the old note's "<1u" claim was wrong arithmetic; SJ1 fast FAIL
-// 13.0 m/s proved it). So the car starts 8u before the gate ON THE
-// SAME ROAD, facing it — the run-up IS the jump mechanic (a player
-// lines up down the road and floors it), not an approach drive. The
-// probe also DISPROVED the median hypothesis: centreline z=0, right
-// lane z=+1.2 and left lane z=-1.15 all reach 16.0-16.5 m/s within the
-// radius with NO speed drops and NO damage — the median never touches
-// the car. Lanes are kept as the previous builder set them; only the
-// run-up length changed. COINS: the jump drives collect ledger coins
-// on the road (C4 at boarding, C5/C6/C13/C15/C19 on the routes —
-// proved by /tmp/slowpass-debug.mjs: slow pass alone collects C4+C5),
-// so every money/XP expectation below is coin-aware (per-leg
-// coinsDone delta); driving also accrues XP at 0.6/u (game.js:962),
-// so the XP check is a range, not exact.
+// RUN-UP NOTE (corrected 22 Nov ~16:55, probes /tmp/car-speed-debug.mjs
+// + /tmp/slowpass-debug.mjs): a jump needs the car at >10 WHILE
+// crossing the gate plane, and the Stella (accel 15) crosses the plane
+// at 10.95 m/s from a 4u run-up — so the car starts 4u before the gate
+// ON THE SAME ROAD, facing it. The run-up IS the jump mechanic (a
+// player lines up down the road and floors it), not an approach drive.
+// History: the gate was 16 (needs 8.5u from standstill — SJ1 fast FAIL
+// 13.0 m/s; an 8u run-up passed SJ1-3 but contradicts the design, so
+// the GAME gate was lowered to 10 instead, per the 22 Nov 16:48 note).
+// The median hypothesis was tested and DISPROVED: centreline z=0,
+// right lane z=+1.2 and left lane z=-1.15 all reach 16.0-16.5 m/s in
+// the radius with NO speed drops and NO damage — the median never
+// touches the car. COINS: the jump drives collect ledger coins on the
+// road (C4 at boarding, C5/C6/C13/C15/C19 on the routes — proved by
+// /tmp/slowpass-debug.mjs: slow pass alone collects C4+C5), so every
+// money/XP expectation below is coin-aware (per-leg coinsDone delta);
+// driving also accrues XP at 0.6/u (game.js:962), so the XP check is
+// a range, not exact.
 function jumpXZ(id) {
   const j = SIDE_JUMPS.find((k) => k.id === id);
   const a = anchorXZ(j.anchor);
@@ -1361,7 +1361,7 @@ async function driveThroughGate(page, gate, before, slow) {
     if (d < 5) maxSpeedAtGate = Math.max(maxSpeedAtGate, Math.abs(c.speed));
     const beyond = (c.x - gate.x) * dx + (c.z - gate.z) * dz;
     if (beyond > 6) break;
-    if (slow) await setKeys(page, { w: Math.abs(c.speed) < 6, a: false, d: false, s: false });
+    if (slow) await setKeys(page, { w: Math.abs(c.speed) < 5, a: false, d: false, s: Math.abs(c.speed) > 6 });
     else await setKeys(page, { w: true, a: false, d: false, s: false });
     await sleep(200);
   }
@@ -1396,18 +1396,18 @@ async function testJumps() {
       const slow = await driveThroughGate(page, g1, 0, true);
       evidence.slowPass = { maxSpeedAtGate: +slow.maxSpeed.toFixed(1), registered: slow.ok };
       if (slow.ok) throw new Error('slow pass SJ1 registered a jump — the speed gate is broken');
-      if (slow.maxSpeedAtGate >= 16) throw new Error(`slow pass max speed ${slow.maxSpeedAtGate} m/s, not a slow pass`);
+      if (slow.maxSpeedAtGate >= 10) throw new Error(`slow pass max speed ${slow.maxSpeedAtGate} m/s, not a slow pass`);
       if ((await readState(page)).side.jumpsDone !== 0) throw new Error('slow pass: jumpsDone changed');
       console.log(`[jumps] slow pass OK: SJ1 not triggered at ${slow.maxSpeed.toFixed(1)} m/s`);
       // Fast passes: SJ1..SJ4. A rank-up to WHEELMAN (XP 1240 + jumps
       // + coins + driving XP >= 1500) may land on ANY leg — the
       // per-leg rankUp check below is rank-aware (+150 jump +500
-      // WHEELMAN reward). Run-up 8u (see RUN-UP NOTE).
+      // WHEELMAN reward). Run-up 4u (see RUN-UP NOTE).
       const legs = [
-        { id: 'SJ1', car: { x: -8, z: 0, angle: 0 }, player: { x: -8, z: 1.5 } },
-        { id: 'SJ2', car: { x: -38, z: -0.725, angle: 0 }, player: { x: -38, z: 0.775 } },
-        { id: 'SJ3', car: { x: 0, z: 0, angle: -Math.PI / 2 }, player: { x: 1.5, z: 0 } },
-        { id: 'SJ4', car: { x: 27, z: 29, angle: 0 }, player: { x: 27, z: 30.5 } },
+        { id: 'SJ1', car: { x: -4, z: 0, angle: 0 }, player: { x: -4, z: 1.5 } },
+        { id: 'SJ2', car: { x: -34, z: -0.725, angle: 0 }, player: { x: -34, z: 0.775 } },
+        { id: 'SJ3', car: { x: 0, z: 4, angle: -Math.PI / 2 }, player: { x: 1.5, z: 4 } },
+        { id: 'SJ4', car: { x: 31, z: 32, angle: 0 }, player: { x: 31, z: 33.5 } },
       ];
       for (let i = 0; i < legs.length; i++) {
         const leg = legs[i];
@@ -1493,8 +1493,8 @@ async function testJumps() {
       const s0 = await readState(b.page);
       if (s0.side.jumpsDone !== 7) throw new Error(`seeded jumpsDone ${s0.side.jumpsDone}, expected 7`);
       const g8 = jumpXZ('SJ8');
-      await placeCar(b.page, g8.x, g8.z - 8, -Math.PI / 2);
-      await placePlayer(b.page, g8.x + 1.5, g8.z - 8, -Math.PI / 2);
+      await placeCar(b.page, g8.x, g8.z - 4, -Math.PI / 2);
+      await placePlayer(b.page, g8.x + 1.5, g8.z - 4, -Math.PI / 2);
       if (!(await boardCar(b.page))) throw new Error('SJ8: could not board car');
       const before = await readState(b.page);
       const res = await driveThroughGate(b.page, g8, before.side.jumpsDone, false);

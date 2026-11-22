@@ -23,7 +23,14 @@ import { xform, colored, mergedMesh } from './world.js';
 
 const STORE_KEY = 'azzura-side-v1';
 const ACTIVITIES = [...SIDE_JOBS, ...SIDE_RACES];
-const JUMP_SPEED = 16; // m/s (~58 km/h) to land a stunt jump
+const JUMP_SPEED = 10; // game speed units (~36 km/h) to land a stunt jump.
+// GAME fix (3c.4, 22 Nov ~16:55): was 16. From standstill the Stella
+// (accel 15) needs 8.5u to reach 16 — an 85 m run-up, longer than the
+// 4u the launch pads span — so the gate was unreachable from its own
+// run-up (SJ1 fast FAIL 13.0 m/s; probe /tmp/car-speed-debug.mjs).
+// At 10 the car crosses the gate plane at 10.95 m/s from a 4u run-up,
+// and the segment-crossing detection below makes that reliable at any
+// frame rate. The slow-pass negative (~6 m/s) still has margin.
 const COLLECT_R = 2; // metres to pick up a collectible
 
 function defaults() {
@@ -1006,7 +1013,7 @@ function loop(now) {
   } else if (beacon) {
     beacon.visible = false;
   }
-  // Stunt jumps: through a gate in the car at 58 km/h or more.
+  // Stunt jumps: through a gate in the car at 36 km/h or more.
   // GAME fix (3c.4, 22 Nov ~16:45): gate detection is SEGMENT
   // crossing, not point sampling. The side tick runs once per rAF
   // frame while the sim can step up to 0.5 game-seconds per frame
@@ -1017,7 +1024,8 @@ function loop(now) {
   // showed the car at 16.0-16.5 m/s inside the radius, and the
   // probe trace showed 7.6u jumps between samples). The crossing
   // test is direction-agnostic, like the old point test: any
-  // crossing of the gate plane within the ring radius at >16 m/s
+  // crossing of the gate plane within the ring radius at >10 (see
+  // JUMP_SPEED above).
   // counts. At 60 fps the car moves 0.27u per tick, so real play
   // is unchanged — this only stops legitimate passes being missed
   // at low frame rates.
