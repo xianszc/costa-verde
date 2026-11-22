@@ -860,6 +860,8 @@ export function createGame(container) {
   }
   function setPaused(on) {
     if (state.busted || state.wasted) return;
+    // TEMP DIAGNOSTIC (revert after the M1 pause hunt): log who pauses.
+    if (on) console.error('[pause-trace] setPaused(true) at ' + new Date().toISOString() + ' :: ' + new Error().stack.split('\n').slice(2, 7).join(' | '));
     state.mode = on ? 'paused' : 'play';
     const ov = document.getElementById('pause-overlay');
     if (ov) ov.style.display = on ? 'flex' : 'none';
