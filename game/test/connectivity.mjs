@@ -39,7 +39,14 @@ const { chromium } = require('playwright-core');
 const BASE = 'http://127.0.0.1:8941';
 const CHROMIUM = '/home/hatch/.cache/ms-playwright/chromium-1148/chrome-linux/chrome';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const CLUSTER_R = 4; // same endpoint-clustering radius as the drivers
+const CLUSTER_R = 3; // same endpoint-clustering radius as the drivers
+// (was 4: it merged the x -44 / z -26 corner (-44,-25) with the
+// -47.5 cross-street junction (-47.5,-26), 3.64u apart, into ONE node
+// — so the BFS routed diagonally across the block instead of around
+// the corner, and the M10 race car wedged (run 6). 3u still merges
+// the VIA DEL NORD / ring-avenue junction (2.8u apart) and the
+// (-44,-25)/(-45,-26) corner (1.41u), but keeps the two junctions
+// 3.5u apart distinct.
 const NEAR_MISS_R = 15;
 const CITY_SPEED = 7; // units/s game-time
 

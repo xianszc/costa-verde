@@ -590,7 +590,16 @@ async function buildRoadGraph(page) {
     const key = x + ',' + z;
     let ni = nodeOf.get(key);
     if (ni === undefined) {
-      ni = nodes.findIndex((n) => Math.hypot(n.x - x, n.z - z) < 4);
+      // Cluster radius 3u (was 4): a 4u radius merged the x -44 /
+      // z -26 corner (-44,-25) with the -47.5 cross-street junction
+      // (-47.5,-26), 3.64u apart, into ONE node — so the BFS routed
+      // diagonally across the block instead of around the corner,
+      // and the M10 race car wedged (run 6). 3u still merges the
+      // VIA DEL NORD / ring-avenue junction (2.8u) and the
+      // (-44,-25)/(-45,-26) corner (1.41u), but keeps the two
+      // junctions 3.5u apart distinct. Keep in sync with
+      // connectivity.mjs CLUSTER_R.
+      ni = nodes.findIndex((n) => Math.hypot(n.x - x, n.z - z) < 3);
       if (ni < 0) { nodes.push({ x, z, adj: new Set() }); ni = nodes.length - 1; }
       nodeOf.set(key, ni);
     }
