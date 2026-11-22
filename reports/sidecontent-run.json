@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T11:27:31.041Z",
+  "generated": "2026-11-22T11:56:08.712Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -119,7 +119,7 @@
     "coins": {
       "result": "PASS",
       "how": "human-like",
-      "ms": 216938,
+      "ms": 145485,
       "evidence": {
         "start": {
           "money": 1500,
@@ -137,7 +137,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 1/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 1/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -151,7 +151,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 2/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 2/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -165,12 +165,12 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 3/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 3/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
         "map": {
-          "foot": "No waypoint set. Click a marker or a name to set one.  ·  Jobs 0/9 · Races 0/4 · Jumps 0/8 · Coins 3/20",
+          "foot": "No waypoint set. Click a marker or a name to set one.  ·  Jobs 0/4 · Races 0/4 · Jumps 0/8 · Coins 3/20",
           "coinDots": 17
         },
         "C4": {
@@ -183,7 +183,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 4/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 4/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -197,7 +197,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 5/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 5/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -211,7 +211,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 6/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 6/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -225,7 +225,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 7/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 7/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -239,7 +239,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 8/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 8/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -253,7 +253,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 9/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 9/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -267,7 +267,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "DECKHAND",
           "hud": {
-            "text": "COINS 10/20 · JUMPS 0/8 · JOBS 0/9 · DECKHAND",
+            "text": "COINS 10/20 · JUMPS 0/8 · JOBS 0/4 · DECKHAND",
             "display": "block"
           }
         },
@@ -281,7 +281,7 @@
           "rankBefore": "DECKHAND",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 11/20 · JUMPS 0/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 11/20 · JUMPS 0/8 · JOBS 0/4 · WHEELMAN",
             "display": "block"
           }
         },
@@ -295,7 +295,7 @@
           "rankBefore": "WHEELMAN",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 12/20 · JUMPS 0/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 12/20 · JUMPS 0/8 · JOBS 0/4 · WHEELMAN",
             "display": "block"
           }
         },
@@ -313,7 +313,7 @@
           "moneyBefore": 1500,
           "moneyAfter": 2050,
           "coinsAfter": 20,
-          "toast": "ALL LEDGER COINS — 20/20! Completion bonus +S 500."
+          "toast": "Ledger coin 20/20 — +S 50 · +25 XP."
         },
         "completionPersisted": {
           "coinsBonusClaimed": true,
@@ -325,7 +325,7 @@
     "jumps": {
       "result": "PASS",
       "how": "human-like",
-      "ms": 254314,
+      "ms": 147093,
       "evidence": {
         "start": {
           "money": 1500,
@@ -334,32 +334,32 @@
           "rank": "DECKHAND"
         },
         "slowPass": {
-          "maxSpeedAtGate": 6.5,
+          "maxSpeedAtGate": 6,
           "registered": false
         },
         "SJ1": {
-          "maxSpeedAtGate": 6,
-          "moneyBefore": 1550,
-          "moneyAfter": 2450,
-          "xpBefore": 1271.7533333333301,
-          "xpAfter": 1541.3839166666369,
-          "coinsBefore": 1,
-          "coinsAfter": 6,
+          "maxSpeedAtGate": 0,
+          "moneyBefore": 1600,
+          "moneyAfter": 2500,
+          "xpBefore": 1300.5933333333267,
+          "xpAfter": 1580.1988448901063,
+          "coinsBefore": 2,
+          "coinsAfter": 7,
           "jumpsBefore": 0,
           "jumpsAfter": 1,
           "rankBefore": "DECKHAND",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 6/20 · JUMPS 1/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 7/20 · JUMPS 1/8 · JOBS 0/4 · WHEELMAN",
             "display": "block"
           }
         },
         "SJ2": {
-          "maxSpeedAtGate": 7,
+          "maxSpeedAtGate": 0,
           "moneyBefore": 2500,
           "moneyAfter": 2650,
-          "xpBefore": 1567.4605833333037,
-          "xpAfter": 1684.4230833333036,
+          "xpBefore": 1580.1988448901063,
+          "xpAfter": 1714.9912957726413,
           "coinsBefore": 7,
           "coinsAfter": 7,
           "jumpsBefore": 1,
@@ -367,16 +367,16 @@
           "rankBefore": "WHEELMAN",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 7/20 · JUMPS 2/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 7/20 · JUMPS 2/8 · JOBS 0/4 · WHEELMAN",
             "display": "block"
           }
         },
         "SJ3": {
-          "maxSpeedAtGate": 6,
+          "maxSpeedAtGate": 0,
           "moneyBefore": 2650,
           "moneyAfter": 2800,
-          "xpBefore": 1684.4230833333036,
-          "xpAfter": 1830.7886226666092,
+          "xpBefore": 1714.9912957726413,
+          "xpAfter": 1856.7774789810935,
           "coinsBefore": 7,
           "coinsAfter": 7,
           "jumpsBefore": 2,
@@ -384,16 +384,16 @@
           "rankBefore": "WHEELMAN",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 7/20 · JUMPS 3/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 7/20 · JUMPS 3/8 · JOBS 0/4 · WHEELMAN",
             "display": "block"
           }
         },
         "SJ4": {
-          "maxSpeedAtGate": 6,
+          "maxSpeedAtGate": 0,
           "moneyBefore": 2800,
           "moneyAfter": 2950,
-          "xpBefore": 1831.759289333276,
-          "xpAfter": 1978.013789333252,
+          "xpBefore": 1856.7774789810935,
+          "xpAfter": 2000,
           "coinsBefore": 7,
           "coinsAfter": 7,
           "jumpsBefore": 3,
@@ -401,7 +401,7 @@
           "rankBefore": "WHEELMAN",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 7/20 · JUMPS 4/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 7/20 · JUMPS 4/8 · JOBS 0/4 · WHEELMAN",
             "display": "block"
           }
         },
@@ -417,11 +417,11 @@
           "coins": 7
         },
         "completion": {
-          "maxSpeedAtGate": 6.5,
+          "maxSpeedAtGate": 0,
           "moneyBefore": 1500,
-          "moneyAfter": 2150,
+          "moneyAfter": 2200,
           "coinsBefore": 0,
-          "coinsAfter": 0,
+          "coinsAfter": 1,
           "jumpsAfter": 8,
           "toast": "ALL STUNT JUMPS — 8/8! Completion bonus +S 500."
         },
@@ -433,11 +433,93 @@
       }
     },
     "jobs": {
-      "result": "FAIL",
+      "result": "PASS",
       "how": "human-like",
-      "ms": 1179,
-      "error": "page.goto: Target page, context or browser has been closed\nCall log:\n  - navigating to \"http://127.0.0.1:8941/?fastsim=4\", waiting until \"domcontentloaded\"\n",
-      "evidence": {}
+      "ms": 246115,
+      "evidence": {
+        "j1fail": {
+          "activeAfter": "J1",
+          "status": "ACTIVE",
+          "money": 1500,
+          "xp": 1240
+        },
+        "J2": {
+          "moneyBefore": 1500,
+          "moneyAfter": 2500,
+          "xpBefore": 1240,
+          "xpAfter": 1565,
+          "coins": 3,
+          "jumps": 0,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "WHEELMAN",
+          "status": "DONE ×1",
+          "toast": "Ledger coin 2/20 — +S 50 · +25 XP.",
+          "toastLog": [
+            "RANK UP — DECKHAND! +S 250. Harbor Stripes outfit unlocked — the Mariners know your name now.",
+            "Ledger coin 1/20 — +S 50 · +25 XP.",
+            "Ledger coin 2/20 — +S 50 · +25 XP."
+          ]
+        },
+        "J3": {
+          "moneyBefore": 1500,
+          "moneyAfter": 2550,
+          "xpBefore": 1240,
+          "xpAfter": 1590,
+          "coins": 2,
+          "jumps": 0,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "WHEELMAN",
+          "status": "DONE ×1",
+          "toast": "Ledger coin 1/20 — +S 50 · +25 XP.",
+          "toastLog": [
+            "RANK UP — DECKHAND! +S 250. Harbor Stripes outfit unlocked — the Mariners know your name now.",
+            "Ledger coin 1/20 — +S 50 · +25 XP."
+          ]
+        },
+        "J4": {
+          "moneyBefore": 1500,
+          "moneyAfter": 2500,
+          "xpBefore": 1240,
+          "xpAfter": 1540,
+          "coins": 2,
+          "jumps": 0,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "WHEELMAN",
+          "status": "DONE ×1",
+          "toast": "Ledger coin 1/20 — +S 50 · +25 XP.",
+          "toastLog": [
+            "RANK UP — DECKHAND! +S 250. Harbor Stripes outfit unlocked — the Mariners know your name now.",
+            "Ledger coin 1/20 — +S 50 · +25 XP."
+          ]
+        },
+        "start": {
+          "money": 1500,
+          "xp": 1240,
+          "rank": "DECKHAND"
+        },
+        "j1": {
+          "moneyBefore": 1550,
+          "moneyAfter": 1850,
+          "xpBefore": 1265,
+          "xpAfter": 1465,
+          "coins": 0,
+          "jumps": 0,
+          "rankBefore": "DECKHAND",
+          "rankAfter": "DECKHAND",
+          "status": "DONE ×1",
+          "toast": "Ledger coin 1/20 — +S 50 · +25 XP.",
+          "toastLog": [
+            "RANK UP — DECKHAND! +S 250. Harbor Stripes outfit unlocked — the Mariners know your name now.",
+            "Ledger coin 1/20 — +S 50 · +25 XP."
+          ],
+          "driveLeg": "OPEN (driver) — DROP reached via ≤5m test start, fare drive not driven"
+        },
+        "j1Persisted": {
+          "jobsDone": {
+            "J1": 1
+          }
+        }
+      }
     }
   }
 }
