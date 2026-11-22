@@ -279,13 +279,18 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   // 4u (not 2.5u): the median nose needs the car at z<=-1.3 before
   // x=-34.7, and a 2.5u offset still clips the nose corner (D2).
   // The reverse is 3 s so the car backs up far enough to turn.
-  // Turn around FIRST when the car faces away from the target
-  // (|diff| > 1.0): a 3-point turn in place (see threePointTurn) —
-  // never a long reverse, never a fast forward arc into the corner.
+  // Turn around FIRST when the car faces AWAY from the target
+  // (|diff| > 2.2, >126 deg): a 3-point turn in place (see
+  // threePointTurn) — never a long reverse, never a fast forward arc
+  // into the corner. Moderate turns (1.0..2.2) are driven forward
+  // with the corner braking below — the old 1.0 threshold fired the
+  // 3-point turn for ordinary 90 deg junction turns, and its drift
+  // wedged the car (M10 run 4: (-30.8,-9.6) on the (-40,0) turn and
+  // (-23.7,-26.0) on the x -22.4 turn).
   {
     const c0 = await readCar(page);
     const desired0 = Math.atan2(-(tz - c0.z), tx - c0.x);
-    if (Math.abs(normAngle(desired0 - c0.angle)) > 1.0) {
+    if (Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
       await threePointTurn(page, tx, tz);
     }
   }
@@ -336,15 +341,21 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
     }
     const desired = Math.atan2(-(stz - c.z), stx - c.x);
     const diff = normAngle(desired - c.angle);
-    // Brake into corners (M10 22 Nov 07:40, tiered 22 Nov ~08:55):
-    // turning radius is v / turnRate, and turnRate is 1.9 * min(1,
-    // v/6) * min(1, v/4+0.2) — so the radius is ~3.2u for v in 3..12
-    // and GROWS below 3 u/s (steer authority drops). Slowing to 2.5
-    // does NOT tighten the turn; the tightest turn is at 4-6 u/s.
-    // A human brakes for the corner; the driver caps speed by
-    // heading error. Big turns (>1.0 rad) are handled by the
-    // 3-point turn at leg start, not by crawling through the arc.
-    const effCap = Math.abs(diff) > 1.5 ? 4 : Math.abs(diff) > 0.7 ? 6 : cap;
+    // Brake into corners (M10 22 Nov 07:40, tiered 22 Nov ~08:55)
+    // and for arrival (22 Nov ~09:10): turning radius is v /
+    // turnRate, and turnRate is 1.9 * min(1, v/6) * min(1, v/4+0.2)
+    // — so the radius is ~3.2u for v in 3..12 and GROWS below 3 u/s
+    // (steer authority drops). Slowing to 2.5 does NOT tighten the
+    // turn; the tightest turn is at 4-6 u/s. A human brakes for the
+    // corner and for the turn itself: the approach cap slows the car
+    // as it nears the waypoint, so it can actually hit the 2.5u
+    // arrival radius instead of overshooting it at 12 u/s (7u per
+    // poll at FASTSIM=2) and turning early across a building corner
+    // — M10 run 4 arrived 2.8u off the (-22.4,-22.4) node, inside a
+    // block, and wedged on the next leg. Big turns (>2.2 rad) are
+    // handled by the 3-point turn at leg start.
+    const approachCap = d < 10 ? Math.max(3, d * 0.8) : cap;
+    const effCap = Math.min(approachCap, Math.abs(diff) > 1.5 ? 4 : Math.abs(diff) > 0.7 ? 6 : cap);
     await setKeys(page, carSteerKeys(diff, c.speed, effCap));
     await sleep(300);
   }
@@ -368,15 +379,19 @@ async function routeDrive(page, tx, tz, cap, perWpMs) {
   const pathIdx = roadGraph.bfs(from.node, to.node);
   if (!pathIdx) { console.log(`[routeDrive] no road route to (${tx},${tz})`); return false; }
   const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
+  // Thin to >3u apart (was 6u): a 6u thinning dropped the (-44,0)
+  // node and made the driver steer diagonally from (-40,0) straight
+  // to (-47.5,-26), cutting across city blocks. Junction nodes 3-6u
+  // apart are real turns and must be driven through.
   const thin = [wps[0]];
-  for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 6) thin.push(p);
+  for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 3) thin.push(p);
   // PROBE logging (M10, 22 Nov 07:20): full BFS path + thinned
   // waypoints + per-waypoint outcome, so a wedge can be traced to
   // the exact waypoint that cut a corner through buildings.
   console.log(`[routeDrive] to (${tx},${tz}) from (${c.x.toFixed(1)},${c.z.toFixed(1)}) BFS ${pathIdx.length} nodes: ` + wps.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
   console.log(`[routeDrive] thinned ${thin.length} wps: ` + thin.map((p) => `(${p.x.toFixed(1)},${p.z.toFixed(1)})`).join(' '));
   for (const wp of thin) {
-    const ok = await driveToPoint(page, wp.x, wp.z, 4, cap, perWpMs);
+    const ok = await driveToPoint(page, wp.x, wp.z, 2.5, cap, perWpMs);
     const cc = await readCar(page);
     console.log(`[routeDrive] wp (${wp.x.toFixed(1)},${wp.z.toFixed(1)}) ${ok ? 'OK' : 'FAIL'} car now (${cc.x.toFixed(1)},${cc.z.toFixed(1)})`);
     if (!ok) break;
@@ -466,7 +481,7 @@ async function followTail(page, timeoutMs) {
         if (pathIdx) {
           const wps = pathIdx.map((i) => ({ x: roadGraph.nodes[i].x, z: roadGraph.nodes[i].z }));
           const thin = [wps[0]];
-          for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 6) thin.push(p);
+          for (const p of wps) if (Math.hypot(thin[thin.length - 1].x - p.x, thin[thin.length - 1].z - p.z) > 3) thin.push(p);
           for (const wp of thin) {
             const ok = await driveToPoint(page, wp.x, wp.z, 4, 12, 30000);
             if (!ok) break;
