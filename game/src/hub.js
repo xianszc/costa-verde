@@ -5,6 +5,10 @@
 // state through the api the game passes in — nothing here is a mockup
 // number. The hub pauses the simulation while open (Tab / H to open,
 // Esc / Tab to close).
+// AUDIO (22 Nov 23:31): the Waves tab holds the per-bus volume sliders
+// + mute (persisted by the engine in localStorage); tab/station/
+// save/load clicks play the UI click.
+import { getAudioEngine } from './audio.js';
 const TABS = ['Logbook', 'Crew', 'Chart', 'Garage', 'Vault', 'Waves'];
 
 const CREWS = [
@@ -43,7 +47,7 @@ export function createHub(api) {
     if (!el || !body) return;
     tabsEl.innerHTML = TABS.map(tabButton).join('');
     tabsEl.querySelectorAll('button').forEach((b) => {
-      b.addEventListener('click', () => { tab = b.dataset.tab; render(); });
+      b.addEventListener('click', () => { getAudioEngine()?.ui('ui_click'); tab = b.dataset.tab; render(); });
     });
     const s = api.getState();
     if (tab === 'Logbook') {
@@ -87,23 +91,29 @@ export function createHub(api) {
             <button data-load="${i}"${sv.empty ? ' disabled' : ''}>Load</button>
           </div>`).join('')}</div>
         <p class="hub-note" id="hub-save-msg">${s.saveMsg || 'Saving is refused while wanted.'}</p>`;
-      body.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', () => { api.save(+b.dataset.save); render(); }));
-      body.querySelectorAll('[data-load]').forEach((b) => b.addEventListener('click', () => { api.load(+b.dataset.load); }));
+      body.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', () => { getAudioEngine()?.ui('ui_click'); api.save(+b.dataset.save); render(); }));
+      body.querySelectorAll('[data-load]').forEach((b) => b.addEventListener('click', () => { getAudioEngine()?.ui('ui_click'); api.load(+b.dataset.load); }));
     } else { // Waves
+      const a = s.audioSettings || { master: 0.7, music: 0.8, sfx: 1, ambience: 0.8, ui: 1, muted: false };
+      const busRow = (bus, label) => `<p class="hub-note">${label}: <input type="range" data-bus="${bus}" min="0" max="100" value="${Math.round(a[bus] * 100)}"> <span data-bus-val="${bus}">${Math.round(a[bus] * 100)}%</span></p>`;
       body.innerHTML = `<h3>Waves — Radio</h3>` + s.radioStations.map((r, i) => `
         <div class="hub-row${i === s.radio ? ' active' : ''}">
           <b>${r.name}</b><span>${i === s.radio ? 'NOW PLAYING' : ''}</span>
           <p>${r.track}</p>
           <button data-station="${i}">${i === s.radio ? 'Playing' : 'Tune in'}</button>
         </div>`).join('') +
-        `<p class="hub-note">Volume: <input type="range" id="hub-volume" min="0" max="100" value="${Math.round(s.volume * 100)}"> <span id="hub-volume-val">${Math.round(s.volume * 100)}%</span></p>`;
-      body.querySelectorAll('[data-station]').forEach((b) => b.addEventListener('click', () => { api.setRadio(+b.dataset.station); render(); }));
-      const vol = document.getElementById('hub-volume');
-      if (vol) vol.addEventListener('input', () => {
-        api.setVolume(vol.value / 100);
-        const v = document.getElementById('hub-volume-val');
-        if (v) v.textContent = vol.value + '%';
-      });
+        `<h3>Audio</h3>` +
+        busRow('master', 'Master') + busRow('music', 'Musik') + busRow('sfx', 'Efek') +
+        busRow('ambience', 'Suasana') + busRow('ui', 'Antarmuka') +
+        `<p><button id="hub-mute">${a.muted ? 'Unmute' : 'Mute'}</button> <span class="hub-note">Volume tersimpan otomatis.</span></p>`;
+      body.querySelectorAll('[data-station]').forEach((b) => b.addEventListener('click', () => { getAudioEngine()?.ui('ui_click'); api.setRadio(+b.dataset.station); render(); }));
+      body.querySelectorAll('[data-bus]').forEach((sl) => sl.addEventListener('input', () => {
+        api.setAudioVolume(sl.dataset.bus, sl.value / 100);
+        const v = body.querySelector(`[data-bus-val="${sl.dataset.bus}"]`);
+        if (v) v.textContent = sl.value + '%';
+      }));
+      const muteBtn = document.getElementById('hub-mute');
+      if (muteBtn) muteBtn.addEventListener('click', () => { api.setAudioMuted(!a.muted); render(); });
     }
   }
   function setOpen(on, t) {

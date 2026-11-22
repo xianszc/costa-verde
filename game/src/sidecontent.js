@@ -10,6 +10,9 @@
 // #map-overlay, #shop-overlay, #side-prompt, #side-hud).
 import * as THREE from '../vendor/three.module.min.js';
 import { ANCHORS, anchorXZ } from './anchors.js';
+// AUDIO (22 Nov 23:31): UI sounds via the shared engine (game.js
+// creates it first; guard with ?. — sidecontent may attach before it).
+import { getAudioEngine } from './audio.js';
 import { createMissionEngine } from './missions.js';
 import { buildTrafficCar } from './vehicles.js';
 import { SIDE_DISTRICTS, RANK_LADDER, RANK_REWARDS, rankForXp, standingTier } from './side-data.js';
@@ -256,6 +259,7 @@ function buy(sectionId, itemId) {
   }
   persist();
   toast(`Bought ${item.name} — ${fmtMoney(price)}.`);
+  getAudioEngine()?.ui('buy');
   return { ok: true, msg: `Bought ${item.name}.` };
 }
 function applyOwned(sectionId, itemId) {
@@ -331,12 +335,14 @@ function handleActivityEvent(ev) {
   } else if (ev.type === 'fail') {
     const why = ev.reason === 'timeout' ? 'TIME UP' : ev.reason === 'wrecked' ? 'CAR WRECKED' : ev.reason.toUpperCase();
     toast(`${def.code} FAILED — ${why}. Try again.`);
+    getAudioEngine()?.ui('mission_fail');
     engine.start(active.idx);
     activeFailHandled = false;
   } else if (ev.type === 'complete') {
     const race = ev.raceTime != null ? ` · ${fmtTime(ev.raceTime)}` : '';
     payReward(def, ev.raceTime);
     toast(`${def.code} COMPLETE — +${fmtMoney(def.reward.money)} · +${def.reward.xp} XP${race}`);
+    getAudioEngine()?.ui('mission_complete');
     active = null;
   }
   updateJobPanel(true);
@@ -1097,6 +1103,7 @@ function loop(now) {
         addStanding(g.def.district, 2);
         persist();
         toast(`STUNT JUMP — ${g.def.name} landed! +S 150 · +100 XP.`);
+        getAudioEngine()?.ui('jump');
         // Completion bonus (3c.4, mirrors the 20/20 coins bonus): all 8 jumps, once.
         if (store.jumpsDone.length === SIDE_JUMPS.length && !store.jumpsBonusClaimed) {
           store.jumpsBonusClaimed = true;
@@ -1122,6 +1129,7 @@ function loop(now) {
       addStanding(c.def.district, 1);
       persist();
       toast(`Ledger coin ${store.collectiblesDone.length}/${COLLECTIBLES.length} — +S 50 · +25 XP.`);
+      getAudioEngine()?.ui('coin');
       // Completion bonus (3c.3): all 20 coins, once.
       if (store.collectiblesDone.length === COLLECTIBLES.length && !store.coinsBonusClaimed) {
         store.coinsBonusClaimed = true;
