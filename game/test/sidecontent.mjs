@@ -1354,7 +1354,7 @@ function jumpXZ(id) {
 // drive (readState's side.jumpsDone is a count, not the array) — the
 // jump registered when the count rises. Returns whether the jump
 // registered and the max speed within 5u of the gate.
-async function driveThroughGate(page, gate, before, slow, reverse = false) {
+async function driveThroughGate(page, gate, before, slow, reverse = false, dirSign = 1) {
   const dx = gate.dir === 'ew' ? 1 : 0;
   const dz = gate.dir === 'ew' ? 0 : 1;
   const started = Date.now();
@@ -1367,7 +1367,7 @@ async function driveThroughGate(page, gate, before, slow, reverse = false) {
     const d = Math.hypot(c.x - gate.x, c.z - gate.z);
     if (d < 5) maxSpeedAtGate = Math.max(maxSpeedAtGate, Math.abs(c.speed));
     const beyond = (c.x - gate.x) * dx + (c.z - gate.z) * dz;
-    if (reverse ? beyond < -6 : beyond > 6) break;
+    if (beyond * dirSign > 6) break;
     if (reverse) await setKeys(page, { w: false, a: false, d: false, s: true });
     else if (slow) await setKeys(page, { w: Math.abs(c.speed) < 3.5, a: false, d: false, s: Math.abs(c.speed) > 4.5 });
     else await setKeys(page, { w: true, a: false, d: false, s: false });
@@ -1410,7 +1410,7 @@ async function testJumps() {
       await placeCar(page, g1.x + 4, g1.z, 0);
       await placePlayer(page, g1.x + 4, g1.z + 1.5, 0);
       if (!(await boardCar(page))) throw new Error('slow pass: could not board car');
-      const slow = await driveThroughGate(page, g1, 0, true, true);
+      const slow = await driveThroughGate(page, g1, 0, true, true, -1); // reverse = westward, dirSign -1
       evidence.slowPass = { maxSpeedAtGate: +slow.maxSpeed.toFixed(1), registered: slow.ok };
       if (slow.ok) throw new Error('slow pass SJ1 registered a jump — the speed gate is broken');
       if (slow.maxSpeedAtGate >= 10) throw new Error(`slow pass max speed ${slow.maxSpeedAtGate} m/s, not a slow pass`);
@@ -1420,11 +1420,19 @@ async function testJumps() {
       // + coins + driving XP >= 1500) may land on ANY leg — the
       // per-leg rankUp check below is rank-aware (+150 jump +500
       // WHEELMAN reward). Run-up 4u (see RUN-UP NOTE).
+      // SJ4 approaches from the EAST (driving west, dirSign -1):
+      // SJ8 sits at (57,32) on the same z=32 line, and an eastward
+      // SJ4 run coasts/brakes straight through it at >10 (the
+      // control loop detects the registration ~1 game-s late, when
+      // the car is already ~15u past at ~26 m/s). Westward, the
+      // overshoot runs into empty plaza — no gate west of SJ4 on
+      // z=32. The gate is direction-agnostic by design, so either
+      // approach is a real jump.
       const legs = [
-        { id: 'SJ1', car: { x: -4, z: 0, angle: 0 }, player: { x: -4, z: 1.5 } },
-        { id: 'SJ2', car: { x: -34, z: -0.725, angle: 0 }, player: { x: -34, z: 0.775 } },
-        { id: 'SJ3', car: { x: 0, z: 4, angle: -Math.PI / 2 }, player: { x: 1.5, z: 4 } },
-        { id: 'SJ4', car: { x: 31, z: 32, angle: 0 }, player: { x: 31, z: 33.5 } },
+        { id: 'SJ1', car: { x: -4, z: 0, angle: 0 }, player: { x: -4, z: 1.5 }, dirSign: 1 },
+        { id: 'SJ2', car: { x: -34, z: -0.725, angle: 0 }, player: { x: -34, z: 0.775 }, dirSign: 1 },
+        { id: 'SJ3', car: { x: 0, z: 4, angle: -Math.PI / 2 }, player: { x: 1.5, z: 4 }, dirSign: 1 },
+        { id: 'SJ4', car: { x: 39, z: 32, angle: Math.PI }, player: { x: 39, z: 33.5 }, dirSign: -1 },
       ];
       for (let i = 0; i < legs.length; i++) {
         const leg = legs[i];
@@ -1433,7 +1441,7 @@ async function testJumps() {
         await placePlayer(page, leg.player.x, leg.player.z, leg.car.angle);
         if (!(await boardCar(page))) throw new Error(`${leg.id}: could not board car`);
         const before = await readState(page);
-        const res = await driveThroughGate(page, g, before.side.jumpsDone, false);
+        const res = await driveThroughGate(page, g, before.side.jumpsDone, false, false, leg.dirSign);
         await sleep(1000); // HUD chip refreshes every 500 ms
         const after = await readState(page);
         const hud = await page.evaluate(() => {
