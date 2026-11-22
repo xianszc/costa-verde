@@ -159,6 +159,62 @@ async function threePointTurn(page, tx, tz) {
   return false;
 }
 
+// Reverse-out (DRIVER, shops 22 Nov ~14:35): back the car a SHORT
+// distance with inverted steering to swing the nose toward (tx,tz).
+// Use case: the car is slow/stopped with a big turn ahead (|diff| >
+// 1.0) — driving forward from ~0 speed barely turns (steerAuthority
+// 0 at standstill, turn radius ~3.2u at best), so the car drives
+// straight into the building beside the road (probe
+// /tmp/side-probe-south.mjs: car at (2.6,-10.3) facing east, target
+// (0,0) south — drove east into the block, stuck (4.8,-9.8), then
+// overshot and wedged at (-2.3,3.1)). A 3-point turn here was tried
+// and REVERTED (damage 31.2, car to (-9.7,-12.4)) — its alternating
+// phases drift sideways and wedge the car. A short reverse is what a
+// human does: the car arrived along the road, so directly behind it
+// IS road — backing up retraces the approach while the inverted
+// steering swings the nose toward the target, then forward driving
+// finishes the turn on the road. Capped at 3.5u displacement and
+// 2.5 s so it can never become the old long-reverse U-turn (M10 run
+// 3 wedged on 5-7u reverses). Returns true when aligned.
+async function reverseOut(page, tx, tz) {
+  // Phase 1: brake to a stop (S, no steering) if moving — steering
+  // while braking would rotate the nose the WRONG way (forward sign).
+  const bStart = Date.now();
+  while (Date.now() - bStart < 1000) {
+    const c = await readCar(page);
+    if (c.mode !== 'play') { await releaseKeys(page); return false; }
+    if (Math.abs(c.speed) < 0.5) break;
+    await setKeys(page, { s: true, a: false, d: false, w: false });
+    await sleep(150);
+  }
+  await releaseKeys(page);
+  // Phase 2: reverse with inverted steering (same convention as the
+  // close-behind branch and the stall reverse: while reversing, A
+  // turns the nose toward a target on the right, D toward the left).
+  const c0 = await readCar(page);
+  const sx = c0.x, sz = c0.z;
+  const started = Date.now();
+  let lastMove = Date.now(), lastD = 0;
+  while (Date.now() - started < 2500) {
+    const c = await readCar(page);
+    if (c.mode !== 'play') { await releaseKeys(page); return false; }
+    const diff = normAngle(Math.atan2(-(tz - c.z), tx - c.x) - c.angle);
+    if (Math.abs(diff) < 0.7) { await releaseKeys(page); return true; }
+    const moved = Math.hypot(c.x - sx, c.z - sz);
+    if (moved > 3.5) { await releaseKeys(page); return true; }
+    if (moved > lastD + 0.1) { lastD = moved; lastMove = Date.now(); }
+    if (Date.now() - lastMove > 1000) { await releaseKeys(page); return false; }
+    // Pulse S to cap reverse speed ~2.5 u/s (below the |speed| > 3
+    // pedestrian-hit threshold, so a drift onto the sidewalk cannot
+    // raise the wanted level).
+    const drive = Math.abs(c.speed) < 2.5;
+    await setKeys(page, { s: drive, a: diff < -0.15, d: diff > 0.15, w: false });
+    await sleep(150);
+  }
+  await releaseKeys(page);
+  return true;
+}
+
 async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
   // DRIVER fix (D2 22 Nov 06:10): sidestep. The BFS graph routes on
   // road CENTERLINES, but the boulevard has a median (x -60..-34.7,
@@ -199,6 +255,13 @@ async function driveToPoint(page, tx, tz, r, cap, timeoutMs) {
       await releaseKeys(page);
     } else if (Math.abs(normAngle(desired0 - c0.angle)) > 2.2) {
       await threePointTurn(page, tx, tz);
+    } else if (Math.abs(c0.speed) < 4 && Math.abs(normAngle(desired0 - c0.angle)) > 1.0 && d0 > 3) {
+      // DRIVER fix (shops 22 Nov ~14:35): slow start + big turn — the
+      // forward arc from here goes into the building beside the road
+      // (radius ~3.2u at best, car already ~2.6u off the centreline);
+      // reverse-out instead (see reverseOut). Fires only at leg
+      // start, never mid-leg.
+      await reverseOut(page, tx, tz);
     }
   }
   let sideStep = 0;
