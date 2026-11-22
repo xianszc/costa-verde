@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T03:38:11.989Z",
+  "generated": "2026-11-22T03:50:39.479Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -121,15 +121,14 @@
       "result": "TIMEOUT",
       "attempts": 1,
       "fails": 0,
-      "maxStage": 3,
-      "ms": 317991,
+      "maxStage": 4,
+      "ms": 244949,
       "abortReason": "hard cap 240s reached",
       "trace": [
-        "[trace] M11 stage=0 LOBBY player=(-2.0,-1.5) car=(-8.0,-0.7) target=(5.9,-13.5) distPlayer=14.4u distCar=18.9u wanted=0 onFoot=true",
-        "[trace] M11 stage=2 VAULT player=(5.9,-13.5) car=(-8.0,-0.7) target=(5.9,-13.5) distPlayer=0.0u distCar=18.9u wanted=0 onFoot=true",
-        "[trace] M11 stage=3 ESCAPE player=(-3.1,19.7) car=(-2.3,9.1) target=(0,33) distPlayer=13.6u distCar=24.0u wanted=0 onFoot=true"
+        "[trace] M11 stage=0 CONFRONT player=(-2.0,-1.5) car=(-8.0,-0.7) target=(35,30) distPlayer=48.6u distCar=52.8u wanted=0 onFoot=true",
+        "[trace] M11 stage=3 EPILOGUE player=(35.0,30.0) car=(-8.0,-0.7) target=(5,20) distPlayer=31.6u distCar=24.5u wanted=3 onFoot=true"
       ],
-      "lastTrace": "[trace] M11 stage=3 ESCAPE player=(-3.1,19.7) car=(-2.3,9.1) target=(0,33) distPlayer=13.6u distCar=24.0u wanted=0 onFoot=true",
+      "lastTrace": "[trace] M11 stage=3 EPILOGUE player=(35.0,30.0) car=(-8.0,-0.7) target=(5,20) distPlayer=31.6u distCar=24.5u wanted=3 onFoot=true",
       "errors": 0,
       "commit": "unknown"
     },
