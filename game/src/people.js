@@ -4,6 +4,7 @@
 // Limbs are built as pivoted groups (shoulder / hip / elbow) so walk, run,
 // drive, aim, fight and idle animations can drive them later.
 import * as THREE from '../vendor/three.module.min.js';
+import { mergedMesh, colored, xform, vertexColorMat } from './world.js';
 
 export const ARCHETYPES = {
   lean:    { h: 1.92, girth: 0.86, stoop: 0.00 },
@@ -217,12 +218,23 @@ export function makeWalker(spec) {
       spec.bottom || 0x2b2b2b, 0, -legLen / 2, 0));
     root.add(leg);
   }
-  const torso = new THREE.Group();
-  torso.position.set(0, hipY, 0);
-  torso.add(part(new THREE.BoxGeometry(torsoW, torsoH, 0.20 * g),
-    spec.top || 0xf2f0ea, 0, torsoH / 2, 0));
-  root.add(torso);
   const shoulderY = hipY + torsoH * 0.92;
+  // Torso + head baked into ONE vertex-colored mesh (item 4 perf:
+  // 7 -> 5 meshes per walker). Safe: animateWalk only swings the legs
+  // + arms — the torso and head groups never move relative to the root,
+  // and findLimbs only scans Group children, so the merged Mesh child
+  // is invisible to it. Same boxes/spheres, same colors, same
+  // root-space positions as the three meshes it replaces.
+  const torsoHead = [
+    colored(xform(new THREE.BoxGeometry(torsoW, torsoH, 0.20 * g), 0, hipY + torsoH / 2, 0),
+      spec.top || 0xf2f0ea),
+    colored(xform(new THREE.SphereGeometry(headR, 14, 12), 0, shoulderY + headR * 1.5 + headR * 0.55, 0),
+      skin),
+    colored(xform(new THREE.SphereGeometry(headR * 1.06, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      0, shoulderY + headR * 1.5 + headR * 0.62, -headR * 0.08),
+      spec.hairColor || 0x2b2b2b),
+  ];
+  root.add(mergedMesh(torsoHead, vertexColorMat));
   const arms = {};
   for (const side of [-1, 1]) {
     const arm = new THREE.Group();
@@ -233,12 +245,6 @@ export function makeWalker(spec) {
     root.add(arm);
     arms[side < 0 ? 'L' : 'R'] = { arm };
   }
-  const head = new THREE.Group();
-  head.position.set(0, shoulderY + headR * 1.5, 0);
-  head.add(part(new THREE.SphereGeometry(headR, 14, 12), skin, 0, headR * 0.55, 0));
-  head.add(part(new THREE.SphereGeometry(headR * 1.06, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
-    spec.hairColor || 0x2b2b2b, 0, headR * 0.62, -headR * 0.08));
-  root.add(head);
   root.userData.height = H;
   root.userData.arms = arms;
   return root;
