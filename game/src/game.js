@@ -996,10 +996,10 @@ export function createGame(container) {
         const nx = player.x + mx * speed * dt;
         const nz = player.z + mz * speed * dt;
         const res = collideCircleAABBs(nx, nz, player.radius, colliders);
-        // M3 (c): the player can walk the whole map north–south now —
-        // the old town (z -86) and the skyline landmass (z 104) — the
-        // bay-water colliders keep them off the water except on the
-        // bridge corridor (x ±4.5).
+        // AUDIT m-38: stage 1 is FLAT — no bridge, no skyline landmass
+        // (groundHeightAt returns 0 everywhere); the bay-water
+        // colliders keep the player off the water, and the M-12 clamp
+        // (x -96..108) covers the whole built waterfront.
         // AUDIT M-12: the player can walk the built waterfront east–west
         // now — the promenade walkway surface runs x -96..108 and the
         // bay-water colliders (z >= 35, full width) keep them off the
@@ -1014,8 +1014,8 @@ export function createGame(container) {
       }
       // AUDIO: one footstep per half stride, surface by position.
       if (player.speed > 0) audio.noteStep(player.walkPhase, surfaceFor(player.x, player.z));
-      // On the skyline landmass / bridge the player stands at its
-      // height (M3 (c)); everywhere else the ground is y 0.
+      // AUDIT m-38: stage 1 is flat — groundHeightAt returns 0
+      // everywhere (no skyline landmass / bridge any more).
       playerMesh.position.set(player.x, groundHeightAt(player.x, player.z), player.z);
       // The figure model faces +z at rotation 0; the movement angle uses
       // forward = (cos a, -sin a), so the mesh needs +90 deg to face it.
@@ -1064,8 +1064,8 @@ export function createGame(container) {
       const z = p.path.a.z + (p.path.b.z - p.path.a.z) * p.t;
       const dx = (p.path.b.x - p.path.a.x) * p.dir;
       const dz = (p.path.b.z - p.path.a.z) * p.dir;
-      // Pedestrians on the skyline landmass / bridge walk at its height
-      // (M3 (c)); everywhere else the ground is y 0.
+      // AUDIT m-38: stage 1 is flat — groundHeightAt returns 0
+      // everywhere (no skyline landmass / bridge any more).
       p.mesh.position.set(x, groundHeightAt(x, z), z);
       p.mesh.rotation.y = Math.atan2(-dz, dx) + Math.PI / 2;
       p.phase += dt * p.speed * 2.4;
@@ -2007,7 +2007,7 @@ export function createGame(container) {
       }
       renderer.render(scene, camera);
       renderer.render(scene, camera);
-    } else { // walk
+    } else if (name === 'walk') {
       state.mode = 'play';
       showHUD();
       state.onFoot = true;
@@ -2024,6 +2024,11 @@ export function createGame(container) {
       updateCamera(1);
       renderer.render(scene, camera);
       renderer.render(scene, camera);
+    } else {
+      // AUDIT m-33: the old final else staged a walk for ANY unknown
+      // ?shot= name and still set __shotReady — a typo staged the
+      // wrong scene and looked like success. Fail loudly instead.
+      throw new Error(`unknown ?shot=${name} (known: road, title, drive, night, storm, district, wanted, combat, tracer, hub, mission, cbd, ring, ringext, walk)`);
     }
     // Push the live HUD values into the DOM now, so a ?shot capture
     // shows real numbers even if no animation frame has run yet.
