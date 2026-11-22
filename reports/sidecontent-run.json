@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T10:51:20.959Z",
+  "generated": "2026-11-22T11:04:13.680Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -435,8 +435,8 @@
     "jobs": {
       "result": "FAIL",
       "how": "human-like",
-      "ms": 197503,
-      "error": "J1 fail: no TIME UP toast within 150 s",
+      "ms": 346790,
+      "error": "J1 fail: no TIME UP toast within 300 s (panel timer last read: '00:00')",
       "evidence": {}
     }
   }

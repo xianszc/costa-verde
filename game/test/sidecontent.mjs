@@ -1612,27 +1612,33 @@ async function testJobs() {
     try {
       const active = await startJobAt(f.page, -50, 1, -45, 0);
       if (active !== 'J1') throw new Error(`J1 fail: did not start, active=${active}`);
-      // Poll the toast (it fades after 3.6 s — poll every 2 s).
-      // NOTE: the headless sim runs far below fastsim 2 in wall time
-      // (each evaluate stalls the main thread, so the effective rate
-      // is ~0.5-1 game-s per wall-s) — the 90 game-s timer needs
-      // ~90-180 wall-s. Timeout 300 s; the panel's TIME LEFT timer
-      // is logged every ~30 s so a stuck timer is visible.
+      // Detect the fail by the TIMER RESETTING, not by catching the
+      // toast: failActive toasts TIME UP and immediately restarts the
+      // job (engine.start), and the next tick's STAGE toast overwrites
+      // it within ~1 side-loop tick (~0.7 s) — a 2 s poll cannot catch
+      // it (proven: the timer hit 00:00 at 258 s wall but no toast was
+      // ever seen). The restart signature is unambiguous: TIME LEFT
+      // counts below 00:15 and then jumps back above 01:15.
       let failed = false;
       let lastTimer = '';
+      let minTimer = Infinity;
       let polls = 0;
       const failStart = Date.now();
       while (Date.now() - failStart < 300000) {
         const t = await toastText(f.page);
         if (t.includes('TIME UP')) { failed = true; break; }
-        if (++polls % 15 === 0) {
-          const p = await jobPanel(f.page);
-          const m = p.match(/TIME LEFT[^0-9]*([0-9:]+)/);
-          if (m) { lastTimer = m[1]; console.log(`[jobs] J1 fail wait: TIME LEFT ${lastTimer} (${Math.round((Date.now() - failStart) / 1000)}s wall)`); }
+        const p = await jobPanel(f.page);
+        const m = p.match(/TIME LEFT[^0-9]*([0-9]+):([0-9]+)/);
+        if (m) {
+          const secs = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+          lastTimer = `${m[1]}:${m[2]}`;
+          if (secs < minTimer) minTimer = secs;
+          if (minTimer <= 15 && secs >= 75) { failed = true; break; }
+          if (++polls % 15 === 0) console.log(`[jobs] J1 fail wait: TIME LEFT ${lastTimer} (${Math.round((Date.now() - failStart) / 1000)}s wall)`);
         }
         await sleep(2000);
       }
-      if (!failed) throw new Error(`J1 fail: no TIME UP toast within 300 s (panel timer last read: '${lastTimer}')`);
+      if (!failed) throw new Error(`J1 fail: no TIME UP (timer reset) within 300 s (panel timer last read: '${lastTimer}', min: ${minTimer === Infinity ? 'n/a' : minTimer + 's'})`);
       const s2 = await readState(f.page);
       const j1 = s2.side.jobs.find((j) => j.id === 'J1');
       evidence.j1fail = { activeAfter: s2.side.active, status: j1 ? j1.status : null, money: s2.money, xp: s2.xp };
