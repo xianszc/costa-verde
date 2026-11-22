@@ -1,0 +1,60 @@
+{
+  "method": "Node-driven manual renders (same method as reports/perf-after.json). Camera re-set inside EVERY timed iteration (the live rAF loop moves it otherwise — see cross-check). SwiftShader = LOWER BOUND, not game performance.",
+  "when": "2026-11-22T04:34:02.121Z",
+  "renders": 20,
+  "views": {
+    "avenue": {
+      "avgMs": 45.1,
+      "medianMs": 12,
+      "minMs": 7.3,
+      "maxMs": 302.6,
+      "calls": 400,
+      "triangles": 540736,
+      "cars": 23,
+      "peds": 40,
+      "camera": "pos (0,0.2,-20) -> look (0,0.5,20)"
+    },
+    "ring": {
+      "avgMs": 14.7,
+      "medianMs": 5.9,
+      "minMs": 4.1,
+      "maxMs": 65.7,
+      "calls": 201,
+      "triangles": 500672,
+      "cars": 23,
+      "peds": 40,
+      "camera": "pos (44,2,-20) -> look (44,2,-60)"
+    },
+    "promenade": {
+      "avgMs": 28.3,
+      "medianMs": 11.4,
+      "minMs": 8.4,
+      "maxMs": 75.5,
+      "calls": 655,
+      "triangles": 597948,
+      "cars": 23,
+      "peds": 40,
+      "camera": "pos (35,2,29) -> look (-20,2,29)"
+    },
+    "city": {
+      "avgMs": 40.9,
+      "medianMs": 25.8,
+      "minMs": 10.9,
+      "maxMs": 109.2,
+      "calls": 983,
+      "triangles": 670546,
+      "cars": 23,
+      "peds": 40,
+      "camera": "pos (0,200,40) -> look (0,0,0)"
+    }
+  },
+  "vs_baseline_reports_perf_after_json": {
+    "avenue_calls": { "before": 392, "after": 400, "delta": 8, "note": "+8 = 5 new traffic cars + peds now spread across districts; triangles 538040 -> 540736 (+0.5%)." },
+    "city_calls": { "before": 238, "after": 983, "note": "NOT like-for-like: the baseline 238 came from a staged markings-audit top shot (camera unknown, likely frustum-limited); this run's city camera (0,200,40)->(0,0,0) sees the WHOLE 240x140m map at once. The 983 is the honest whole-city number under this camera — OVER the 600 budget, OPEN." },
+    "promenade_calls": { "before": null, "after": 655, "note": "No baseline for this camera. 655 is OVER the 600 budget — OPEN (street-level promenade sees casino + hotel + marina + quay at once)." },
+    "ring_calls": { "before": null, "after": 201, "note": "No baseline for this camera. Under 600." },
+    "ms_frame": { "note": "NOT comparable to baseline: perf-after.json timed renders from Node (CDP round-trip + main-thread contention under the live rAF loop, 4-8 s per render). This run times the render call in-page (median 6-26 ms). The render call itself is fast; the cost is the SwiftShader software rasterizer + loop contention, not the game." }
+  },
+  "verdict": "Avenue 400 and ring 201 under 600. Promenade 655 and whole-city 983 OVER 600 under these cameras — OPEN: needs mesh merging / instancing / LOD or a re-check of what camera the 600 budget was measured with. The +5 traffic cars cost ~8 draw calls at avenue scale.",
+  "errors": []
+}
