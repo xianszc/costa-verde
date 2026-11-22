@@ -886,6 +886,9 @@ function onKeyDown(e) {
 // --- main loop (own rAF; the game loop stays untouched) ---
 let lastNow = 0;
 let lastPrompt = 0;
+// Previous car position (per side-tick) for stunt-jump gate detection
+// — see the segment-crossing note at the jumps check below.
+let prevCarPos = null;
 let lastHud = 0;
 function updateSideHud() {
   const now = performance.now();
@@ -1004,11 +1007,43 @@ function loop(now) {
     beacon.visible = false;
   }
   // Stunt jumps: through a gate in the car at 58 km/h or more.
+  // GAME fix (3c.4, 22 Nov ~16:45): gate detection is SEGMENT
+  // crossing, not point sampling. The side tick runs once per rAF
+  // frame while the sim can step up to 0.5 game-seconds per frame
+  // (frame dt cap 0.25 x fastsim 2) — at 16-22 m/s the car moves up
+  // to ~8-11u between ticks and can jump clean over the 2.5u point
+  // radius without ever being sampled inside it (proved: SJ1 fast
+  // FAIL at sampled 13.0 m/s although /tmp/car-speed-debug.mjs
+  // showed the car at 16.0-16.5 m/s inside the radius, and the
+  // probe trace showed 7.6u jumps between samples). The crossing
+  // test is direction-agnostic, like the old point test: any
+  // crossing of the gate plane within the ring radius at >16 m/s
+  // counts. At 60 fps the car moves 0.27u per tick, so real play
+  // is unchanged — this only stops legitimate passes being missed
+  // at low frame rates.
   if (!game.state.onFoot) {
     const speed = Math.abs(game.car.speed);
+    const cx = game.car.x, cz = game.car.z;
     for (const g of markers.gates) {
       if (store.jumpsDone.includes(g.def.id)) continue;
-      if (speed > JUMP_SPEED && dist2(game.car.x, game.car.z, g.mesh.position.x, g.mesh.position.z) < 2.5) {
+      const gx = g.mesh.position.x, gz = g.mesh.position.z;
+      let through = speed > JUMP_SPEED && dist2(cx, cz, gx, gz) < 2.5;
+      if (!through && speed > JUMP_SPEED && prevCarPos) {
+        if (g.def.dir === 'ew') {
+          const d0 = prevCarPos.x - gx, d1 = cx - gx;
+          if ((d0 < 0 && d1 >= 0) || (d0 > 0 && d1 <= 0)) {
+            const f = d0 === d1 ? 0 : (0 - d0) / (d1 - d0);
+            through = Math.abs(prevCarPos.z + (cz - prevCarPos.z) * f - gz) < 2.5;
+          }
+        } else {
+          const d0 = prevCarPos.z - gz, d1 = cz - gz;
+          if ((d0 < 0 && d1 >= 0) || (d0 > 0 && d1 <= 0)) {
+            const f = d0 === d1 ? 0 : (0 - d0) / (d1 - d0);
+            through = Math.abs(prevCarPos.x + (cx - prevCarPos.x) * f - gx) < 2.5;
+          }
+        }
+      }
+      if (through) {
         store.jumpsDone.push(g.def.id);
         g.mesh.material.color.setHex(0x3ed6d6);
         game.state.money += 150;
@@ -1025,6 +1060,9 @@ function loop(now) {
         }
       }
     }
+    prevCarPos = { x: cx, z: cz };
+  } else {
+    prevCarPos = null; // on foot: no crossing to track
   }
   // Collectibles: within 2 m on foot or in the car.
   for (let i = markers.coins.length - 1; i >= 0; i--) {
