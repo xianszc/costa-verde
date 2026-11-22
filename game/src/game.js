@@ -386,6 +386,12 @@ export function createGame(container) {
     busted: false,
     wasted: false,
     saveMsg: '',
+    // SHOP-TRAP FIX (23 Nov): ms timestamp of the last story stage
+    // advance / mission completion — sidecontent lets E board the car
+    // for a few seconds afterwards instead of opening a shop door the
+    // mission itself parked the player against (M7 SCAN stop 0.7u from
+    // the pharmacy door, car 3.4u away). 0 = no advance yet.
+    lastStageAdvanceAt: 0,
   };
   const keys = {};
   const input = { up: false, down: false, left: false, right: false, handbrake: false };
@@ -556,6 +562,10 @@ export function createGame(container) {
     if (ev.type === 'stage') {
       const s = ev.mission.stages[ev.stage];
       const doneStage = ev.mission.stages[ev.stage - 1];
+      // SHOP-TRAP FIX (23 Nov): stamp the advance — for a few seconds
+      // afterwards E near the car boards it instead of opening a shop
+      // door the mission parked the player against (see sidecontent).
+      state.lastStageAdvanceAt = performance.now();
       // A stage can raise the heat when it finishes (M11 vault crack,
       // M12 confrontation) — the Guard swarms as the next stage opens.
       if (doneStage && doneStage.heat) wanted.addHeat(doneStage.heat);
@@ -606,6 +616,8 @@ export function createGame(container) {
       if (missions.missionId + 1 < MISSIONS.length) {
         missions.start(missions.missionId + 1);
         state.missionTime = MISSION_TIME_START; // AUDIT M-4
+        // SHOP-TRAP FIX (23 Nov): stamp the advance, as for 'stage'.
+        state.lastStageAdvanceAt = performance.now();
         audio.ui('mission_start');
         showNextDialogue();
       } else {

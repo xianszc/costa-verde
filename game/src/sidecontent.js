@@ -895,8 +895,19 @@ function onKeyDown(e) {
       // when the player is right AT the door (<=2u), which is a clear
       // "I want the shop" signal (run 9: the player stopped 2.6u from
       // the door, nearer the car, and E would have entered the car).
+      // SHOP-TRAP FIX (23 Nov, M7 attempt 2): the <=2u halo misfires
+      // when a MISSION parks the player at the door — the M7 SCAN stop
+      // sits 0.7u from the pharmacy door while the car is 3.4u away,
+      // so every boarding E opened the shop and paused the game. For
+      // 8 s after a story stage advances (the dialogue names the next
+      // objective; the player is mid-flow at that spot), the car wins
+      // E whenever it is in boarding range — shopping still works by
+      // walking away from the car or waiting the window out.
       const dCar = Math.hypot(game.car.x - px, game.car.z - pz);
-      const carNearer = dCar < 4 && dCar < shop.dist && shop.dist > 2;
+      const recentAdvance = game.state.lastStageAdvanceAt
+        && (performance.now() - game.state.lastStageAdvanceAt < 8000);
+      const carNearer = (dCar < 4 && dCar < shop.dist && shop.dist > 2)
+        || (recentAdvance && dCar < 4);
       if (!carNearer) {
         openShop(shop.section);
         e.stopImmediatePropagation();
@@ -907,7 +918,9 @@ function onKeyDown(e) {
     const js = nearestJobStart(px, pz);
     if (js) {
       const dCar = Math.hypot(game.car.x - px, game.car.z - pz);
-      if (dCar < 4 && dCar < js.dist) {
+      const recentAdvance = game.state.lastStageAdvanceAt
+        && (performance.now() - game.state.lastStageAdvanceAt < 8000);
+      if ((dCar < 4 && dCar < js.dist) || (recentAdvance && dCar < 4)) {
         // car nearer — let E fall through to enter the car
       } else {
         const r = startActivity(js.job.id);
