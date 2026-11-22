@@ -753,8 +753,12 @@ export const OLD_TOWN_EXT_DEF = {
     { name: 'oldtown-west', x0: -95, z0: -79, x1: -74, z1: -31, speed: 6 },
   ],
   pedPaths: [
-    { a: { x: -95, z: -42 }, b: { x: -73, z: -42 } },
-    { a: { x: -84, z: -79 }, b: { x: -84, z: -31 } },
+    // STREET CLEANUP (22 Nov): the two paths below ran on the cobble
+    // alley lines (x -84 N-S, z -42 E-W) — the audit counts the minimap
+    // alley lines as roads. Rerouted to E-W streets between the lines
+    // (z -57 and z -66 sit between the -52/-61 and -61/-70 lines).
+    { a: { x: -95, z: -57 }, b: { x: -73, z: -57 } },
+    { a: { x: -95, z: -66 }, b: { x: -73, z: -66 } },
     { a: { x: -95, z: -57 }, b: { x: -73, z: -57 } },
   ],
 };

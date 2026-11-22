@@ -694,13 +694,17 @@ export function buildDistrict4() {
   }
   // Quay west — the combat staging spot (Elio crouches at -53.5, 13.5
   // on the quay; the old z 11.5 spot is the CBD's south street now).
-  barrier(-52.5, 13.5);
-  crateStack(-50.5, 13.5, 0.3);
-  lowWall(-55.5, 13.5);
-  // Quay east + mid-east by the crane.
-  barrier(50, 13.5);
-  crateStack(53.5, 13.5, -0.2);
-  lowWall(33, 13.5);
+  // STREET CLEANUP (22 Nov): the quay props stood ON the quay street
+  // (road z 12.7..14.5) — moved south to z 15.3, the promenade edge /
+  // furniture strip just off the road.
+  barrier(-52.5, 15.3);
+  crateStack(-50.5, 15.3, 0.3);
+  lowWall(-55.5, 15.3);
+  // Quay east cover DELETED (22 Nov street cleanup): the east props
+  // stood on the quay street too, but there is no furniture strip
+  // there — the promenade buildings occupy z 14..28. They had no
+  // mission role (the staging spot is the west quay), so they go
+  // instead of moving into a building.
   // Facade line: STAGE 1 — removed (the old facade line at z -9.6 is
   // inside the new CBD footprint; the towers stand there now). The quay
   // cover props stay.
@@ -710,8 +714,11 @@ export function buildDistrict4() {
   // GRID REBUILD: everything on the quay sits at z 13.5 (the quay strip
   // is z 12.7..14.5 now); the old z 11.5 spots are the CBD's south
   // street (z 10.1..12.3) and would block traffic.
+  // STREET CLEANUP (22 Nov): quay crates moved with the west cover
+  // props to z 15.3 (off the quay street); the east crates are deleted
+  // with the east cover (no furniture strip there).
   const quayProps = new THREE.Group();
-  for (const [qx, qz, c] of [[-52, 13.5, 0x8a6a4a], [-50.5, 13.5, 0x2e7f8f], [52, 13.5, 0x8a6a4a], [18, 13.5, 0xe4572e]]) {
+  for (const [qx, qz, c] of [[-52, 15.3, 0x8a6a4a], [-50.5, 15.3, 0x2e7f8f]]) {
     quayProps.add(box(1.1, 1.1, 1.1, c, qx, 0.85, qz));
     colliders.push({ x0: qx - 0.6, z0: qz - 0.6, x1: qx + 0.6, z1: qz + 0.6, id: 'crate' });
   }
@@ -723,13 +730,15 @@ export function buildDistrict4() {
   rope.position.set(-46, 0.35, 13.5);
   quayProps.add(rope);
   // Small wooden harbor crane + barrels + fishing nets on the quay.
-  quayProps.add(box(0.5, 5.5, 0.5, 0x6a4a2a, 36, 2.75, 13.5));
-  quayProps.add(box(0.4, 0.4, 4.5, 0x6a4a2a, 36, 5.4, 13.5));
-  quayProps.add(box(0.35, 1.6, 0.35, 0x2b2b2b, 36, 4.6, 13.4));
-  quayProps.add(cyl(0.5, 0.5, 1.0, 0x8a6a4a, 38.5, 0.8, 13.5, 10));
-  quayProps.add(cyl(0.5, 0.5, 1.0, 0x2e7f8f, 39.6, 0.8, 13.5, 10));
+  // STREET CLEANUP (22 Nov): the crane stood on the quay street — moved
+  // west to (-59, 15.0), off the road and clear of the marina plots.
+  quayProps.add(box(0.5, 5.5, 0.5, 0x6a4a2a, -59, 2.75, 15.0));
+  quayProps.add(box(0.4, 0.4, 4.5, 0x6a4a2a, -59, 5.4, 15.0));
+  quayProps.add(box(0.35, 1.6, 0.35, 0x2b2b2b, -59, 4.6, 14.9));
+  quayProps.add(cyl(0.5, 0.5, 1.0, 0x8a6a4a, -57.5, 0.8, 15.0, 10));
+  quayProps.add(cyl(0.5, 0.5, 1.0, 0x2e7f8f, -56.4, 0.8, 15.0, 10));
   quayProps.add(box(2.2, 0.15, 1.4, 0x3a5a3a, -30, 0.4, 13.5));
-  colliders.push({ x0: 35.7, z0: 13.2, x1: 36.3, z1: 13.8, id: 'crane' });
+  colliders.push({ x0: -59.3, z0: 14.7, x1: -58.7, z1: 15.3, id: 'crane' });
   group.add(mergeStatic(quayProps));
 
   // --- bay water + moored boats + skyline across the bay ---

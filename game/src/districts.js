@@ -481,15 +481,21 @@ export function buildOldTown() {
     // keeps both so peds distribute along the one real sidewalk.
     { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
     { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
-    { a: { x: -67.5, z: -50 }, b: { x: -67.5, z: -28 } },
-    { a: { x: -57.5, z: -50 }, b: { x: -57.5, z: -28 } },
-    { a: { x: -47.5, z: -50 }, b: { x: -47.5, z: -28 } },
+    // STREET CLEANUP (22 Nov): the N-S cross-street paths below ran
+    // down the cobble alleys (x -67.5/-57.5/-47.5/-35.5/-47) — the audit
+    // counts the minimap alley lines as roads, so the paths read as
+    // "on asphalt". Rerouted onto the south sidewalk (z -34.5, the
+    // corridor's only real sidewalk); the alleys keep their cobble
+    // slabs but no assigned ped path.
+    { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
+    { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
+    { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
     // NS paths on the ring connector's sidewalks: the old x -37.5 /
     // -42 lines ran ON the connector road (x -43.5..-36.5) — west
     // sidewalk centre -44.5, east sidewalk centre -35.5.
-    { a: { x: -35.5, z: -50 }, b: { x: -35.5, z: -28 } },
+    { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
     { a: { x: -52, z: -50 }, b: { x: -52, z: -28 } },
-    { a: { x: -47, z: -50 }, b: { x: -47, z: -28 } },
+    { a: { x: -70, z: -34.5 }, b: { x: -36, z: -34.5 } },
     { a: { x: -44.5, z: -50 }, b: { x: -44.5, z: -28 } },
     { a: { x: -51, z: -37.5 }, b: { x: -43, z: -37.5 } },
   ];
