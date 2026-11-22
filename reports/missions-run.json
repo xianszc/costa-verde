@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T05:58:18.949Z",
+  "generated": "2026-11-22T06:03:46.532Z",
   "commit": "unknown",
   "missions": {
     "M1": {
@@ -140,29 +140,21 @@
     },
     "M2": {
       "mission": "M2",
-      "result": "FAIL",
+      "result": "PASS",
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "ms": 504575,
-      "abortReason": "hard cap 480s reached",
-      "trace": [
-        "[trace] M2 stage=0 MEET player=(-2.0,-1.5) car=(-8.0,-0.7) target=(5,20) distPlayer=22.6u distCar=24.5u wanted=0 onFoot=true",
-        "[trace] M2 stage=1 TAIL player=(-6.6,-1.5) car=(12.3,5.0) target=(-26.80000000000064,-0.725) distPlayer=20.2u distCar=39.6u wanted=0 onFoot=false",
-        "[trace] M2 stage=2 DOCK player=(-6.6,-1.5) car=(-26.9,-2.4) target=(5,20) distPlayer=24.4u distCar=39.0u wanted=0 onFoot=false"
-      ],
-      "lastTrace": "[trace] M2 stage=2 DOCK player=(-6.6,-1.5) car=(-26.9,-2.4) target=(5,20) distPlayer=24.4u distCar=39.0u wanted=0 onFoot=false",
+      "ms": 291896,
+      "money": 1850,
+      "xp": 1909.6185121185438,
       "stages": {
         "0": "MEET: reached by driving (human-like)",
         "1": "TAIL: drive, no teleport (human-like)",
         "2": "DOCK: reached by driving (human-like)"
       },
       "errors": 0,
-      "commit": "unknown",
-      "open": true,
-      "timeboxMin": 30,
-      "timeboxUsedMin": 9,
-      "note": "M2 did not pass human-like within the 30 min box — fail (open), see position trace in the run log"
+      "how": "human-like",
+      "commit": "unknown"
     }
   },
   "saveLoad": {
