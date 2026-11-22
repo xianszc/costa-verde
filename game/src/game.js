@@ -19,6 +19,7 @@ import { createCbdTraffic, stepCbdTraffic, placeCbdCar } from './cbd-traffic.js'
 import { buildRoadShowcase } from './roads.js';
 import { skyTexture, skyPhaseForHour } from './water.js';
 import { createRadio, STATIONS } from './radio.js';
+import { createAudioEngine, zoneFor, surfaceFor } from './audio.js';
 import { createSaveSystem } from './save.js';
 import { createMissionEngine, MISSIONS, PORTRAITS } from './missions.js';
 import { ANCHORS } from './anchors.js';
@@ -382,6 +383,13 @@ export function createGame(container) {
 
   // --- M2 systems ---
   const radio = createRadio();
+  // AUDIO (22 Nov 23:31): the single engine — one shared AudioContext
+  // (radio + wheels squeal reuse it). Exposed for the headless check
+  // (window.__audio / window.__audioStats) and for sidecontent.
+  const audio = createAudioEngine();
+  window.__audio = audio;
+  window.__audioStats = audio.stats;
+  state.volume = audio.settings.master;
   const saveSystem = createSaveSystem();
   const missions = createMissionEngine();
   missions.start(0);
@@ -396,6 +404,7 @@ export function createGame(container) {
       onFoot: state.onFoot,
     }),
     isNight: () => skyPhaseForHour(state.time) === 'night',
+    onLevel: (l, prev) => audio.wanted(l, prev),
     onBusted: () => doBusted(),
     onRam: () => {
       // M9 game fix (21 Nov 21:31 order): during an escape stage the
@@ -409,6 +418,7 @@ export function createGame(container) {
   });
   const combat = createCombat(scene, camera, {
     colliders,
+    audio,
     getPlayer: () => ({
       x: player.x, z: player.z, angle: player.angle, speed: player.speed,
       onFoot: state.onFoot, crouched: player.crouched,
@@ -457,13 +467,16 @@ export function createGame(container) {
       })),
       radio: radio.index, radioStations: STATIONS,
       volume: state.volume,
+      audioSettings: audio.settings,
       saves: saveSystem.listSaves().map((s) => ({ label: s.label, empty: s.empty })),
       saveMsg: state.saveMsg,
     }),
     save: (i) => doSave(i),
     load: (i) => doLoad(i),
     setRadio: (i) => { radio.setStation(i); state.radio = i; },
-    setVolume: (v) => { state.volume = v; radio.setVolume(v); },
+    setVolume: (v) => { state.volume = v; audio.setVolume('master', v); },
+    setAudioVolume: (bus, v) => { audio.setVolume(bus, v); state.volume = audio.settings.master; },
+    setAudioMuted: (m) => audio.setMuted(m),
   });
 
   // --- toast + dialogue ---
@@ -499,6 +512,9 @@ export function createGame(container) {
       // forecourt, white suit and falcon cane, 120 hp.
       if (doneStage && doneStage.type === 'duel') clearDuelTarget();
       if (s.type === 'duel') spawnDuelTarget();
+      // AUDIO: bell-tower mission (M4 DROP at the old-town bell tower).
+      if (doneStage && doneStage.type === 'interact'
+        && Math.hypot(player.x + 47, player.z + 36) < 6) audio.bellTower();
       // Race lineup (side races): the cars take the grid facing the race
       // direction. The player lines up on foot at race_start_1, so
       // the car is placed on the start line facing west — otherwise
@@ -521,6 +537,7 @@ export function createGame(container) {
       const why = ev.reason === 'timeout' ? 'TIME UP'
         : ev.reason === 'wrecked' ? 'CAR WRECKED' : ev.reason.toUpperCase();
       toast(`MISSION FAILED — ${why}. Try again.`);
+      audio.ui('mission_fail');
       if (ev.reason === 'wrecked') { car.damage = 0; car.fuel = 100; }
       wantedForMission = -1;
       clearDuelTarget();
@@ -531,10 +548,12 @@ export function createGame(container) {
       state.xp = Math.min(10000, state.xp + ev.reward.xp);
       const race = ev.raceTime != null ? ` · ${fmtRaceTime(ev.raceTime)}` : '';
       toast(`MISSION COMPLETE — ${ev.mission.code} ${ev.mission.title} · +S ${ev.reward.money} · +${ev.reward.xp} XP${race}`);
+      audio.ui('mission_complete');
       dialogueLine = null;
       clearDuelTarget();
       if (missions.missionId + 1 < MISSIONS.length) {
         missions.start(missions.missionId + 1);
+        audio.ui('mission_start');
         showNextDialogue();
       } else {
         toast('ALL STORY MISSIONS COMPLETE — Azzura is yours, Elio. King of the Riviera.');
@@ -701,6 +720,8 @@ export function createGame(container) {
   }
   addEventListener('keydown', (e) => {
     keys[e.code] = true;
+    audio.resume();
+    if (e.code === 'KeyJ' && state.mode === 'play' && !state.onFoot) audio.horn();
     if (e.code === 'Enter' && state.mode === 'title') startPlay();
     else if (e.code === 'Enter' && (state.busted || state.wasted)) respawnAfterEnd();
     else if (e.code === 'Escape') {
@@ -745,7 +766,7 @@ export function createGame(container) {
   });
   // Pause menu buttons (wired once the DOM exists).
   function wirePauseMenu() {
-    const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+    const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', () => { audio.ui('ui_click'); fn(); }); };
     bind('pause-resume', () => setPaused(false));
     bind('pause-save', () => { doSave(0); });
     bind('pause-load', () => { doLoad(0); });
@@ -761,7 +782,7 @@ export function createGame(container) {
     const vol = document.getElementById('pause-volume');
     if (vol) vol.addEventListener('input', () => {
       state.volume = vol.value / 100;
-      radio.setVolume(state.volume);
+      audio.setVolume('master', state.volume);
     });
     const q = document.getElementById('pause-quality');
     if (q) q.addEventListener('change', () => applyQuality(q.value));
@@ -784,6 +805,8 @@ export function createGame(container) {
 
   function startPlay() {
     state.mode = 'play';
+    audio.ensure();
+    radio.start();
     showHUD();
     showNextDialogue();
   }
@@ -810,7 +833,6 @@ export function createGame(container) {
       if (d < 4) {
         state.onFoot = false;
         playerMesh.visible = false;
-        radio.setVolume(state.volume);
       }
     } else {
       state.onFoot = true;
@@ -878,6 +900,7 @@ export function createGame(container) {
   // --- storm ---
   function setStorm(on) {
     state.storm = on;
+    audio.setStorm(on);
     rain.visible = on;
     district.setWet(on ? 1 : 0);
     if (on) scene.fog.color.setHex(0x5a6a72);
@@ -940,6 +963,8 @@ export function createGame(container) {
       } else {
         player.speed = 0;
       }
+      // AUDIO: one footstep per half stride, surface by position.
+      if (player.speed > 0) audio.noteStep(player.walkPhase, surfaceFor(player.x, player.z));
       // On the skyline landmass / bridge the player stands at its
       // height (M3 (c)); everywhere else the ground is y 0.
       playerMesh.position.set(player.x, groundHeightAt(player.x, player.z), player.z);
@@ -958,13 +983,17 @@ export function createGame(container) {
         }
       }
     } else {
+      const prevDamage = car.damage;
       stepCar(car, input, dt, colliders);
+      // AUDIO: crash loudness follows the damage delta of this frame.
+      if (car.damage > prevDamage) audio.crash(Math.min(1, (car.damage - prevDamage) / 10));
       state.xp = Math.min(state.xpMax, state.xp + Math.abs(car.speed) * dt * 0.6);
       // Hitting a pedestrian while driving: wanted +heat.
       for (const p of peds) {
         if (!p.fallen && Math.hypot(p.mesh.position.x - car.x, p.mesh.position.z - car.z) < 1.8 && Math.abs(car.speed) > 3) {
           p.damage(60);
           wanted.addHeat(12);
+          if (Math.random() < 0.6) audio.npcShout('fear');
         }
       }
     }
@@ -1300,6 +1329,22 @@ export function createGame(container) {
       wanted.update(dt, performance.now() / 1000);
       // Combat: tracers, reload, police return fire.
       combat.update(dt, wanted.level, wanted.units);
+      // AUDIO: engine / skid / siren / heli / ambience follow the game.
+      const px = state.onFoot ? player.x : car.x;
+      const pz = state.onFoot ? player.z : car.z;
+      audio.update(dt, {
+        speedNorm: Math.abs(state.onFoot ? player.speed : car.speed) / 26,
+        driving: !state.onFoot,
+        drifting: !state.onFoot && !!input.handbrake && Math.abs(car.speed) > 6,
+        braking: !state.onFoot && !!input.down && Math.abs(car.speed) > 8,
+        x: px, z: pz,
+        zone: zoneFor(px, pz),
+        isNight: skyPhaseForHour(state.time) === 'night',
+        health: state.health,
+        storm: state.storm,
+        wanted: wanted.level,
+        heli: wanted.heliActive,
+      });
     }
     stepRain(dt);
     for (const tk of district.tickers) tk.userData.tick(performance.now() / 1000);
