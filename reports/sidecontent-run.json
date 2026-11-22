@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22T09:46:47.464Z",
+  "generated": "2026-11-22T10:17:06.854Z",
   "tests": {
     "shops": {
       "result": "FAIL",
@@ -323,10 +323,9 @@
       }
     },
     "jumps": {
-      "result": "FAIL",
+      "result": "PASS",
       "how": "human-like",
-      "ms": 175184,
-      "error": "SJ4: jump did not register (max speed at gate 0.0 m/s)",
+      "ms": 254314,
       "evidence": {
         "start": {
           "money": 1500,
@@ -335,76 +334,101 @@
           "rank": "DECKHAND"
         },
         "slowPass": {
-          "maxSpeedAtGate": 6,
+          "maxSpeedAtGate": 6.5,
           "registered": false
         },
         "SJ1": {
-          "maxSpeedAtGate": 0,
-          "moneyBefore": 1750,
-          "moneyAfter": 2400,
-          "xpBefore": 1412.1103333333087,
-          "xpAfter": 1531.0338333333088,
-          "coinsBefore": 5,
-          "coinsAfter": 5,
+          "maxSpeedAtGate": 6,
+          "moneyBefore": 1550,
+          "moneyAfter": 2450,
+          "xpBefore": 1271.7533333333301,
+          "xpAfter": 1541.3839166666369,
+          "coinsBefore": 1,
+          "coinsAfter": 6,
           "jumpsBefore": 0,
           "jumpsAfter": 1,
           "rankBefore": "DECKHAND",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 5/20 · JUMPS 1/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 6/20 · JUMPS 1/8 · JOBS 0/9 · WHEELMAN",
             "display": "block"
           }
         },
         "SJ2": {
-          "maxSpeedAtGate": 0,
-          "moneyBefore": 2400,
-          "moneyAfter": 2550,
-          "xpBefore": 1536.9111666666422,
-          "xpAfter": 1656.1861666666425,
-          "coinsBefore": 5,
-          "coinsAfter": 5,
+          "maxSpeedAtGate": 7,
+          "moneyBefore": 2500,
+          "moneyAfter": 2650,
+          "xpBefore": 1567.4605833333037,
+          "xpAfter": 1684.4230833333036,
+          "coinsBefore": 7,
+          "coinsAfter": 7,
           "jumpsBefore": 1,
           "jumpsAfter": 2,
           "rankBefore": "WHEELMAN",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 5/20 · JUMPS 2/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 7/20 · JUMPS 2/8 · JOBS 0/9 · WHEELMAN",
             "display": "block"
           }
         },
         "SJ3": {
-          "maxSpeedAtGate": 0,
-          "moneyBefore": 2550,
-          "moneyAfter": 2700,
-          "xpBefore": 1661.4021666666422,
-          "xpAfter": 1774.1341127999756,
-          "coinsBefore": 5,
-          "coinsAfter": 5,
+          "maxSpeedAtGate": 6,
+          "moneyBefore": 2650,
+          "moneyAfter": 2800,
+          "xpBefore": 1684.4230833333036,
+          "xpAfter": 1830.7886226666092,
+          "coinsBefore": 7,
+          "coinsAfter": 7,
           "jumpsBefore": 2,
           "jumpsAfter": 3,
           "rankBefore": "WHEELMAN",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 5/20 · JUMPS 3/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 7/20 · JUMPS 3/8 · JOBS 0/9 · WHEELMAN",
             "display": "block"
           }
         },
         "SJ4": {
-          "maxSpeedAtGate": 0,
-          "moneyBefore": 2700,
-          "moneyAfter": 2700,
-          "xpBefore": 1774.1341127999756,
-          "xpAfter": 1779.6544274939413,
-          "coinsBefore": 5,
-          "coinsAfter": 5,
+          "maxSpeedAtGate": 6,
+          "moneyBefore": 2800,
+          "moneyAfter": 2950,
+          "xpBefore": 1831.759289333276,
+          "xpAfter": 1978.013789333252,
+          "coinsBefore": 7,
+          "coinsAfter": 7,
           "jumpsBefore": 3,
-          "jumpsAfter": 3,
+          "jumpsAfter": 4,
           "rankBefore": "WHEELMAN",
           "rankAfter": "WHEELMAN",
           "hud": {
-            "text": "COINS 5/20 · JUMPS 3/8 · JOBS 0/9 · WHEELMAN",
+            "text": "COINS 7/20 · JUMPS 4/8 · JOBS 0/9 · WHEELMAN",
             "display": "block"
           }
+        },
+        "afterReload": {
+          "jumpsDone": 4,
+          "money": 1250,
+          "rank": "DECKHAND"
+        },
+        "afterLoad": {
+          "jumpsDone": 4,
+          "money": 2950,
+          "rank": "WHEELMAN",
+          "coins": 7
+        },
+        "completion": {
+          "maxSpeedAtGate": 6.5,
+          "moneyBefore": 1500,
+          "moneyAfter": 2150,
+          "coinsBefore": 0,
+          "coinsAfter": 0,
+          "jumpsAfter": 8,
+          "toast": "ALL STUNT JUMPS — 8/8! Completion bonus +S 500."
+        },
+        "completionPersisted": {
+          "jumpsBonusClaimed": true,
+          "storedCount": 8,
+          "hasSJ8": true
         }
       }
     }
