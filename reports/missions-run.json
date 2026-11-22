@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-22T21:01:40.379Z",
-  "commit": "03b6361",
+  "generated": "2026-11-22T21:29:36.109Z",
+  "commit": "b9bb5d5",
   "missions": {
     "M1": {
       "mission": "M1",
@@ -32,13 +32,21 @@
     },
     "M4": {
       "mission": "M4",
-      "result": "ERROR",
-      "attempts": 0,
+      "result": "PASS",
+      "attempts": 1,
       "fails": 0,
-      "maxStage": 0,
-      "ms": 0,
-      "error": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.",
-      "commit": "03b6361"
+      "maxStage": 2,
+      "ms": 215908,
+      "money": 3800,
+      "xp": 2976.998105435787,
+      "stages": {
+        "0": "MEET: reached by driving (human-like)",
+        "1": "DROP: drive 4.2u + walk 0.0u (human-like)",
+        "2": "ESCAPE: drive + walk final leg (human-like)"
+      },
+      "errors": 0,
+      "how": "human-like",
+      "commit": "b9bb5d5"
     },
     "M5": {
       "mission": "M5",
