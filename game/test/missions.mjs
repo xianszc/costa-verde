@@ -836,7 +836,12 @@ async function playMission(page, id, label, maxAttempts = 2) {
     // progress at the cap — the long-escape case). A stuck mission
     // used to burn the whole 480 s (~9 min per timeout at ~20%
     // headless speed); the stall detector below aborts much sooner.
-    const baseCapMs = id === 1 ? 480000 : 240000;
+    // HUMAN-LIKE (22 Nov 12:49): the no-teleport driver is slower —
+    // routeDrive overshoots waypoints and re-plans (DRIVER, not a
+    // GAME bug). M7 took 398 s, M2 ~505 s, M1 468 s vs the 240 s base
+    // (+240 s extension = 480 s max). In --human-like mode the base
+    // cap is 480 s for every mission (+240 s extension = 720 s max).
+    const baseCapMs = HUMAN_LIKE ? 480000 : (id === 1 ? 480000 : 240000);
     let deadline = Date.now() + baseCapMs;
     let extended = false;
     let result = null;
@@ -1303,15 +1308,24 @@ const saveLoad = await checkSaveLoad();
   await writeFile(RESULTS_PATH, JSON.stringify(data, null, 2));
 }
 
-// HUMAN-LIKE audit (22 Nov 11:40): the old 'human-like' labels in the
-// table are wrong — every old pass used teleports. In --human-like mode,
-// downgrade every mission NOT re-run here to 'workaround' so the table
-// tells the truth; the re-run missions get their fresh label below.
+// HUMAN-LIKE audit (22 Nov 11:40, fixed 22 Nov 12:49): the old
+// 'human-like' labels in the table are wrong — every old pass used
+// teleports. In --human-like mode, downgrade every mission NOT re-run
+// here to 'workaround' — BUT only records WITHOUT per-stage human-like
+// labels. M7 (810fa87, PASS 398s) was wrongly downgraded by the old
+// migration even though its record HAS stage labels proving a real
+// human-like pass, so a record WITH human-like stage labels and a PASS
+// keeps (or regains) 'human-like'. TIMEOUT/FAIL records are never
+// restored — their stage labels only prove the stages were STARTED.
 if (HUMAN_LIKE) {
   const data = await loadResults();
   let changed = false;
   for (const [code, rec] of Object.entries(data.missions)) {
-    if (rec.how === 'human-like' && !ORDER_RUN.includes(ID_BY_CODE[code])) { rec.how = 'workaround'; changed = true; }
+    if (ORDER_RUN.includes(ID_BY_CODE[code])) continue; // re-run below
+    const hasHumanLikeStages = rec.stages && Object.values(rec.stages).some((s) => String(s).includes('human-like'));
+    if (hasHumanLikeStages) {
+      if (rec.result === 'PASS' && rec.how !== 'human-like') { rec.how = 'human-like'; changed = true; }
+    } else if (rec.how === 'human-like') { rec.how = 'workaround'; changed = true; }
   }
   if (changed) await writeFile(RESULTS_PATH, JSON.stringify(data, null, 2));
 }
