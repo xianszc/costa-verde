@@ -22,7 +22,7 @@ import { ANCHORS } from './anchors.js';
 import {
   buildRoadNetwork, validatePlots, trafficLanes, minimapLines,
   splitSegmentsAtJunctions,
-  BOULEVARD, CROSS_X, seededRandom, boulevardMedianSegments,
+  BOULEVARD, CROSS_X, seededRandom,
 } from './roads.js';
 import { buildNewDistricts } from './districts.js';
 import { buildCBD } from './cbd.js';
@@ -580,12 +580,13 @@ export function buildDistrict4() {
   // The connector signal ticker (working cycles) is stepped with the
   // district tickers, next to the grid's own signal ticker.
   if (roads.tickers) tickers.push(...roads.tickers);
-  // Boulevard median colliders (the divided avenue): cars and
-  // pedestrians cross only at the intersections, where the median has
-  // gaps. Without these the median is a visual the car drives through.
-  for (const seg of boulevardMedianSegments()) {
-    colliders.push({ x0: seg.x0, z0: seg.z0, x1: seg.x1, z1: seg.z1, id: 'boulevard-median' });
-  }
+  // GAME fix (M10 simplify, 22 Nov): the boulevard median is visual
+  // only — NO colliders. The median strips sit on the road centreline
+  // (z 0), so a car driving along the boulevard wedged on the median
+  // nose at (-34.7, 0) in every M10 run (runs 7-11). The race, the tail
+  // and the escapes all drive along the boulevard, so the whole avenue
+  // must be drivable end-to-end. The low stone strip (0.35 high) reads
+  // as a mountable divider; crossings at the intersections are unchanged.
 
   // --- buildings (merged into a few draw calls) ---
   const buildings = new THREE.Group();
