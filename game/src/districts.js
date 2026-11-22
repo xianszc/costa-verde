@@ -364,9 +364,20 @@ export function buildOldTown() {
   for (const hz of [-49, -45, -35, -31, -27]) {
     for (let hx = -70; hx <= -35; hx += 5) {
       if (overlapsReserved(hx, hz, 3, 3)) continue;
+      const builder = pick(hi++);
+      // GAME fix (M10 race, 22 Nov ~08:20): the (-35,-45) house stood
+      // ON the VIA DEL NORD / ring-avenue junction — its 3x3 plot
+      // (x -36.5..-33.5, z -46.5..-43.5) covered the exact corner
+      // where the minimap graph joins the two streets, so the race
+      // car driving west stalled at (-33,-44.8) against its east
+      // face (ejection scan + top-down shot proved it). The corner
+      // stays open so the streets really connect. The builder is
+      // picked before the skip so the seeded sequence for the
+      // remaining houses is unchanged.
+      if (hx === -35 && hz === -45) continue;
       // The wall row and the two north rows face the main street
       // (south); the three south rows face it too (north).
-      addPlot(hx, hz, 3, 3, pick(hi++), hz < -39 ? 0 : Math.PI);
+      addPlot(hx, hz, 3, 3, builder, hz < -39 ? 0 : Math.PI);
     }
   }
   group.add(mergeStatic(buildings));
