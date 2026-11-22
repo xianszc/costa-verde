@@ -947,7 +947,16 @@ function updatePrompt() {
 function loop(now) {
   requestAnimationFrame(loop);
   if (!game) return;
-  const dt = Math.min(0.1, Math.max(0, (now - lastNow) / 1000 || 0));
+  // GAME fix (3c.5, 22 Nov ~18:00): the engine's timers (job time
+  // limits, race/stage timers) must run on SIM time, not wall time.
+  // The side dt was wall dt capped at 0.1 s — at 60 fps that is real
+  // time, but in headless (rAF ~1.4 fps) it is 0.14x, so the 90 s J1
+  // timer needed ~650 wall-s to fire (proven: TIME LEFT 01:21 at
+  // 63 s wall, 00:54 at 263 s). Scaling by the game's fastsim factor
+  // (test-only, 1 in normal play) makes the timers track the sim:
+  // at fastsim=2 the 90 s timer fires in ~130 wall-s. The cap rises
+  // to 0.25 s to match the game loop's own dt cap.
+  const dt = Math.min(0.25, Math.max(0, (now - lastNow) / 1000 || 0)) * (game.__fastsim || 1);
   lastNow = now;
   const t = now / 1000;
   // Spin the coins + pulse the beacons even on the title screen.
