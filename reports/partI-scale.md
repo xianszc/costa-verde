@@ -112,8 +112,48 @@ sedan 1,32×, pickup 1,17×, van 0,91× (orang lebih PENDEK dari van
 ## 6. Foto (skala baru 0,7 / 0,6)
 
 - reports/partF2-char-vs-car.png — orang di samping mobil hero.
+  **BAGUS** (fix round 1): orang ~1,37× tinggi mobil, terbaca
+  proporsional; fasad krem tidak lagi mendominasi atas frame; tidak
+  ada pita kuning raksasa / toast / diamond besar. Kelemahan: diamond
+  kecil masih terlihat jauh di kiri; orang agak gelap.
 - reports/partE-lowcam-pov.png — low-cam POV kejar-kejaran senja.
-- screenshots/01-cover.jpg, 02-city.jpg, 03-action.jpg,
-  04-features.jpg — dusk chase, tanpa pita kuning raksasa, tanpa
-  fasad krem polos di atas frame, diamond diframe-out/disembunyikan
-  in-page saat motret (beacon tetap ada di kode game).
+  **SEDANG** (fix round 3): HUD sudah benar (72 KM/H via syncHUD);
+  jalan + zebra + rambu terbaca. Kelemahan: cruiser yang merangsek
+  menutupi sebagian hero (overlap ram, lihat §7).
+- screenshots/01-cover.jpg — **LEMAH**: hero + cruiser bertumpuk
+  jadi satu mobil dua warna (ram 0,6u). Jalan + gedung + langit bagus,
+  dinding kuning hilang, HUD benar.
+- screenshots/02-city.jpg — **BAGUS** (dari H-3, tidak di-shoot
+  ulang): aerial CBD + marina senja, tower setengah tinggi terbaca
+  padat. Kelemahan: dispatch kosong (CLEAN), dua cincin emas kecil
+  di marina, mobil 0 km/h (parkir — wajar untuk aerial).
+- screenshots/03-action.jpg — **LEMAH**: kamera diagonal mendarat
+  di samping gedung utara (dinding gelap memenuhi 60% frame); hero
+  hampir tidak terlihat. Dispatch 1 m / 5 m (polisi sangat dekat).
+- screenshots/04-features.jpg — **BISA DIPAKAI** (fix round 3,
+  terbaik dari 4 chase shot): jalan + toko + zebra + 2 cruiser
+  terbaca; HUD benar. Kelemahan: cruiser menumpuk di buritan hero;
+  awning oranye besar di bawah frame.
+
+## 7. Masalah yang ditemukan (untuk ronde berikut)
+
+- **Ram overlap:** unit wanted yang merangsek mendekat sampai
+  0,1–0,6u dari hero (freeze Drive 1: 0,6u; Drive 2: 0,1u) —
+  tidak ada tabrakan mobil-vs-mobil di game, jadi badan visual
+  (3,08u) bertumpuk. Di skala 0,35 hal ini hampir tidak terlihat.
+  Perilaku game ini SUDAH ADA sebelumnya (ram), bukan bug baru
+  part I; mengubah fisika pursuit berisiko ke M9. **Solusi untuk
+  foto (bukan game):** kondisi freeze menunggu polisi di 2–5u
+  (cukup dekat untuk terbaca kejar-kejaran, cukup jauh untuk tidak
+  bertumpuk) — belum diterapkan; ronde fix sudah habis (initial +
+  3 fix round). Cover + 03-action + low-cam butuh satu pass lagi
+  dengan kondisi freeze itu.
+- **HUD stale (headless):** updateHUD jalan di render loop (rAF);
+  di SwiftShader render loop bisa starving sementara sim jalan
+  terus, sehingga HUD membeku di state load (0 KM/H, 19:30).
+  Ditemukan di Drive-1 fix round 2; diperbaiki di fix round 3
+  dengan syncHUD() (tulis nilai BENAR dari live state ke DOM
+  sebelum screenshot). Bukan bug game.
+- **Roadblock:** grup 'roadblock' (barrier kuning + 2 cruiser)
+  di x≈18 menghalangi kamera low-cam — disembunyikan in-page
+  selama motret (fix round 2); game tidak diubah.
