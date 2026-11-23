@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-23T08:38:18.842Z",
+  "generated": "2026-11-23T08:40:17.819Z",
   "commit": "000a760",
   "missions": {
     "M1": {
@@ -36,17 +36,17 @@
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "ms": 215908,
-      "money": 3800,
-      "xp": 2976.998105435787,
+      "ms": 89837,
+      "money": 3150,
+      "xp": 2069.8450759523653,
       "stages": {
         "0": "MEET: reached by driving (human-like)",
-        "1": "DROP: drive 4.2u + walk 0.0u (human-like)",
+        "1": "DROP: drive 36.7u + walk 0.0u (human-like)",
         "2": "ESCAPE: drive + walk final leg (human-like)"
       },
       "errors": 0,
       "how": "human-like",
-      "commit": "b9bb5d5"
+      "commit": "000a760"
     },
     "M5": {
       "mission": "M5",
