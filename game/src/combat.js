@@ -101,7 +101,12 @@ export function createCombat(scene, camera, opts) {
     const p = getPlayer();
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
-    return { origin: new THREE.Vector3(p.x, 1.4, p.z), dir };
+    // Part N2: the muzzle sits at the player's shoulder — 0.78 x stature
+    // (people.js: hip 0.48H + torso 0.32H x 0.92). The old 1.4 was the
+    // pre-Part-J shoulder at PED_SCALE 1.0; at 0.30 it floated 0.8u over
+    // Elio's head. Height comes from getPlayer (userData.height, 0.576u).
+    const shoulderY = (p.height || 0.576) * 0.78;
+    return { origin: new THREE.Vector3(p.x, shoulderY, p.z), dir };
   }
   function showFlash(origin, dir) {
     if (!flash) {
@@ -394,8 +399,12 @@ export function createCombat(scene, camera, opts) {
       const acc = Math.max(0.04, 0.3 - dist * 0.005 - (cover ? 0.16 : 0) - Math.abs(p.speed || 0) * 0.012);
       const hits = Math.random() < acc;
       // Enemy tracer: cruiser roof to the player, offset on a miss.
-      const from = new THREE.Vector3(u.car.x, 1.5, u.car.z);
-      const to = new THREE.Vector3(p.x, 1.2, p.z);
+      // Part N2: roof/chest heights at the Part-J scales (CAR_SCALE 0.33,
+      // PED_SCALE 0.30). The old 1.5/1.2 were pre-Part-J heights — the
+      // beams started 1.1u over the cruiser roof and ended 0.85u over
+      // Elio's head. Roof is 0.40u, chest ~0.36u.
+      const from = new THREE.Vector3(u.car.x, 0.50, u.car.z);
+      const to = new THREE.Vector3(p.x, 0.36, p.z);
       if (!hits) {
         to.x += (Math.random() - 0.5) * 3;
         to.z += (Math.random() - 0.5) * 3;

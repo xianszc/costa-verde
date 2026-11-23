@@ -521,6 +521,9 @@ export function createGame(container) {
     getPlayer: () => ({
       x: player.x, z: player.z, angle: player.angle, speed: player.speed,
       onFoot: state.onFoot, crouched: player.crouched,
+      // Part N2: combat muzzle/return-fire heights must scale with the
+      // figure (userData.height = H x PED_SCALE = 0.576u).
+      height: playerMesh.userData.height,
     }),
     getTargets: () => {
       const list = [];
@@ -1359,7 +1362,11 @@ export function createGame(container) {
       playerMesh.rotation.y = player.angle + Math.PI / 2;
       animateWalk(playerMesh, player.walkPhase, player.speed);
       // Crouch reads as cover-ready (the figure lowers).
-      playerMesh.scale.y = player.crouched ? 0.82 : 1;
+      // Part N2: scale.y MUST keep PED_SCALE — a plain 1 (or 0.82)
+      // clobbered the uniform 0.30 set by makeFigure, so Elio rendered
+      // 1.9u tall (3.3x stretched) while the world is 1u=3m. He is 0.58u
+      // again now. (Stale since Part J changed PED_SCALE 1.0 -> 0.30.)
+      playerMesh.scale.y = PED_SCALE * (player.crouched ? 0.82 : 1);
       // Bump a pedestrian while running fast: wanted +heat (M1 rule, M2 heat).
       // AUDIT C-1: one bump per ped per 1.5 s — without a cooldown the
       // loop added +10 heat PER FRAME (~+180 in a 0.3 s brush).
