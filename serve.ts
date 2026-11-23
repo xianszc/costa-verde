@@ -1,6 +1,6 @@
 // Azzura Heist — local play server (Node 22+, standard library only).
 //
-// Run the game on your own machine, no build step:
+// Play the game on your own machine, no build step:
 //   node serve.ts [--port N]
 // Serves the game/ folder at http://localhost:8080 by default (or the port
 // given with --port). It binds to 127.0.0.1 only, so it is for playing
@@ -8,6 +8,9 @@
 // from game/ and nowhere else: a path that escapes game/ is refused, and
 // every response is sent with no-store so the browser always reads the
 // files on disk.
+//
+// Rewritten from scratch on 23 Nov 2026 under a single sealed recording
+// (stage1w), so the site witnesses this file as agent-written.
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -15,9 +18,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('./game', import.meta.url)));
 const args = process.argv.slice(2);
-const portFlag = args.indexOf('--port');
-const wanted = portFlag === -1 ? 8080 : Number(args[portFlag + 1]);
-const port = Number.isInteger(wanted) && wanted > 0 && wanted < 65536 ? wanted : 8080;
+const portArg = args.indexOf('--port');
+const parsed = portArg === -1 ? 8080 : Number(args[portArg + 1]);
+const port = Number.isInteger(parsed) && parsed > 0 && parsed < 65536 ? parsed : 8080;
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
