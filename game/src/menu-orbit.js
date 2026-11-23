@@ -38,9 +38,12 @@ export const ORBIT_CAM_POINTS = [
   [95, 19, 42],    // 2 bay east edge — marina + promenade in view
   [105, 20, 5],    // 3 east leg, over residential east (max ~14.6 u)
   [100, 19, -55],  // 4 east-north
-  [82, 19, -82],   // 5 north-east corner, gap east of ring-ext north
-  [0, 18, -97],    // 6 north leg, residential-north strip (max ~14.6 u)
-  [-70, 18, -97],  // 7 north leg west
+  [88, 20, -94],   // 5 north-east, north of the ring-ext strip (v2 fix:
+                   // v1 ran at [82,19,-82] and clipped the strip's
+                   // north-east corner — probe: down -3.49 u, lateral
+                   // 0.27 u at (69.5, 18.9, -87.5))
+  [0, 20, -99],    // 6 north leg, residential-north strip (max ~13.1 u)
+  [-70, 20, -99],  // 7 north leg west
   [-82, 19, -82],  // 8 north-west corner, gap west of ring-ext north
   [-108, 20, -30], // 9 west leg, over residential west
   [-105, 19, 30],  // 10 west leg south — promenade west in view
