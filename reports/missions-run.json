@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-23T08:42:46.137Z",
-  "commit": "000a760",
+  "generated": "2026-11-23T08:48:59.817Z",
+  "commit": "2d4e337",
   "missions": {
     "M1": {
       "mission": "M1",
@@ -22,13 +22,48 @@
     },
     "M3": {
       "mission": "M3",
-      "result": "PASS",
-      "how": "workaround",
-      "ms": 61000,
-      "attempts": 1,
-      "fails": 0,
+      "result": "FAIL",
+      "attempts": 2,
+      "fails": 2,
       "maxStage": 2,
-      "evidence": "/tmp/missions-run-20261122-0130.log (HEAD f7a574e), not re-run in this pass"
+      "ms": 294145,
+      "stages": {
+        "0": "CLIMB: reached by driving (human-like)",
+        "1": "DELIVER: reached by driving (human-like)"
+      },
+      "abortReason": "could not exit car for final walk (mode=paused wanted=0 busted=false wasted=true health=0 shop=false map=false hub=false hidden=false title=WASTED)",
+      "modeTrap": [
+        {
+          "at": 67247,
+          "from": "play",
+          "stack": "    at Object.set [as mode] (eval at evaluate (:370:30), <anonymous>:14:29) |     at doWasted (http://127.0.0.1:8941/src/game.js:776:16) |     at onDamage (http://127.0.0.1:8941/src/game.js:550:30) |     at Object.update (http://127.0.0.1:8941/src/combat.js:407:9) |     at step (http://127.0.0.1:8941/src/game.js:1738:14)",
+          "busted": false,
+          "wasted": true,
+          "health": 0,
+          "wanted": 0,
+          "shop": "none",
+          "map": "none",
+          "hub": false,
+          "hidden": false,
+          "title": "WASTED"
+        },
+        {
+          "at": 317199,
+          "from": "play",
+          "stack": "    at Object.set [as mode] (eval at evaluate (:370:30), <anonymous>:14:29) |     at doWasted (http://127.0.0.1:8941/src/game.js:776:16) |     at onDamage (http://127.0.0.1:8941/src/game.js:550:30) |     at Object.update (http://127.0.0.1:8941/src/combat.js:407:9) |     at step (http://127.0.0.1:8941/src/game.js:1738:14)",
+          "busted": false,
+          "wasted": true,
+          "health": 0,
+          "wanted": 0,
+          "shop": "none",
+          "map": "none",
+          "hub": false,
+          "hidden": false,
+          "title": "WASTED"
+        }
+      ],
+      "errors": 0,
+      "commit": "2d4e337"
     },
     "M4": {
       "mission": "M4",
