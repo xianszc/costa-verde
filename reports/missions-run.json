@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-23T09:00:12.167Z",
-  "commit": "a09a7fa",
+  "generated": "2026-11-23T09:15:41.854Z",
+  "commit": "unknown",
   "missions": {
     "M1": {
       "mission": "M1",
@@ -95,36 +95,20 @@
     "M7": {
       "mission": "M7",
       "result": "PASS",
-      "attempts": 2,
-      "fails": 1,
+      "attempts": 1,
+      "fails": 0,
       "maxStage": 2,
-      "ms": 120502,
-      "money": 2990,
-      "xp": 2120.793118955943,
+      "ms": 44388,
+      "money": 3250,
+      "xp": 2084.6287272400295,
       "stages": {
         "0": "CROSS: reached by driving (human-like)",
-        "1": "SCAN: drive 0.0u + walk 0.0u (human-like)",
+        "1": "SCAN: drive 0.1u + walk 0.0u (human-like)",
         "2": "RETURN: reached by driving (human-like)"
       },
-      "modeTrap": [
-        {
-          "at": 44232,
-          "from": "play",
-          "stack": "    at Object.set [as mode] (eval at evaluate (:370:30), <anonymous>:14:29) |     at doWasted (http://127.0.0.1:8941/src/game.js:776:16) |     at onDamage (http://127.0.0.1:8941/src/game.js:550:30) |     at Object.update (http://127.0.0.1:8941/src/combat.js:407:9) |     at step (http://127.0.0.1:8941/src/game.js:1738:14)",
-          "busted": false,
-          "wasted": true,
-          "health": 0,
-          "wanted": 0,
-          "shop": "none",
-          "map": "none",
-          "hub": false,
-          "hidden": false,
-          "title": "WASTED"
-        }
-      ],
       "errors": 0,
       "how": "human-like",
-      "commit": "000a760"
+      "commit": "unknown"
     },
     "M8": {
       "mission": "M8",
