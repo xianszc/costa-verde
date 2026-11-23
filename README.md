@@ -38,17 +38,16 @@ TOWN RUN, R4 MARINA DASH) are defined in `game/src/side-races.js`.
 Verified in Playwright, not just claimed — latest results in
 `reports/missions-run.json` and `reports/sidecontent-run.json`:
 
-- **11 story missions:** M2 and M7 pass fully human-like (drive the car,
-  walk the final leg, no teleports — 292 s and 398 s); M3, M4, M6, M8,
-  M9, M11 and M12 pass with the standard driver (drive + escape stages
-  played for real; goto/deliver/interact stages teleport the player —
-  labelled "workaround" in the run file). M12's duel is resolved via
-  damage, not played combat. **Open:** M1 FAIL on the 22 Nov re-run
-  (`e4aaa6d`, 409 s, 2 attempts) — the car drives fine, but the final
-  on-foot walk to the harbormaster pavilion ends 10.6u short, twice at
-  the same spot; M5 FAIL (could not exit the car for the final walk).
-  Both are driver-side walk issues under investigation, not game
-  regressions — the same HEAD passes shops-near driving normally.
+- **11 story missions — 11/11 PASS** (`reports/missions-run.json`,
+  generated 2026-11-22T21:38:46Z, HEAD `cc6d756`): M1 294 s, M2 45 s,
+  M4 216 s, M5 157 s, M6 274 s, M7 126 s, M8 183 s, M9 69 s (attempt 2),
+  M11 126 s, M12 335 s — all human-like (drive the car, walk the
+  final leg, no teleports); M3 passes with the standard driver
+  (goto/deliver/interact stages teleport the player — labelled
+  "workaround" in the run file, 61 s, evidence from an earlier HEAD,
+  not re-run in this pass). M12's duel is resolved via damage, not
+  played combat. Save/load verified (money 7777, xp 1234, missionId 4
+  restore exactly).
   M10 (RIVIERA GRAND PRIX) was cut 22 Nov — unwinnable race, removed
   cleanly.
 - **Side content — all wired into play and passing**
