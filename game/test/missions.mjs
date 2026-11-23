@@ -845,7 +845,11 @@ async function boardCar(page) {
       if (d > 20) return false; // car too far to reach on foot
       const ok = await walkToPoint(page, s.cx, s.cz, 1.5, 60000);
       if (!ok) {
-        const ok2 = await walkToPoint(page, s.cx, s.cz, 3.5, 20000);
+        // DRIVER fix (part K, 23 Nov): the old 3.5u fallback stop is
+        // OUTSIDE the game's board radius (2.6u since part J) — E does
+        // nothing from 3.5u, so the board failed even when the walk
+        // "succeeded". 2.0u is inside the radius with margin.
+        const ok2 = await walkToPoint(page, s.cx, s.cz, 2.0, 20000);
         if (!ok2) return false;
       }
     }
