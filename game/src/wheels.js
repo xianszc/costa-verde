@@ -199,7 +199,12 @@ export function poseWheelRig(rig, spinAngle, steerAngle) {
 export function updateWheelRig(rig, o) {
   const spec = rig.userData.spec;
   // Spin: rolling speed / radius. Sign checked against the motion shot.
-  rig.userData.spin.rotation.x += (o.speed * o.dt) / spec.radius;
+  // Part F: the rig's parent is the car group, scaled by CAR_SCALE —
+  // the visual wheel radius is spec.radius * group scale, so divide
+  // by that (else the wheels spin 1/CAR_SCALE too fast). The
+  // suspension bounce below stays in local (pre-scale) coordinates.
+  const parentScale = (rig.parent && rig.parent.scale) ? rig.parent.scale.x : 1;
+  rig.userData.spin.rotation.x += (o.speed * o.dt) / (spec.radius * parentScale);
   // Steering (front wheels only — the caller passes 0 for the rear).
   rig.rotation.y = o.steer || 0;
   // Suspension bounce: small vertical travel, scaled by speed.
@@ -235,7 +240,8 @@ function getSkidPool(scene) {
 // One skid mark at world (x, z), laid along heading `angle`. The road
 // top is y 0.2, so marks sit at 0.23 (like the lane dashes at 0.22) —
 // at 0.03 they were buried under the asphalt and invisible.
-export function addSkidMark(scene, x, z, angle) {
+// `scale` (Part F) shrinks the mark with the car that made it.
+export function addSkidMark(scene, x, z, angle, scale = 1) {
   const pool = getSkidPool(scene);
   const slot = pool.marks[pool.next];
   pool.next = (pool.next + 1) % pool.marks.length;
@@ -245,6 +251,7 @@ export function addSkidMark(scene, x, z, angle) {
   // z-rotation applies in-plane first, and +angle lands the long axis
   // on the car's forward (cos a, -sin a) — -angle mirrored it.
   slot.mesh.rotation.z = angle;
+  slot.mesh.scale.setScalar(scale);
   slot.mesh.material.opacity = 0.85;
   slot.mesh.visible = true;
   slot.age = 0;
@@ -293,10 +300,13 @@ export function updateCarWheels(car, dt, input, time) {
     skidUpdate(pool, dt);
     if (drifting) {
       const offs = car.mesh.userData.wheelOffsets || [];
+      // Part F: wheel offsets are local (pre-scale) coordinates — the
+      // actual rear wheels sit at offset * group scale in the world.
+      const s = car.mesh.scale.x || 1;
       for (const [lx, lz] of offs) {
-        const wx = car.x + lx * Math.cos(car.angle) + lz * Math.sin(car.angle);
-        const wz = car.z - lx * Math.sin(car.angle) + lz * Math.cos(car.angle);
-        addSkidMark(scene, wx, wz, car.angle);
+        const wx = car.x + (lx * s) * Math.cos(car.angle) + (lz * s) * Math.sin(car.angle);
+        const wz = car.z - (lx * s) * Math.sin(car.angle) + (lz * s) * Math.cos(car.angle);
+        addSkidMark(scene, wx, wz, car.angle, s);
       }
       // Squeal is the audio engine's skid loop now (see note above).
     }

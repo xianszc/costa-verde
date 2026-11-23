@@ -120,6 +120,18 @@ function mountWheels(g, wheelPos, halfWidth) {
 // at ROAD_Y and their tyres touch the asphalt instead of sinking.
 export const ROAD_Y = 0.2;
 
+// Part F (23 Nov): ALL cars are built at 1u = 1m while the roads are
+// 1u = 10m and the buildings 1u ~= 3m — the hero car spanned 5.4
+// lanes and 86% of a CBD podium. CAR_SCALE = 0.5 halves every car
+// (see reports/partF-car-scale.md for the measurement + trade-off:
+// peds now read ~2.8x car height instead of the correct 1.2x).
+// The scale is applied to the car GROUP, so every part — body,
+// wheels, light bar, contact shadow — scales together. Physics
+// (speed/accel/turn in u/s) is untouched; only size-dependent
+// constants (collision radius, yield distance, camera, wanted
+// hold/ram/bust) are scaled with it, each at its own site.
+export const CAR_SCALE = 0.5;
+
 // Side glass panels for a cabin block: two thin dark panes on the body
 // sides, so the cabin reads as windows instead of a solid slab.
 // Item 4 perf: the panes are vertex-colored geometries baked into the
@@ -205,6 +217,8 @@ export function buildStella() {
   // Wheels already mounted above (mountWheels adds the spinning rigs).
   g.userData.headMat = headMat;
   g.userData.tailMat = tailMat;
+  // Part F: scale the whole car group (see CAR_SCALE above).
+  g.scale.setScalar(CAR_SCALE);
   return g;
 }
 
@@ -259,6 +273,10 @@ export function buildTrafficCar(color, kind = 'sedan', wheelSpec = null, extras 
   const headMat = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xffe9a8, emissiveIntensity: 0.6 });
   g.add(mergedMesh([-0.55, 0.55].map((s) => xform(new THREE.BoxGeometry(0.1, 0.15, 0.32), 2.1, 0.6, s)), headMat));
   g.userData.headMat = headMat;
+  // Part F: scale the whole car group (see CAR_SCALE above). The
+  // police light bar (buildPoliceCruiser) is added as a child of this
+  // group afterwards, so it inherits the scale too.
+  g.scale.setScalar(CAR_SCALE);
   return g;
 }
 
@@ -306,7 +324,10 @@ export function createCar(mesh, opts = {}) {
     // the marina, timing out M1/M2/M4/M5/M6/M8. The visual car is
     // bigger (4.4 x 1.9) — the circle is a drive-fit compromise, the
     // same scale the traffic lanes are drawn at.
-    radius: opts.radius || 0.5,
+    // Part F: the visual car is now CAR_SCALE (0.5) of that, so the
+    // radius scales with it (0.25) — the same proportional compromise
+    // against the visual body.
+    radius: opts.radius || 0.5 * CAR_SCALE,
     damage: 0,
     fuel: 100,
   };
@@ -461,7 +482,7 @@ export function stepTraffic(cars, dt, obstacles = [], nowSec) {
       const ox = other.x - car.x;
       const oz = other.z - car.z;
       const od = Math.hypot(ox, oz);
-      if (od < 7 && od > 0.01) {
+      if (od < 7 * CAR_SCALE && od > 0.01) {
         const dot = (ox * Math.cos(car.angle) - oz * Math.sin(car.angle)) / od;
         if (dot > 0.6) { blocked = true; break; }
       }

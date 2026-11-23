@@ -15,7 +15,7 @@
 // the panel text fits without clipping.
 import * as THREE from '../vendor/three.module.min.js';
 import { M, box, cyl, mergedMesh, colored, xform, vertexColorMat } from './world.js';
-import { buildPoliceCruiser, createCar, collideCircleAABBs, ROAD_Y } from './vehicles.js';
+import { buildPoliceCruiser, createCar, collideCircleAABBs, ROAD_Y, CAR_SCALE } from './vehicles.js';
 
 const THRESHOLDS = [0, 15, 35, 60, 85, 110]; // heat needed per star
 const STAR_LABEL = ['CLEAN', 'WANTED · 1 STAR', 'WANTED · 2 STARS', 'WANTED · 3 STARS', 'WANTED · 4 STARS', 'WANTED · 5 STARS'];
@@ -268,9 +268,12 @@ export function createWanted(scene, opts) {
       if (level < 4 && roadblock) clearRoadblock();
     }
     // Pursuit: steer each ground unit toward the player. On foot the
-    // Guard holds a 3 m cordon and aims instead of driving through the
+    // Guard holds a 2 m cordon and aims instead of driving through the
     // player; in a car it rams on contact. All ground units ride on
     // ROAD_Y (the road top), never sunk into the asphalt.
+    // Part F: hold was 3 m on foot / 4 m in a car — with half-size
+    // cars the cordon is measured from the car centre, so 2 m keeps
+    // the same bumper gap as before (~0.95u on foot).
     for (const u of units) {
       const dx = px - u.car.x;
       const dz = pz - u.car.z;
@@ -280,7 +283,7 @@ export function createWanted(scene, opts) {
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       u.car.angle += Math.max(-2.2 * dt, Math.min(2.2 * dt, diff));
-      const holdDist = p.onFoot ? 3 : 4;
+      const holdDist = 2;
       const targetSpeed = dist > holdDist ? u.car.maxSpeed : (p.onFoot ? 0 : u.car.maxSpeed * 0.4);
       u.car.speed += (targetSpeed - u.car.speed) * Math.min(1, dt * 1.2);
       const nx = u.car.x + Math.cos(u.car.angle) * u.car.speed * dt;
@@ -299,14 +302,18 @@ export function createWanted(scene, opts) {
       u.car.mesh.position.set(u.car.x, ROAD_Y, u.car.z);
       u.car.mesh.rotation.y = u.car.angle;
       const wheels = u.car.mesh.userData.wheels || [];
-      for (const w of wheels) w.rotation.x += u.car.speed * dt * 2.4;
+      // Part F: the manual spin constant 2.4 was tuned for full-size
+      // wheels — the visual wheels are CAR_SCALE now, so the rate
+      // scales by 1/CAR_SCALE (else the police wheels spin too slow).
+      for (const w of wheels) w.rotation.x += u.car.speed * dt * 2.4 / CAR_SCALE;
       // Light bar flash.
       const lb = u.car.mesh.userData.lightBar;
       if (lb) { const on = Math.floor(now * 3) % 2 === 0; lb[0].visible = on; lb[1].visible = !on; }
       // Ramming: close + fast → push + damage the player's car.
       // Only while the player is driving — never onto a pedestrian.
+      // Part F: ram trigger 3.2 -> 1.6 (half-size cars).
       u.ramCooldown -= dt;
-      if (!p.onFoot && dist < 3.2 && Math.abs(u.car.speed) > 6 && u.ramCooldown <= 0) {
+      if (!p.onFoot && dist < 1.6 && Math.abs(u.car.speed) > 6 && u.ramCooldown <= 0) {
         u.ramCooldown = 2.5;
         if (opts.onRam) opts.onRam(u, dist);
       }
@@ -349,12 +356,13 @@ export function createWanted(scene, opts) {
     // < 1) with a unit holding its cordon was busted in 3 s no matter
     // what (M9 LAY LOW: wanted decaying 3->2->1, then BUSTED at the
     // fortress plaza). The bust radius must be INSIDE the hold
-    // distance: 2.5 m busts only a unit that closes in past its hold
+    // distance: 1.25 m busts only a unit that closes in past its hold
     // (ramming / walking into the player), never one just holding.
+    // Part F: hold is now 2 m, bust 2.5 -> 1.25 (still inside hold).
     if (level > 0 && p.onFoot) {
       let close = false;
       for (const u of units) {
-        if (Math.hypot(u.car.x - px, u.car.z - pz) < 2.5) { close = true; break; }
+        if (Math.hypot(u.car.x - px, u.car.z - pz) < 1.25) { close = true; break; }
       }
       if (close && p.speed < 1) {
         bustedTimer += dt;

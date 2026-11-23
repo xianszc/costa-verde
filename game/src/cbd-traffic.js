@@ -10,7 +10,7 @@
 // PI/2 = north (-z), PI = west, -PI/2 = south (+z). A car's forward
 // vector is (cos a, -sin a) in (x, z).
 import { CBD_NS, CBD_EW, signalPhase } from './cbd-grid.js';
-import { buildTrafficCar, buildPoliceCruiser, createCar, ROAD_Y } from './vehicles.js';
+import { buildTrafficCar, buildPoliceCruiser, createCar, ROAD_Y, CAR_SCALE } from './vehicles.js';
 import { updateCarWheels } from './wheels.js';
 
 // Lane offsets from the street centreline (matches the painted
@@ -162,8 +162,9 @@ export function placeCbdCar(car, axis, index, dir, lane, seg, s = 0) {
   car.angle = HEADING[axis][dir];
   car.mesh.position.set(car.x, ROAD_Y, car.z);
   // AUDIT M-1: NO +PI/2 — the traffic-car model is long on X (body
-  // 4.2 x 1.9), so rotation.y = angle already points it along its
-  // heading (cos a, -sin a), like the hero car and the ring traffic.
+  // 4.2 x 1.9, Part F renders it at CAR_SCALE 0.5), so rotation.y =
+  // angle already points it along its heading (cos a, -sin a), like
+  // the hero car and the ring traffic.
   // The old +PI/2 turned every CBD car 90 deg sideways to its lane.
   car.mesh.rotation.y = car.angle;
 }
@@ -247,7 +248,7 @@ export function stepCbdTraffic(cars, dt, obstacles = []) {
         if (o === c) continue;
         const dx = o.x - c.x, dz = o.z - c.z;
         const dist = Math.hypot(dx, dz);
-        if (dist < 7 && dist > 0.01) {
+        if (dist < 7 * CAR_SCALE && dist > 0.01) {
           const dot = (dx * fx + dz * fz) / dist;
           if (dot > 0.6) { targetSpeed = 0; break; }
         }
