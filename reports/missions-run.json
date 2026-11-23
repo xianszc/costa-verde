@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-23T14:20:23.111Z",
-  "commit": "unknown",
+  "generated": "2026-11-23T14:44:37.570Z",
+  "commit": "55b363c",
   "missions": {
     "M1": {
       "mission": "M1",
@@ -8,9 +8,9 @@
       "attempts": 2,
       "fails": 1,
       "maxStage": 2,
-      "ms": 58826,
-      "money": 2240,
-      "xp": 1749.022573751158,
+      "ms": 41975,
+      "money": 2330,
+      "xp": 1793.6969491955547,
       "stages": {
         "0": "RECON: reached by driving (human-like)",
         "1": "STEAL: drive 0.0u + walk 0.0u (human-like)",
@@ -18,9 +18,9 @@
       },
       "modeTrap": [
         {
-          "at": 46428,
+          "at": 39672,
           "from": "play",
-          "stack": "    at Object.set [as mode] (eval at evaluate (:370:30), <anonymous>:14:29) |     at doWasted (http://127.0.0.1:8941/src/game.js:779:16) |     at onDamage (http://127.0.0.1:8941/src/game.js:553:30) |     at Object.update (http://127.0.0.1:8941/src/combat.js:407:9) |     at step (http://127.0.0.1:8941/src/game.js:1757:14)",
+          "stack": "    at Object.set [as mode] (eval at evaluate (:370:30), <anonymous>:14:29) |     at doWasted (http://127.0.0.1:8941/src/game.js:782:16) |     at onDamage (http://127.0.0.1:8941/src/game.js:556:30) |     at Object.update (http://127.0.0.1:8941/src/combat.js:416:9) |     at step (http://127.0.0.1:8941/src/game.js:1764:14)",
           "busted": false,
           "wasted": true,
           "health": 0,
@@ -34,7 +34,7 @@
       ],
       "errors": 0,
       "how": "human-like",
-      "commit": "unknown"
+      "commit": "55b363c"
     },
     "M3": {
       "mission": "M3",
