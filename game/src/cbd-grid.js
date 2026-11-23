@@ -300,36 +300,18 @@ export function buildCBDGrid(opts = {}) {
   swMesh.name = 'cbd-sidewalks';
   g.add(swMesh);
 
-  // ---------- medians (boulevard + N-S avenue) + planters ----------
-  // The landscaped median is 1.3 wide (13 m): a raised stone strip
-  // with planters; cypress trees stand in it (added below, clear of
-  // the monorail pillars and of the avenue-shot camera's foreground).
-  const medMat = new THREE.MeshStandardMaterial({ color: 0xb8b2a4, roughness: 0.95, flatShading: true });
-  const medParts = [];
-  for (const seg of cbdGridMedianSegments()) {
-    medParts.push(colored(xform(new THREE.BoxGeometry(seg.x1 - seg.x0, 0.35, 1.3), (seg.x0 + seg.x1) / 2, 0.175, 0), 0xffffff));
-  }
-  for (const seg of cbdAvenueMedianSegments()) {
-    medParts.push(colored(xform(new THREE.BoxGeometry(1.3, 0.35, seg.z1 - seg.z0), 0, 0.175, (seg.z0 + seg.z1) / 2), 0xffffff));
-  }
-  const medMesh = mergedMesh(medParts, medMat);
-  medMesh.name = 'cbd-medians';
-  g.add(medMesh);
-  const planterMat = new THREE.MeshStandardMaterial({ color: 0x5a7a4a, roughness: 0.95, flatShading: true });
-  const planterParts = [];
-  for (const seg of cbdGridMedianSegments()) {
-    const len = seg.x1 - seg.x0;
-    if (len > 4) planterParts.push(colored(xform(new THREE.BoxGeometry(2.4, 0.5, 0.8), (seg.x0 + seg.x1) / 2, 0.6, 0), 0xffffff));
-  }
-  for (const seg of cbdAvenueMedianSegments()) {
-    const len = seg.z1 - seg.z0;
-    if (len > 4) planterParts.push(colored(xform(new THREE.BoxGeometry(0.8, 0.5, 2.4), 0, 0.6, (seg.z0 + seg.z1) / 2), 0xffffff));
-  }
-  if (planterParts.length) {
-    const planterMesh = mergedMesh(planterParts, planterMat);
-    planterMesh.name = 'cbd-median-planters';
-    g.add(planterMesh);
-  }
+  // ---------- medians REMOVED (Part G, 23 Nov — Xian: "satu ruas
+  // utuh tanpa pembatas, tetap lebar 2 arah") ----------
+  // The landscaped median (1.3 wide raised stone strip + planters)
+  // that split the boulevard and the N-S avenue is GONE: the road is
+  // now one undivided carriageway, still 4.1 wide, two-way. The
+  // segment helpers (cbdGridMedianSegments / cbdAvenueMedianSegments)
+  // stay exported — roads.js imports them — but nothing builds a
+  // median from them any more. The median was visual-only (NO
+  // colliders, city.js GAME fix 22 Nov), so the road graph and the
+  // traffic lanes are untouched. The monorail pillars + beam stay:
+  // they stand in the road centre on 0.35-wide posts, the inner-lane
+  // cars clear them by ~0.3u, and the beam is 7u overhead.
 
   // ---------- markings (registry: one source of truth, fixed layers) ----------
   // Lane geometry: avenue lanes 0.35 wide (centres +/-0.825/1.175/
@@ -395,8 +377,12 @@ export function buildCBDGrid(opts = {}) {
       for (const side of [-1, 1]) {
         const e = s.kind === 'avenue' ? 2.05 : 1.2;
         m.box('edge', s.x + side * e, (a + b) / 2, 0.012, b - a);
-        if (s.kind === 'avenue') m.box('bus', s.x + side * 1.875, (a + b) / 2, 0.012, b - a);
-        else m.box('yellow', s.x + side * 0.01, (a + b) / 2, 0.01, b - a);
+        if (s.kind === 'avenue') {
+          m.box('bus', s.x + side * 1.875, (a + b) / 2, 0.012, b - a);
+          // Part G: double-yellow centre line — the median is gone, so
+          // the centre gets the same painted divider the streets have.
+          m.box('yellow', s.x + side * 0.01, (a + b) / 2, 0.01, b - a);
+        } else m.box('yellow', s.x + side * 0.01, (a + b) / 2, 0.01, b - a);
       }
     }
   }
@@ -428,8 +414,11 @@ export function buildCBDGrid(opts = {}) {
       for (const side of [-1, 1]) {
         const e = s.kind === 'avenue' ? 2.05 : 1.2;
         m.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.012);
-        if (s.kind === 'avenue') m.box('bus', (a + b) / 2, s.z + side * 1.875, b - a, 0.012);
-        else m.box('yellow', (a + b) / 2, s.z + side * 0.01, b - a, 0.01);
+        if (s.kind === 'avenue') {
+          m.box('bus', (a + b) / 2, s.z + side * 1.875, b - a, 0.012);
+          // Part G: double-yellow centre line (median gone — see above).
+          m.box('yellow', (a + b) / 2, s.z + side * 0.01, b - a, 0.01);
+        } else m.box('yellow', (a + b) / 2, s.z + side * 0.01, b - a, 0.01);
       }
     }
   }
@@ -726,23 +715,9 @@ export function buildCBDGrid(opts = {}) {
     treeMesh.name = 'cbd-avenue-trees';
     g.add(treeMesh);
   }
-  // Median cypress: the LUNGOMARE median only, between the monorail
-  // pillars (pillars at x -30..30 step 6 — trees at the midpoints).
-  // CORSO AZZURRA gets NO median trees: the avenue-shot camera looks
-  // straight down its median, and a cypress there blocks the
-  // vanishing point (B fix — the low planters are the median there).
-  // A cypress within 0.6 of a street edge is skipped (its canopy would
-  // hang over the crossing).
-  const medTrees = [];
-  for (let x = -27; x <= 27; x += 6) {
-    if (CBD_NS.some((n) => Math.abs(x - n.x) < n.w / 2 + 0.6)) continue;
-    medTrees.push({ x, z: 0, s: 0.9 + rnd() * 0.2, rot: rnd() * Math.PI * 2 });
-  }
-  if (medTrees.length) {
-    const medTreeMesh = treeInstanced('cypress', medTrees);
-    medTreeMesh.name = 'cbd-median-trees';
-    g.add(medTreeMesh);
-  }
+  // Median cypress REMOVED (Part G, 23 Nov — Xian: "pohon di
+  // tengah2 hapus semua"): the LUNGOMARE median is gone, so its
+  // cypress go with it. Sidewalk trees (above) stay.
   // Benches + bins on the avenue sidewalks, every ~12, alternating
   // sides, offset from the trees (trees every 6, benches/bins every
   // 12 at the midpoints) and clear of the bus stops and crossings.
