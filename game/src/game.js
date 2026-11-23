@@ -1990,6 +1990,87 @@ export function createGame(container) {
       }
       renderer.render(scene, camera);
       renderer.render(scene, camera);
+    } else if (name === 'widefire') {
+      // Part L: the WIDE-ROAD shootout (Xian 20:46 — the quay-corridor
+      // 03-action was rejected: Elio hidden, cruiser unidentifiable).
+      // Elio STANDING on the wide Corso Azzurra (north-south avenue),
+      // facing north up the avenue toward the Azzura Tower, Tamburo in
+      // hand, 2-star Guard closing from the north along the same road.
+      // Camera LOW south-east of Elio looking north, so Elio + cruisers
+      // + NPCs are all in one frame and the muzzle flash (north of
+      // Elio) never covers him. (The boulevard staging was abandoned:
+      // the monorail pillars on the Lungomare centreline split the
+      // frame and hid Elio.) Staged for the shot only: the nearest
+      // Guard units are parked on the avenue in the firing line, three
+      // peds are placed on the sidewalks in frame, the mission card is
+      // hidden (the HUD otherwise stays full).
+      state.mode = 'play';
+      showHUD();
+      state.onFoot = true;
+      playerMesh.visible = true;
+      player.x = ANCHORS.widefire_spot.x; player.z = ANCHORS.widefire_spot.z; player.angle = ANCHORS.widefire_spot.angle;
+      player.crouched = false;
+      playerMesh.position.set(player.x, 0, player.z);
+      playerMesh.rotation.y = player.angle + Math.PI / 2;
+      combat.select(3);
+      state.weapon = 3;
+      state.time = 19.5;
+      setStorm(false);
+      updateLighting();
+      wanted.addHeat(35);
+      // 120 steps: the Guard closes in along the avenue — in frame,
+      // but not yet inside the 2.5 m / 3 s busted window.
+      run(120, {});
+      updateCamera(1);
+      // Park the two nearest Guard units on the avenue in the firing
+      // line, facing south toward Elio (mesh + car state together).
+      const ground = wanted.units.filter((u) => u.car).sort((a, b) =>
+        Math.hypot(a.car.x - player.x, a.car.z - player.z) - Math.hypot(b.car.x - player.x, b.car.z - player.z));
+      const parkSpots = [{ x: player.x - 1.5, z: player.z - 4 }, { x: player.x + 0.7, z: player.z - 9 }];
+      ground.slice(0, 2).forEach((u, i) => {
+        const s = parkSpots[i];
+        u.car.x = s.x; u.car.z = s.z; u.car.angle = -Math.PI / 2;
+        u.car.mesh.position.set(s.x, ROAD_Y, s.z);
+        u.car.mesh.rotation.y = -Math.PI / 2;
+        u.fireTimer = 0;
+      });
+      // Three peds onto the avenue sidewalks in frame (mesh position
+      // + visible — the step-time distance hiding may have hidden them).
+      const pedSpots = [
+        { x: player.x + 1.9, z: player.z - 2, rot: 0 }, { x: player.x - 4.3, z: player.z - 4, rot: Math.PI }, { x: player.x + 1.9, z: player.z - 8, rot: 0 },
+      ];
+      [...peds].sort((a, b) =>
+        Math.hypot(a.mesh.position.x - player.x, a.mesh.position.z - player.z) -
+        Math.hypot(b.mesh.position.x - player.x, b.mesh.position.z - player.z))
+        .slice(0, 3).forEach((p, i) => {
+          const s = pedSpots[i];
+          p.mesh.position.set(s.x, 0, s.z);
+          p.mesh.rotation.y = s.rot;
+          p.mesh.visible = true;
+        });
+      // Mission card + shop interact prompt out of the frame (HUD
+      // otherwise stays full). NOTE: #hud-stage is the WHOLE HUD
+      // wrapper — never hide it; the mission card is the .panel.mission
+      // section inside it. The RANK UP toast is transient (the toast
+      // queue re-shows it after staging) — the shoot script hides it
+      // right before the screenshot instead.
+      { const mc = document.querySelector('.panel.mission'); if (mc) mc.style.display = 'none'; }
+      { const sp = document.getElementById('side-prompt'); if (sp) sp.style.display = 'none'; }
+      // Camera FIRST so the crosshair aims down the road at the cruiser,
+      // then fire: the player tracer runs from Elio's muzzle to the
+      // cruiser, the flash sits just north of him.
+      camera.position.set(ANCHORS.vantage_widefire_cam.x, ANCHORS.vantage_widefire_cam.y, ANCHORS.vantage_widefire_cam.z);
+      camera.lookAt(ANCHORS.vantage_widefire_cam.look.x, ANCHORS.vantage_widefire_cam.look.y, ANCHORS.vantage_widefire_cam.look.z);
+      camPos.copy(camera.position);
+      camLook.set(ANCHORS.vantage_widefire_cam.look.x, ANCHORS.vantage_widefire_cam.look.y, ANCHORS.vantage_widefire_cam.look.z);
+      combat.fire();
+      // One combat step with the Guard's timers at zero: return fire
+      // draws enemy tracers from the cruiser roofs to Elio. The step
+      // also ages the player tracer + flash by 1/60 s only — both stay
+      // visible for the render.
+      combat.update(1 / 60, 2, wanted.units);
+      renderer.render(scene, camera);
+      renderer.render(scene, camera);
     } else if (name === 'hub') {
       state.mode = 'play';
       showHUD();
@@ -2371,7 +2452,7 @@ export function createGame(container) {
       // AUDIT m-33: the old final else staged a walk for ANY unknown
       // ?shot= name and still set __shotReady — a typo staged the
       // wrong scene and looked like success. Fail loudly instead.
-      throw new Error(`unknown ?shot=${name} (known: road, title, drive, night, storm, district, wanted, combat, tracer, hub, mission, cbd, ring, ringext, walk)`);
+      throw new Error(`unknown ?shot=${name} (known: road, title, drive, night, storm, district, wanted, combat, tracer, widefire, hub, mission, cbd, ring, ringext, walk)`);
     }
     // Push the live HUD values into the DOM now, so a ?shot capture
     // shows real numbers even if no animation frame has run yet.

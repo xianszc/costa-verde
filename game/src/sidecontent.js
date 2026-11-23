@@ -630,6 +630,20 @@ async function renderMap() {
   let svg = `<svg viewBox="0 0 ${MAP.w} ${MAP.h}" class="map-svg" role="img" aria-label="Map of Porto Azzura">
     <rect width="${MAP.w}" height="${MAP.h}" fill="#d8cbb2"/>
     <rect x="0" y="${mapY(14.5)}" width="${MAP.w}" height="${MAP.h - mapY(14.5)}" fill="#5fa8b5"/>`;
+  // Part M: district colors — every area its own color, same palette as
+  // the HUD minimap. Drawn under the roads/markers so they stay readable.
+  const ZONES = [
+    { name: 'OLD TOWN', x0: -62, z0: -54, x1: -34.7, z1: -27, fill: '#d9a441' },
+    { name: 'DOWNTOWN', x0: -34.7, z0: -45.9, x1: 34.7, z1: -2.6, fill: '#6f9fd8' },
+    { name: 'RESIDENTIAL', x0: -34.7, z0: -54, x1: 34.7, z1: -45.9, fill: '#8fae5a' },
+    { name: 'RESIDENTIAL', x0: -62, z0: -27, x1: -34.7, z1: -2.6, fill: '#8fae5a' },
+    { name: 'QUAY', x0: -62, z0: 2.6, x1: 34.7, z1: 14.5, fill: '#4fae8a' },
+    { name: 'PROMENADE', x0: 34.7, z0: -54, x1: 62, z1: 14.5, fill: '#9b7fd4' },
+    { name: 'BOULEVARD', x0: -60, z0: -2.6, x1: 60, z1: 2.6, fill: '#e07856' },
+  ];
+  for (const zn of ZONES) {
+    svg += `<rect x="${mapX(zn.x0)}" y="${mapY(zn.z0)}" width="${mapX(zn.x1) - mapX(zn.x0)}" height="${mapY(zn.z1) - mapY(zn.z0)}" fill="${zn.fill}"/>`;
+  }
   for (const b of blocks) {
     if (b.kind === 'park') svg += `<rect x="${mapX(b.x0)}" y="${mapY(b.z0)}" width="${mapX(b.x1) - mapX(b.x0)}" height="${mapY(b.z1) - mapY(b.z0)}" fill="#7a8b5a" opacity="0.7"/>`;
     else if (b.kind === 'plaza') svg += `<rect x="${mapX(b.x0)}" y="${mapY(b.z0)}" width="${mapX(b.x1) - mapX(b.x0)}" height="${mapY(b.z1) - mapY(b.z0)}" fill="#e8a33d" opacity="0.45"/>`;
@@ -685,6 +699,14 @@ async function renderMap() {
   wrap.innerHTML = svg;
   // Waypoint list (click to set).
   const items = [];
+  items.push('<h3>Districts</h3><div class="map-legend">'
+    + '<span><i style="background:#d9a441"></i>Old Town</span>'
+    + '<span><i style="background:#6f9fd8"></i>Downtown</span>'
+    + '<span><i style="background:#e07856"></i>Boulevard</span>'
+    + '<span><i style="background:#4fae8a"></i>Quay</span>'
+    + '<span><i style="background:#9b7fd4"></i>Promenade</span>'
+    + '<span><i style="background:#8fae5a"></i>Residential</span>'
+    + '<span><i style="background:#5fa8b5"></i>Bay / Marina</span></div>');
   items.push('<h3>Waypoints</h3>');
   for (const s of spots) {
     const name = s.wp.startsWith('job:') ? (SIDE_JOBS.find((j) => j.id === s.wp.slice(4)) || {}).title

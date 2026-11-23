@@ -162,6 +162,14 @@ export const ANCHORS = {
   // across the frame, Elio in profile at the quay. GRID REBUILD: the
   // quay strip is z 12.7..14.5 now.
   vantage_tracer_cam: { x: -41, y: 4.5, z: 19, look: { x: -52, y: 1, z: 13.5 }, district: 'quay' },
+  // Widefire (part L): Elio STANDING on the wide Corso Azzurra
+  // (north-south avenue, no monorail pillars on the firing line —
+  // the boulevard's pillars split the frame), facing north up the
+  // avenue toward the Azzura Tower, Guard closing from the north.
+  // Camera LOW south-east of Elio, looking north — Elio in the left
+  // third, the road + cruisers + sidewalk peds + tower ahead of him.
+  widefire_spot: { x: 1.2, z: -8, angle: Math.PI / 2, district: 'cbd' },
+  vantage_widefire_cam: { x: 2.0, y: 1.6, z: -5.5, look: { x: 0.8, y: 0.7, z: -16 }, district: 'cbd' },
   // Walk: low on the south sidewalk, looking east along the bay.
   // GRID REBUILD: the south sidewalk is at z 1.75..2.25 now.
   vantage_walk_cam: { x: -35.5, y: 3, z: 1.5, look: { x: -27.5, y: 1.4, z: 1.5 }, district: 'boulevard' },

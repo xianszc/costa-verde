@@ -475,6 +475,9 @@ html, body {
 }
 .map-wp:hover { background: rgba(242,165,65,0.25); }
 .map-foot { margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--ink); }
+.map-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; }
+.map-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--ink); }
+.map-legend i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(30,42,50,0.4); display: inline-block; }
 /* Shop overlay (shared menu, opened with E at a shop door). */
 #shop-overlay {
   position: fixed; inset: 0; z-index: 50; display: none;

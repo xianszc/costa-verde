@@ -109,17 +109,21 @@
   <div class="mapbox">
     <div class="map-circle">
       <svg viewBox="0 0 150 150" aria-label="minimap">
-        <rect width="150" height="150" fill="#e9dcc0"/>
-        <rect x="0" y="128" width="150" height="22" fill="#5fa8b5"/>
-        <path d="M0,128 L150,128" stroke="#f2a541" stroke-width="2"/>
+        <!-- Part M: district colors in the REAL map projection
+             (sx = (x+60)/120*150, sy = (z+42)/55*150), same palette as
+             the full map — the player arrow lands on its true district. -->
+        <rect x="0" y="0" width="32" height="41" fill="#d9a441"/>
+        <rect x="32" y="0" width="86" height="108" fill="#6f9fd8"/>
+        <rect x="0" y="41" width="32" height="67" fill="#8fae5a"/>
+        <rect x="0" y="108" width="118" height="14" fill="#e07856"/>
+        <rect x="0" y="122" width="118" height="28" fill="#4fae8a"/>
+        <rect x="118" y="0" width="32" height="150" fill="#9b7fd4"/>
+        <g stroke="#8a8580" stroke-width="2.5" fill="none">
+          <path d="M33,0 L33,146"/><path d="M47,0 L47,146"/><path d="M61,0 L61,146"/><path d="M75,0 L75,146"/><path d="M89,0 L89,146"/><path d="M103,0 L103,146"/><path d="M117,0 L117,146"/>
+          <path d="M0,23 L118,23"/><path d="M0,54 L118,54"/><path d="M0,84 L118,84"/><path d="M0,146 L118,146"/>
+        </g>
+        <path d="M0,115 L118,115" stroke="#ffffff" stroke-width="1.5"/>
         <g fill="#35566b"><rect x="118" y="132" width="9" height="12"/><rect x="130" y="130" width="7" height="14"/><rect x="140" y="134" width="6" height="10"/></g>
-        <rect x="0" y="72" width="150" height="14" fill="#8a8580"/>
-        <g stroke="#ffffff" stroke-width="2" fill="none">
-          <path d="M8,79 L142,79"/>
-        </g>
-        <g stroke="#8a8580" stroke-width="5" fill="none">
-          <path d="M25,0 L25,72"/><path d="M62,0 L62,72"/><path d="M98,0 L98,72"/><path d="M130,0 L130,72"/>
-        </g>
         <rect x="55" y="100" width="20" height="12" fill="#7a8b5a"/>
         <rect x="10" y="95" width="10" height="8" fill="#c65d3b"/>
         <circle id="hud-objective-dot" cx="75" cy="75" r="5" fill="#f2a541" stroke="#1e2a32" stroke-width="1.5" style="display:none"/>
