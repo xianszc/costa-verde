@@ -73,6 +73,15 @@ function persist() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* storage full/blocked: play on */ }
 }
 
+// NEW GAME (English menu, 23 Nov): wipe side progress back to a fresh
+// run — the in-memory store AND the stored key, so the next persist()
+// cannot resurrect the old progress.
+export function resetSideStore() {
+  for (const k of Object.keys(store)) delete store[k];
+  Object.assign(store, defaults());
+  persist();
+}
+
 // --- helpers ---
 const fmtMoney = (n) => 'S ' + Math.floor(n).toLocaleString('en-US');
 function fmtTime(t) {

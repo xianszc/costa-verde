@@ -30,6 +30,8 @@ import { createHub } from './hub.js';
 import {
   createMenuOrbit, MENU_LOOP_SECONDS, MENU_CAR_RADIUS2,
 } from './menu-orbit.js';
+// NEW GAME reset (English menu, 23 Nov): wipes side progress.
+import { resetSideStore } from './sidecontent.js';
 
 const STEP = 1 / 60;
 let fastsimFactor = 1; // test-only: ?fastsim=N steps the sim N× faster without rendering (off = 1, normal play identical).
@@ -841,10 +843,11 @@ export function createGame(container) {
     keys[e.code] = true;
     audio.resume();
     if (e.code === 'KeyJ' && state.mode === 'play' && !state.onFoot) audio.horn();
-    if (e.code === 'Enter' && state.mode === 'title') beginPlay();
+    if (e.code === 'Enter' && state.mode === 'title' && !menuOverlayOpen()) beginPlay();
     else if (e.code === 'Enter' && (state.busted || state.wasted)) respawnAfterEnd();
     else if (e.code === 'Escape') {
-      if (hub.open) hub.setOpen(false);
+      if (menuOverlayOpen()) { closeMenuSettings(); hideMenuConfirm(); }
+      else if (hub.open) hub.setOpen(false);
       else if (state.mode === 'play') setPaused(true);
       else if (state.mode === 'paused') setPaused(false);
     } else if (e.code === 'Tab' || e.code === 'KeyH') {
@@ -899,8 +902,10 @@ export function createGame(container) {
       if (hud) hud.style.display = 'none';
       // Back on the title screen the orbit resumes from its clock
       // (menuOrbitTime keeps running in title mode) — refresh the
-      // toggle label so it shows the stored setting.
+      // toggle label so it shows the stored setting, and the CONTINUE
+      // state (a save made in the pause menu enables it).
       updateMenuToggleLabel();
+      updateMenuContinueState();
     });
     const vol = document.getElementById('pause-volume');
     if (vol) vol.addEventListener('input', () => {
@@ -928,6 +933,7 @@ export function createGame(container) {
 
   function startPlay() {
     state.mode = 'play';
+    closeMenuSettings(); hideMenuConfirm();
     audio.ensure();
     radio.start();
     showHUD();
@@ -981,7 +987,92 @@ export function createGame(container) {
   }
   function updateMenuToggleLabel() {
     const el = document.getElementById('menu-orbit-toggle');
-    if (el) el.textContent = menuOrbitOn ? 'Gerak kamera: Hidup' : 'Gerak kamera: Mati';
+    if (el) el.textContent = menuOrbitOn ? 'Camera motion: On' : 'Camera motion: Off';
+  }
+  // English menu (23 Nov): CONTINUE loads slot 1 and is disabled when
+  // there is no save; the label under it shows the save summary.
+  function updateMenuContinueState() {
+    const btn = document.getElementById('menu-continue');
+    const label = document.getElementById('menu-save-label');
+    const has = !!saveSystem.loadGame(0);
+    const text = has ? saveSystem.saveLabel(0) : 'No saved game yet';
+    if (btn) {
+      btn.disabled = !has;
+      btn.title = text;
+    }
+    if (label) label.textContent = text;
+  }
+  // Title settings panel (English menu, 23 Nov): audio buses, stored
+  // in 'azzura_audio_v1' via audio.setVolume / setMuted (which save).
+  const MENU_AUDIO_BUSES = ['master', 'music', 'sfx', 'ambience', 'ui'];
+  function openMenuSettings() {
+    const panel = document.getElementById('menu-settings-panel');
+    if (!panel) return;
+    const s = audio.settings;
+    for (const bus of MENU_AUDIO_BUSES) {
+      const input = document.getElementById('set-' + bus);
+      const val = document.getElementById('set-' + bus + '-val');
+      const pct = Math.round((s[bus] ?? 0) * 100);
+      if (input) input.value = pct;
+      if (val) val.textContent = pct + '%';
+    }
+    const mute = document.getElementById('set-muted');
+    if (mute) mute.checked = !!s.muted;
+    panel.style.display = 'flex';
+  }
+  function closeMenuSettings() {
+    const panel = document.getElementById('menu-settings-panel');
+    if (panel) panel.style.display = 'none';
+  }
+  function showMenuConfirm() {
+    const ov = document.getElementById('menu-confirm');
+    if (ov) ov.style.display = 'flex';
+  }
+  function hideMenuConfirm() {
+    const ov = document.getElementById('menu-confirm');
+    if (ov) ov.style.display = 'none';
+  }
+  function menuOverlayOpen() {
+    const s = document.getElementById('menu-settings-panel');
+    const c = document.getElementById('menu-confirm');
+    return (s && s.style.display !== 'none') || (c && c.style.display !== 'none');
+  }
+  // NEW GAME (English menu, 23 Nov): a true fresh start — story slot 0
+  // is deleted, side progress resets, and every run field returns to
+  // its boot value (missions.start(0), spawn positions, full ammo /
+  // fuel). At a fresh boot the state is already fresh, so this is a
+  // no-op there; it matters after QUIT TO TITLE mid-run.
+  function resetNewGame() {
+    saveSystem.deleteSave(0);
+    resetSideStore();
+    state.money = 1250; state.health = 100; state.armour = 60;
+    state.xp = 1240; state.xpMax = 10000;
+    state.time = 18.7; state.day = 1; state.radio = 0; state.weapon = 1;
+    state.missionTime = MISSION_TIME_START; state.storm = false;
+    state.onFoot = true; state.busted = false; state.wasted = false;
+    state.dialogueVisible = true; state.saveMsg = '';
+    state.scriptedAccel = false; state.lastStageAdvanceAt = 0;
+    missionFailed = null; wantedForMission = -1;
+    clearDuelTarget();
+    wanted.reset();
+    missions.start(0);
+    combat.select(1);
+    combat.ammo.forEach((a, j) => { a.mag = WEAPONS[j].mag; a.reserve = WEAPONS[j].reserve; });
+    radio.setStation(0);
+    player.x = ANCHORS.player_spawn.x;
+    player.z = ANCHORS.player_spawn.z;
+    player.angle = ANCHORS.player_spawn.angle;
+    playerMesh.visible = true;
+    playerMesh.position.set(player.x, 0, player.z);
+    car.x = ANCHORS.car_spawn.x; car.z = ANCHORS.car_spawn.z; car.angle = ANCHORS.car_spawn.angle;
+    car.fuel = 100; car.damage = 0;
+    car.mesh.position.set(car.x, 0, car.z);
+    car.mesh.rotation.y = car.angle;
+  }
+  function doNewGame() {
+    resetNewGame();
+    updateMenuContinueState();
+    beginPlay();
   }
   function setMenuOrbit(on, persist = true) {
     menuOrbitOn = !!on;
@@ -993,9 +1084,40 @@ export function createGame(container) {
   function wireMenuButtons() {
     const start = document.getElementById('menu-start');
     if (start) start.addEventListener('click', () => { audio.resume(); beginPlay(); });
+    const cont = document.getElementById('menu-continue');
+    if (cont) cont.addEventListener('click', () => {
+      if (cont.disabled) return;
+      audio.resume();
+      if (doLoad(0)) beginPlay();
+    });
+    const nw = document.getElementById('menu-new');
+    if (nw) nw.addEventListener('click', () => {
+      audio.resume(); audio.ui('ui_click');
+      if (saveSystem.loadGame(0)) showMenuConfirm();
+      else doNewGame();
+    });
+    const yes = document.getElementById('menu-confirm-yes');
+    if (yes) yes.addEventListener('click', () => { audio.ui('ui_click'); hideMenuConfirm(); doNewGame(); });
+    const no = document.getElementById('menu-confirm-no');
+    if (no) no.addEventListener('click', () => { audio.ui('ui_click'); hideMenuConfirm(); });
+    const set = document.getElementById('menu-settings');
+    if (set) set.addEventListener('click', () => { audio.resume(); audio.ui('ui_click'); openMenuSettings(); });
+    const back = document.getElementById('menu-settings-back');
+    if (back) back.addEventListener('click', () => { audio.ui('ui_click'); closeMenuSettings(); });
+    for (const bus of MENU_AUDIO_BUSES) {
+      const input = document.getElementById('set-' + bus);
+      if (input) input.addEventListener('input', () => {
+        const v = audio.setVolume(bus, input.value / 100);
+        const val = document.getElementById('set-' + bus + '-val');
+        if (val) val.textContent = Math.round(v * 100) + '%';
+      });
+    }
+    const mute = document.getElementById('set-muted');
+    if (mute) mute.addEventListener('change', () => { audio.setMuted(mute.checked); audio.ui('ui_click'); });
     const tog = document.getElementById('menu-orbit-toggle');
     if (tog) tog.addEventListener('click', () => { audio.ui('ui_click'); setMenuOrbit(!menuOrbitOn); });
     updateMenuToggleLabel();
+    updateMenuContinueState();
   }
   // ?menu=1 (main.js): open the menu with the orbit camera at midday
   // (screenshot param). Forces the orbit on for this session without

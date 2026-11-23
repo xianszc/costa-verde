@@ -14,17 +14,53 @@
      The tagline never wraps (white-space: nowrap) and the sun disc sits
      clear of it; the lighthouse stands below the tagline band.
      Menu orbit (23 Nov): the town behind this card is a real-time
-     camera circling the city; MULAI starts play with a fade + camera
-     glide, and the toggle turns the orbit motion off (stored). -->
+     camera circling the city; START starts play with a fade + camera
+     glide, and the toggle turns the orbit motion off (stored).
+     English menu (23 Nov): START / CONTINUE / NEW GAME / SETTINGS,
+     all English — the game is in English. CONTINUE loads slot 1 and
+     is disabled when there is no save; NEW GAME asks first when a
+     save exists; SETTINGS opens the audio panel. No camera
+     start/stop button — the orbit autoplays. -->
 <div id="title-card">
   <div class="logo-a">AZZURA</div>
   <div class="logo-b">HEIST</div>
   <div class="rule"></div>
   <p class="tag">A CLIFFSIDE RIVIERA &middot; A HARBOR FULL OF SECRETS &middot; ONE LAST SCORE</p>
   <p class="press">PRESS ENTER</p>
-  <button id="menu-start" type="button">MULAI</button>
-  <button id="menu-orbit-toggle" type="button">Gerak kamera: Hidup</button>
+  <div class="menu-buttons">
+    <button id="menu-start" type="button">START</button>
+    <button id="menu-continue" type="button">CONTINUE</button>
+    <div id="menu-save-label">No saved game yet</div>
+    <button id="menu-new" type="button">NEW GAME</button>
+    <button id="menu-settings" type="button">SETTINGS</button>
+    <button id="menu-orbit-toggle" type="button">Camera motion: On</button>
+  </div>
   <p class="controls">WASD MOVE &middot; E ENTER / EXIT CAR &middot; SPACE HANDBRAKE &middot; R RADIO &middot; C CROUCH &middot; TAB LOGBOOK &middot; M MAP &middot; 1-5 WEAPONS &middot; ESC PAUSE</p>
+</div>
+<!-- Title settings panel: audio buses, stored in 'azzura_audio_v1'. -->
+<div id="menu-settings-panel" style="display:none">
+  <div class="menu-settings-card">
+    <h2>SETTINGS</h2>
+    <p class="menu-settings-sub">AZZURA HEIST &middot; PORTO AZZURA</p>
+    <div class="menu-slider-row"><label for="set-master">Master</label><input type="range" id="set-master" min="0" max="100" step="1"><span id="set-master-val">70%</span></div>
+    <div class="menu-slider-row"><label for="set-music">Music</label><input type="range" id="set-music" min="0" max="100" step="1"><span id="set-music-val">80%</span></div>
+    <div class="menu-slider-row"><label for="set-sfx">Effects</label><input type="range" id="set-sfx" min="0" max="100" step="1"><span id="set-sfx-val">100%</span></div>
+    <div class="menu-slider-row"><label for="set-ambience">Ambience</label><input type="range" id="set-ambience" min="0" max="100" step="1"><span id="set-ambience-val">80%</span></div>
+    <div class="menu-slider-row"><label for="set-ui">Interface</label><input type="range" id="set-ui" min="0" max="100" step="1"><span id="set-ui-val">100%</span></div>
+    <label class="menu-mute-row"><input type="checkbox" id="set-muted"> Mute all sound</label>
+    <button id="menu-settings-back" type="button">BACK</button>
+  </div>
+</div>
+<!-- New-game confirm: only shown when a save exists. -->
+<div id="menu-confirm" style="display:none">
+  <div class="menu-confirm-card">
+    <h2>NEW GAME</h2>
+    <p>Start a new game? Your saved progress will be lost.</p>
+    <div class="menu-confirm-row">
+      <button id="menu-confirm-yes" type="button">YES, START OVER</button>
+      <button id="menu-confirm-no" type="button">CANCEL</button>
+    </div>
+  </div>
 </div>
 <!-- Fade overlay for the menu -> play transition (game.js beginPlay). -->
 <div id="menu-fade" style="display:none"></div>

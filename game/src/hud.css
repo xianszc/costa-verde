@@ -24,11 +24,13 @@ html, body {
 
 /* ---- title screen ---- */
 #title-card {
-  position: fixed; top: 24%; left: 50%; transform: translate(-50%, -50%);
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
   text-align: center; color: #f7ebd7; text-shadow: 0 2px 18px rgba(0,0,0,0.55);
   z-index: 6; width: 100%;
   /* Menu orbit (23 Nov): a thin dark halo behind the text so the logo
-     stays readable over the moving aerial camera. */
+     stays readable over the moving aerial camera. Centred (50%): the
+     English menu grew to 5 buttons, so the old 24% anchor would clip
+     the logo at 720p. */
   background: radial-gradient(ellipse at center, rgba(10,18,22,0.55) 0%, rgba(10,18,22,0.28) 55%, rgba(10,18,22,0) 78%);
   padding: 28px 0 24px;
 }
@@ -43,8 +45,11 @@ html, body {
   white-space: nowrap; }
 #title-card p.press { margin-top: 30px; font-size: 15px; letter-spacing: 3px;
   animation: pulse 1.6s ease-in-out infinite; }
-/* Menu buttons (23 Nov): MULAI starts play (fade + camera glide);
-   the toggle turns the orbit motion off for slow machines (stored). */
+/* Menu buttons (23 Nov): START starts play (fade + camera glide);
+   CONTINUE loads slot 1 (disabled with no save); NEW GAME starts
+   fresh (asks first when a save exists); SETTINGS opens the audio
+   panel; the toggle turns the orbit motion off for slow machines
+   (stored). No camera start/stop button — the orbit autoplays. */
 #menu-start {
   display: block; margin: 18px auto 0; padding: 13px 46px;
   background: var(--gold); color: var(--ink); border: 0; border-radius: 10px;
@@ -52,6 +57,20 @@ html, body {
   box-shadow: 0 4px 18px rgba(0,0,0,0.45);
 }
 #menu-start:hover { filter: brightness(1.08); }
+.menu-buttons { margin-top: 0; }
+#menu-continue, #menu-new, #menu-settings {
+  display: block; margin: 10px auto 0; padding: 9px 24px; min-width: 240px;
+  background: transparent; color: #f7ebd7;
+  border: 1px solid rgba(247,235,215,0.55); border-radius: 8px;
+  font-size: 14px; font-weight: 700; letter-spacing: 4px; cursor: pointer;
+}
+#menu-continue:hover, #menu-new:hover, #menu-settings:hover { background: rgba(247,235,215,0.12); }
+#menu-continue:disabled { opacity: 0.4; cursor: default; }
+#menu-continue:disabled:hover { background: transparent; }
+#menu-save-label {
+  margin-top: 6px; font-size: 11px; letter-spacing: 2px; min-height: 13px;
+  color: rgba(247,235,215,0.65);
+}
 #menu-orbit-toggle {
   display: block; margin: 12px auto 0; padding: 7px 16px;
   background: transparent; color: rgba(247,235,215,0.9);
@@ -61,6 +80,51 @@ html, body {
 #menu-orbit-toggle:hover { background: rgba(247,235,215,0.12); }
 #title-card p.controls { margin-top: 12px; font-size: 11px; letter-spacing: 2px;
   color: rgba(247, 235, 215, 0.75); }
+/* ---- title settings panel + new-game confirm (English menu, 23 Nov) ---- */
+/* Overlays sit above the title card (z 6) with a dim layer so the
+   panel reads over the moving orbit camera. Shown with display:flex
+   from game.js; the inline display:none wins until then. */
+#menu-settings-panel, #menu-confirm {
+  position: fixed; inset: 0; z-index: 8; display: flex;
+  align-items: center; justify-content: center;
+  background: rgba(5,10,13,0.55);
+}
+.menu-settings-card, .menu-confirm-card {
+  background: #1e2a32; color: #f7ebd7; border: 1px solid rgba(242,165,65,0.5);
+  border-radius: 12px; padding: 24px 28px; width: 380px; text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.menu-settings-card h2, .menu-confirm-card h2 {
+  margin: 0; font-size: 24px; letter-spacing: 6px; color: #f2a541;
+}
+.menu-settings-sub {
+  margin: 6px 0 0; font-size: 11px; letter-spacing: 2px;
+  color: rgba(247,235,215,0.65);
+}
+.menu-slider-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; text-align: left; }
+.menu-slider-row label { width: 78px; font-size: 13px; letter-spacing: 1px; flex: none; }
+.menu-slider-row input[type="range"] { flex: 1; min-width: 0; accent-color: #f2a541; }
+.menu-slider-row span { width: 40px; text-align: right; font-size: 13px; flex: none; }
+.menu-mute-row { display: block; margin-top: 18px; font-size: 13px; letter-spacing: 1px; cursor: pointer; }
+.menu-mute-row input { accent-color: #f2a541; }
+#menu-settings-back {
+  display: block; margin: 20px auto 0; padding: 10px 40px;
+  background: var(--gold); color: var(--ink); border: 0; border-radius: 10px;
+  font-size: 15px; font-weight: 800; letter-spacing: 5px; cursor: pointer;
+}
+#menu-settings-back:hover { filter: brightness(1.08); }
+.menu-confirm-card p { margin: 14px 0 0; font-size: 14px; line-height: 1.5; }
+.menu-confirm-row { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+#menu-confirm-yes, #menu-confirm-no {
+  padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 800;
+  letter-spacing: 2px; cursor: pointer;
+}
+#menu-confirm-yes { background: var(--gold); color: var(--ink); border: 0; }
+#menu-confirm-yes:hover { filter: brightness(1.08); }
+#menu-confirm-no {
+  background: transparent; color: #f7ebd7; border: 1px solid rgba(247,235,215,0.55);
+}
+#menu-confirm-no:hover { background: rgba(247,235,215,0.12); }
 /* Fade overlay for the menu -> play transition (game.js beginPlay). */
 #menu-fade {
   position: fixed; inset: 0; background: #0a0f14; opacity: 0;
