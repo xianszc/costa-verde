@@ -238,25 +238,26 @@ export function createGame(container) {
   // --- pedestrians: 40 walkers on the sidewalks ---
   const peds = [];
   const pedPaths = [
-    // Lungomare sidewalks: the avenue road is 4.8 wide (edge |z| 2.4),
-    // the 0.7 sidewalks sit at |z| 2.4..3.1 — centre 2.75. The old
-    // z +/-2.0 lines were ON the asphalt. The N-S paths run on real
+    // Lungomare sidewalks: the avenue road is 5.2 wide (edge |z| 2.6),
+    // the 0.7 sidewalks sit at |z| 2.6..3.3 — centre 2.95. The old
+    // z +/-2.75 lines were ON the asphalt. The N-S paths run on real
     // sidewalks too: the ring roads' outer sidewalks (x +/-45.35,
     // beside the x +/-44 ring roads) and the grid streets' east
-    // sidewalks (x -21.0, 23.8) and CORSO's east sidewalk (x 2.75).
-    { a: { x: -56, z: -2.75 }, b: { x: 56, z: -2.75 } },
-    { a: { x: -56, z: 2.75 }, b: { x: 56, z: 2.75 } },
+    // sidewalks (x -20.65, 24.15) and CORSO's east sidewalk (x 2.95).
+    { a: { x: -56, z: -2.95 }, b: { x: 56, z: -2.95 } },
+    { a: { x: -56, z: 2.95 }, b: { x: 56, z: 2.95 } },
     { a: { x: -45.35, z: -37 }, b: { x: -45.35, z: -9 } },
-    { a: { x: -21.0, z: -37 }, b: { x: -21.0, z: -9 } },
-    { a: { x: 2.75, z: -37 }, b: { x: 2.75, z: -9 } },
-    { a: { x: 23.8, z: -37 }, b: { x: 23.8, z: -9 } },
+    { a: { x: -20.65, z: -37 }, b: { x: -20.65, z: -9 } },
+    { a: { x: 2.95, z: -37 }, b: { x: 2.95, z: -9 } },
+    { a: { x: 24.15, z: -37 }, b: { x: 24.15, z: -9 } },
     { a: { x: 45.35, z: -37 }, b: { x: 45.35, z: -9 } },
-    { a: { x: -56, z: 2.75 }, b: { x: -20, z: 2.75 } },
+    { a: { x: -56, z: 2.95 }, b: { x: -20, z: 2.95 } },
     // Crosswalks on the CBD zebras (Xian 21 Nov 15:22): peds cross
     // the boulevard on the zebra at VIA DEL SOLE, and CORSO AZZURRA
     // on the zebra at z -11.2, instead of walking only the sidewalks.
-    { a: { x: -11.2, z: -2.2 }, b: { x: -11.2, z: 2.2 } },
-    { a: { x: -2.2, z: -11.2 }, b: { x: 2.2, z: -11.2 } },
+    // The paths run sidewalk to sidewalk (z/x +/-2.95).
+    { a: { x: -11.2, z: -2.95 }, b: { x: -11.2, z: 2.95 } },
+    { a: { x: -2.95, z: -11.2 }, b: { x: 2.95, z: -11.2 } },
   ];
   // 40 walkers: the 6 named civilians (full figures) plus 34 generated
   // neighbours (same archetypes, varied tops/bottoms/skins, cheap

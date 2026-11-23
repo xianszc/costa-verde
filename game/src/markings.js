@@ -262,7 +262,7 @@ export function zebraOffsets(crossHalf, edge) {
   // avenues and the double yellow on streets — a stripe must not cover
   // either), step 0.08 (0.04 bar + 0.04 gap), capped so the outermost
   // stripe ends 0.05 clear of the edge line. `edge` is the edge line's
-  // offset from the centreline (avenue 1.7, street 0.6, connector 3.2).
+  // offset from the centreline (avenue 2.05, street 1.2, connector 3.2).
   const maxOff = (edge === undefined ? crossHalf - 0.5 : edge) - 0.07;
   const offs = [];
   for (let o = 0.04; o <= maxOff + 0.001; o += 0.08) offs.push(-+o.toFixed(2), +o.toFixed(2));
@@ -301,7 +301,7 @@ export function zebraApproach(m, cx, cz, leg, crossHalf, boxHalf, edge) {
 // (x - c), the N leg (northbound, z > cz) on the east half (x + c).
 // `lane` overrides the kind default (avenue 0.7..1.35, street 0.05..0.55
 // — the street stop must end before the edge line at 0.6)
-// — e.g. the 7-wide ring connector: {len: 2.8, c: 1.6}.
+// — e.g. the 7-wide ring connector: {len: 3.2, c: 1.75}.
 // Returns the stop centre {x, z} (for the arrows, 3.5 m behind it).
 export function stopForApproach(m, bandCentre, leg, kind, laneOverride) {
   const lane = laneOverride || (kind === 'avenue' ? { len: 0.65, c: 1.025 } : { len: 0.35, c: 0.325 });
@@ -317,9 +317,9 @@ export function stopForApproach(m, bandCentre, leg, kind, laneOverride) {
 // Turn arrows 3.5 m behind the stop line, one per inbound GENERAL lane
 // (never in the bus lane). `stop` is the stop centre from
 // stopForApproach. Lanes (from the centreline): avenue left 0.825 +
-// straight 1.175 (the 1.525 lane is the bus lane — no arrow); street
+// straight 1.175 (the 1.875 lane is the bus lane — no arrow); street
 // left 0.15 + right 0.45. `lanesOverride` is [{off, ry}] — e.g. the
-// 7-wide ring connector (one lane per direction): [{off: 1.6, ry}].
+// 7-wide ring connector (4 lanes per direction): [{off: 1.75, ry}].
 // ry: north 0, east -PI/2, south PI, west PI/2.
 // Arrows are placed with shapeIfFree: on the 11.2 grid the approach
 // zones of adjacent intersections overlap, so an arrow that would

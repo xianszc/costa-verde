@@ -433,12 +433,12 @@ export function buildCommercialRing() {
   }
 
   // --- pedestrian paths along the ring avenue + the boulevard ---
-  // The boulevard path walks the SOUTH sidewalk (z 2.75, centre of
-  // the 2.4..3.1 strip) — the old z 1.5 line was on the asphalt: the
-  // avenue road is 4.8 wide (edge |z| 2.4), not narrowed.
+  // The boulevard path walks the SOUTH sidewalk (z 2.95, centre of
+  // the 2.6..3.3 strip) — the old z 2.75 line was on the asphalt: the
+  // avenue road is 5.2 wide (edge |z| 2.6), not narrowed.
   pedPaths.push(
     { a: { x: -56, z: -46.5 }, b: { x: 56, z: -46.5 } },
-    { a: { x: -56, z: 2.75 }, b: { x: 56, z: 2.75 } },
+    { a: { x: -56, z: 2.95 }, b: { x: 56, z: 2.95 } },
   );
 
   return {

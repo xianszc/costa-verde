@@ -1,6 +1,6 @@
 // AZZURA HEIST — CBD directed-lane traffic (Xian 21 Nov 15:22).
 // Cars drive the CBD grid's data-driven streets in REAL lanes:
-// right-hand traffic, 3 lanes per direction on avenues, 2 on streets,
+// right-hand traffic, 4 lanes per direction on avenues and streets,
 // stop at red signals, change lanes mid-segment, turn at intersections.
 // The lane graph is built from the same CBD_NS / CBD_EW data that
 // cbd-grid.js draws (one source of truth for geometry, markings,
@@ -14,8 +14,9 @@ import { buildTrafficCar, buildPoliceCruiser, createCar, ROAD_Y } from './vehicl
 import { updateCarWheels } from './wheels.js';
 
 // Lane offsets from the street centreline (matches the painted
-// markings in cbd-grid.js): avenue 0.825/1.175/1.525, street 0.15/0.45.
-const LANE_OFFS = { avenue: [0.825, 1.175, 1.525], street: [0.15, 0.45] };
+// markings in cbd-grid.js): avenue 0.825/1.175/1.525/1.875,
+// street 0.15/0.45/0.75/1.05.
+const LANE_OFFS = { avenue: [0.825, 1.175, 1.525, 1.875], street: [0.15, 0.45, 0.75, 1.05] };
 const CRUISE = { avenue: 9, street: 7 };
 
 // Direction unit vectors, keyed by axis + dir.

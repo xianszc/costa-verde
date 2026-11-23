@@ -326,7 +326,7 @@ function lampRow() {
 // The boulevard (z 0, 3.5 wide) and the N-S avenue (x 0) are grid
 // roads now; the grid module builds their slabs, sidewalks and markings
 // for the full x -60..60 / z -45.9..12.3 extent.
-export const BOULEVARD = { x0: -60, x1: 60, z0: -1.75, z1: 1.75 };
+export const BOULEVARD = { x0: -60, x1: 60, z0: -2.05, z1: 2.05 };
 export const CROSS_X = [-40, 40];
 export const CROSS = { z0: -42, z1: 6, half: 3.5 };
 // Ring avenue (z -42, 7 wide): split into west/east segments outside
@@ -510,7 +510,7 @@ export function trafficLanes() {
   ];
 }
 export function minimapLines() {
-  const lines = [{ x1: BOULEVARD.x0, z1: 0, x2: BOULEVARD.x1, z2: 0, w: 3.5 }];
+  const lines = [{ x1: BOULEVARD.x0, z1: 0, x2: BOULEVARD.x1, z2: 0, w: 5.2 }];
   // M10 GAME fix: the west connector (x -40) is NOT a through-road —
   // its minimap line ran z -42..6 straight through three old-town
   // house rows (hx -40, hz -35/-31/-27) and BFS routed the race car
@@ -706,7 +706,7 @@ export function buildRoadNetwork() {
   // NO boulevard zebras/stops/arrows. It owns the ring roads, the
   // connectors and the ring avenue x connector intersections.
   const m = createMarkings();
-  const WIDE_LANE = { len: 2.8, c: 1.6 }; // 7-wide roads, 1 lane per direction
+  const WIDE_LANE = { len: 3.2, c: 1.75 }; // 7-wide roads, 4 lanes per direction
   const wideArrowRy = { W: -Math.PI / 2, E: Math.PI / 2, S: Math.PI, N: 0 };
   // Edges only for one road, cut at the crossings. `road` is
   // {axis:'x'|'z', at, from, to, kind} and `crossings` is [{c, h}]
@@ -724,25 +724,38 @@ export function buildRoadNetwork() {
     }
   };
   // --- connectors (N-S, x +/-40, 7 wide, z -42..6) ---
+  // 4 lanes per direction across the full 7-wide slab (lane dividers
+  // at +/-0.875/1.75/2.625, double yellow centre, edges at +/-3.2).
   // Crossings: the ring avenue (z -42, half 3.5) + the boulevard (z 0,
-  // half 2.4 — the grid's intersection; the dashes/edges are gapped
+  // half 2.6 — the grid's intersection; the dashes/edges are gapped
   // there even though the grid draws the crossing furniture).
   for (const cx of CROSS_X) {
-    const crossings = [{ c: -42, h: 3.5 }, { c: 0, h: 2.4 }];
+    const crossings = [{ c: -42, h: 3.5 }, { c: 0, h: 2.6 }];
     const segs = segmentsAlong(CROSS.z0, CROSS.z1, allCrossingGaps(crossings));
     for (const [a, b] of segs) {
-      for (let z = a + 0.15; z <= b - 0.15; z += 1.2) m.box('dash', cx, z, 0.012, 0.3);
+      for (const off of [0.875, 1.75, 2.625]) {
+        for (const side of [-1, 1]) {
+          for (let z = a + 0.15; z <= b - 0.15; z += 1.2) m.box('dash', cx + side * off, z, 0.012, 0.3);
+        }
+      }
+      for (const side of [-1, 1]) m.box('yellow', cx + side * 0.08, (a + b) / 2, 0.01, b - a);
       for (const side of [-1, 1]) m.box('edge', cx + side * 3.2, (a + b) / 2, 0.012, b - a);
     }
   }
   // --- ring avenue (E-W, z -42, 7 wide) ---
+  // 4 lanes per direction across the full slab (same divider set).
   // Crossings: the connectors (x +/-40, half 3.5). The middle (x
   // -34.7..34.7) is the grid's VIA DEL NORD — no ring markings there.
   for (const seg of [RING_AVENUE_W, RING_AVENUE_E]) {
     const crossings = CROSS_X.map((cx) => ({ c: cx, h: 3.5 })).filter(({ c }) => c >= seg.x0 && c <= seg.x1);
     const segs = segmentsAlong(seg.x0, seg.x1, allCrossingGaps(crossings));
     for (const [a, b] of segs) {
-      for (let x = a + 0.15; x <= b - 0.15; x += 1.2) m.box('dash', x, -42, 0.3, 0.012);
+      for (const off of [0.875, 1.75, 2.625]) {
+        for (const side of [-1, 1]) {
+          for (let x = a + 0.15; x <= b - 0.15; x += 1.2) m.box('dash', x, -42 + side * off, 0.3, 0.012);
+        }
+      }
+      for (const side of [-1, 1]) m.box('yellow', (a + b) / 2, -42 + side * 0.08, b - a, 0.01);
       for (const side of [-1, 1]) m.box('edge', (a + b) / 2, -42 + side * 3.2, b - a, 0.012);
     }
   }
@@ -754,7 +767,7 @@ export function buildRoadNetwork() {
     const out = [];
     for (const e of RING_STREETS_EW) if (s.x >= e.x0 && s.x <= e.x1) out.push({ c: e.z, h: 1 });
     if (s.z0 <= -42 && s.z1 >= -42) out.push({ c: -42, h: 3.5 });
-    if (s.z0 <= 0 && s.z1 >= 0) out.push({ c: 0, h: 2.4 });
+    if (s.z0 <= 0 && s.z1 >= 0) out.push({ c: 0, h: 2.6 });
     if (s.z1 >= 12.7) out.push({ c: 12.7, h: 0.9 });
     return out.sort((p, q) => p.c - q.c);
   };
@@ -789,7 +802,7 @@ export function buildRoadNetwork() {
     boxJunction(m, cx, cz, hn, he);
   }
   for (const { stop, leg } of allLegs) {
-    arrowsForApproach(m, stop, leg, 'street', [{ off: 1.6, ry: wideArrowRy[leg] }]);
+    arrowsForApproach(m, stop, leg, 'street', [{ off: 1.75, ry: wideArrowRy[leg] }]);
   }
   m.build(g, 'ring');
   // ---------- furniture ----------
@@ -840,8 +853,8 @@ export function buildRoadNetwork() {
   g.add(benchMesh);
   // Traffic lights at the two main intersections (red/amber/green) —
   // the boulevard x the x=+/-40 ring connectors. The pole stands in the
-  // furniture strip on the boulevard's south sidewalk (z 2.54: the
-  // road edge is 2.4 and the pole radius is 0.09, so its footprint
+  // furniture strip on the boulevard's south sidewalk (z 2.74: the
+  // road edge is 2.6 and the pole radius is 0.09, so its footprint
   // clears the asphalt by 0.05) — never on the asphalt.
   // The lenses face the boulevard traffic (west for the x=-40 light,
   // east for x=+40). WORKING CYCLES (Xian 21 Nov 15:22): the lenses
@@ -858,8 +871,8 @@ export function buildRoadNetwork() {
     // (the old +4.4 for both sides); cx-4.4 for the east light and
     // cx+4.4 for the west light both land at |x| 35.6, clear of it.
     const px = cx - Math.sign(cx) * 4.4;
-    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), px, 1.7, 2.54), 0xffffff));
-    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), px, 3.6, 2.54), 0xffffff));
+    tlParts.push(colored(xform(new THREE.CylinderGeometry(0.09, 0.09, 3.4, 8), px, 1.7, 2.74), 0xffffff));
+    tlParts.push(colored(xform(new THREE.BoxGeometry(0.5, 1.0, 0.5), px, 3.6, 2.74), 0xffffff));
     const faceX = cx < 0 ? -1 : 1; // lens side: west face / east face
     const faceRy = cx < 0 ? -Math.PI / 2 : Math.PI / 2;
     for (let i = 0; i < 3; i++) {

@@ -9,18 +9,18 @@
 // 1 unit = 10 m).
 //
 // Geometry (units; 1 unit = 10 m):
-//   Main avenues: 4.8 wide (48 m) — 6 lanes x 0.35 (3.5 m), landscaped
+//   Main avenues: 5.2 wide (52 m) — 8 lanes x 0.35 (3.5 m), landscaped
 //     median 1.3 (13 m, trees + planters; the monorail pillars stand
 //     in the LUNGOMARE median), sidewalks 0.7 (7 m) both sides.
-//   Secondary streets: 2.2 wide (22 m) — 4 lanes x 0.3 (3 m), double
-//     yellow centre, sidewalks 0.4 both sides.
-//   Blocks: ~9.0 x 9.0 (90 m) between streets; the two centre columns
-//     are 7.7 wide (the avenue takes the middle).
-//   CBD extent: x -34.7..34.7, z -45.9..12.3 — 69.4 x 58.2 = 4,039 units².
-//     (Xian's ~3,500 target cannot hold 36 towers on 90 m blocks with
-//     22 m streets: 30 blocks x 81 units² of block + ~35% street share
-//     needs ~4,000. The tower count (36) is kept; the footprint is
-//     ~15% over, stated honestly.)
+//     Carriageway 4.1 (2 directions x 4 lanes x 0.35 + median 1.3).
+//   Secondary streets: 3.0 wide (30 m) — 8 lanes x 0.3 (3 m), double
+//     yellow centre, sidewalks 0.5 both sides. Carriageway 2.4
+//     (2 directions x 4 lanes x 0.3).
+//   Blocks: ~8.2 x 8.2 (82 m) between streets; the two centre columns
+//     and the two boulevard-flanking rows are 7.1 wide.
+//   CBD extent (outer road edges): x -35.1..35.1, z -46.3..12.7 —
+//     70.2 x 59.0 = 4,142 units². (Centrelines: x -34.7..34.7,
+//     z -45.9..12.3 — 69.4 x 58.2 = 4,039 units².)
 //   30 blocks: 20 single towers + 8 twin pairs on shared podiums
 //     (16 towers) + 2 green blocks (park + plaza) = 36 towers.
 //   The ring avenue (z -42) stays as the CBD's northern boundary road
@@ -40,40 +40,42 @@ import {
 // --- the street list (the single source of truth) ---
 // axis 'x': a north-south street (constant x, runs along z).
 // axis 'z': an east-west street (constant z, runs along x).
-// kind 'avenue': 4.8 wide, 6 lanes, landscaped median. kind 'street':
-// 2.2 wide, 4 lanes, double yellow centre. from/to: the road's extent.
+// kind 'avenue': 5.2 wide, 8 lanes (4 per direction), landscaped
+// median. kind 'street': 3.0 wide, 8 lanes (4 per direction), double
+// yellow centre. from/to: the road's extent.
 export const CBD_NS = [
-  { x: -33.6, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL FARO' },
-  { x: -22.4, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DELLE VELA' },
-  { x: -11.2, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL SOLE' },
-  { x: 0, w: 4.8, kind: 'avenue', z0: -45.9, z1: 12.3, name: 'CORSO AZZURRA' },
-  { x: 11.2, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL MARE' },
-  { x: 22.4, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEI LIMONI' },
-  { x: 33.6, w: 2.2, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL PORTO' },
+  { x: -33.6, w: 3.0, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL FARO' },
+  { x: -22.4, w: 3.0, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DELLE VELA' },
+  { x: -11.2, w: 3.0, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL SOLE' },
+  { x: 0, w: 5.2, kind: 'avenue', z0: -45.9, z1: 12.3, name: 'CORSO AZZURRA' },
+  { x: 11.2, w: 3.0, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL MARE' },
+  { x: 22.4, w: 3.0, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEI LIMONI' },
+  { x: 33.6, w: 3.0, kind: 'street', z0: -45.9, z1: 12.3, name: 'VIA DEL PORTO' },
 ];
 export const CBD_EW = [
-  { z: -44.8, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL NORD' },
-  { z: -33.6, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DELLE ROSE' },
-  { z: -22.4, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL CASTELLO' },
-  { z: -11.2, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL MERCATO' },
-  { z: 0, w: 4.8, kind: 'avenue', x0: -60, x1: 60, name: 'LUNGOMARE' },
-  { z: 11.2, w: 2.2, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL MOLO' },
+  { z: -44.8, w: 3.0, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL NORD' },
+  { z: -33.6, w: 3.0, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DELLE ROSE' },
+  { z: -22.4, w: 3.0, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL CASTELLO' },
+  { z: -11.2, w: 3.0, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL MERCATO' },
+  { z: 0, w: 5.2, kind: 'avenue', x0: -60, x1: 60, name: 'LUNGOMARE' },
+  { z: 11.2, w: 3.0, kind: 'street', x0: -34.7, x1: 34.7, name: 'VIA DEL MOLO' },
 ];
-// Sidewalk width beside each road (avenue 0.7 = 7 m, street 0.4 = 4 m).
+// Sidewalk width beside each road (avenue 0.7 = 7 m, street 0.5 = 5 m).
 export function sidewalkW(s) { return s.kind === 'avenue' ? 0.7 : 0.5; }
 // Road surface half-width (lanes + median, no sidewalks).
-// Avenue: 3 lanes/direction x 0.35 + median 1.3 = 3.4 (half 1.7).
-// Street: 2 lanes/direction x 0.3 + double yellow = 1.4 (half 0.7).
+// Avenue: 4 lanes/direction x 0.35 + median 1.3 = 4.1 (half 2.05).
+// Street: 4 lanes/direction x 0.3 + double yellow = 2.4 (half 1.2).
 export function roadHalf(s) {
-  return s.kind === 'avenue' ? 1.7 : 0.7;
+  return s.kind === 'avenue' ? 2.05 : 1.2;
 }
 // Avenue lane centres from the centreline (median half 0.65 +
 // half a lane 0.175, then +0.35 per lane).
-export const AVE_LANES = [0.825, 1.175, 1.525];
+export const AVE_LANES = [0.825, 1.175, 1.525, 1.875];
 
 // --- blocks (derived from the streets: between consecutive roads) ---
 // kind: 'single' | 'twin' | 'park' | 'plaza'. The two centre columns
-// are 7.7 wide (avenue in the middle); the rest are 9.0.
+// and the two boulevard-flanking rows are 7.1 wide (the avenue takes
+// the middle); the rest are 8.2.
 const BLOCK_KINDS = [
   // row 0 (north edge, z -43.7..-34.7)
   ['park', 'twin', 'single', 'single', 'twin', 'single'],
@@ -330,10 +332,12 @@ export function buildCBDGrid(opts = {}) {
   }
 
   // ---------- markings (registry: one source of truth, fixed layers) ----------
-  // Lane geometry: avenue lanes 0.35 wide (centres +/-0.825/1.175/1.525,
-  // dividers at +/-1.0/1.35, edges at +/-1.7, median +/-0.65);
-  // street lanes 0.3 wide (centres +/-0.15/0.45, dividers at +/-0.3,
-  // double yellow at +/-0.08, edges at +/-0.6).
+  // Lane geometry: avenue lanes 0.35 wide (centres +/-0.825/1.175/
+  // 1.525/1.875, dividers at +/-1.0/1.35/1.7, edges at +/-2.05, median
+  // +/-0.65); street lanes 0.3 wide (centres +/-0.15/0.45/0.75/1.05,
+  // dividers at +/-0.3/0.6/0.9, double yellow at +/-0.08, edges at
+  // +/-1.2). The outermost avenue lane is the bus lane (no arrow,
+  // no stop line).
   // The ring connectors (x +/-40, 7 wide) cross the boulevard: the grid
   // owns that intersection too (below), so the boulevard's gaps include
   // them and roads.js draws NO boulevard markings of its own.
@@ -359,7 +363,7 @@ export function buildCBDGrid(opts = {}) {
   // BAR_LEN + 0.6 + STOP_GAP out from the crossing centre (band centre
   // + BAR_LEN/2 + STOP_GAP + 0.2). A dash at (p, side, off) is skipped
   // when it overlaps a stop on its side: |p - stop.p| < 0.7 and off
-  // inside the stop's lateral span (avenue 0.7..1.35, street 0.15..0.55).
+  // inside the stop's lateral span (avenue 0.7..1.7, street 0.05..1.15).
   // Sides are axis-dependent (right-hand traffic): on a N-S road the
   // -leg stop is on the -offset half; on an E-W road it is on the
   // +offset half (eastbound is on the south half).
@@ -368,7 +372,7 @@ export function buildCBDGrid(opts = {}) {
     { p: c + (h + ZEBRA_BAR_LEN + 0.6 + STOP_GAP), side: swap ? -1 : 1 },
   ]);
   const dashBlocked = (p, side, off, stops, kind) => {
-    const [lo, hi] = kind === 'avenue' ? [0.7, 1.35] : [0.15, 0.5];
+    const [lo, hi] = kind === 'avenue' ? [0.7, 1.7] : [0.05, 1.15];
     if (off < lo - 0.06 || off > hi + 0.06) return false;
     return stops.some((st) => st.side === side && Math.abs(p - st.p) < 0.7);
   };
@@ -376,7 +380,7 @@ export function buildCBDGrid(opts = {}) {
     const crossings = CBD_EW.map((e) => ({ c: e.z, h: e.w / 2 }));
     const segs = segmentsAlong(s.z0, s.z1, allGaps(crossings));
     const stops = stopSpans(crossings, false);
-    const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
+    const divs = s.kind === 'avenue' ? [1.0, 1.35, 1.7] : [0.3, 0.6, 0.9];
     for (const [a, b] of segs) {
       for (const off of (s.kind === 'avenue' ? divs : [])) {
         for (const side of [-1, 1]) {
@@ -389,9 +393,9 @@ export function buildCBDGrid(opts = {}) {
     }
     for (const [a, b] of segs) {
       for (const side of [-1, 1]) {
-        const e = s.kind === 'avenue' ? 1.7 : 0.6;
+        const e = s.kind === 'avenue' ? 2.05 : 1.2;
         m.box('edge', s.x + side * e, (a + b) / 2, 0.012, b - a);
-        if (s.kind === 'avenue') m.box('bus', s.x + side * 1.45, (a + b) / 2, 0.012, b - a);
+        if (s.kind === 'avenue') m.box('bus', s.x + side * 1.875, (a + b) / 2, 0.012, b - a);
         else m.box('yellow', s.x + side * 0.01, (a + b) / 2, 0.01, b - a);
       }
     }
@@ -409,7 +413,7 @@ export function buildCBDGrid(opts = {}) {
     crossings.sort((p, q) => p.c - q.c);
     const segs = segmentsAlong(s.x0, s.x1, allGaps(crossings));
     const stops = stopSpans(crossings, true);
-    const divs = s.kind === 'avenue' ? [1.0, 1.35] : [0.3];
+    const divs = s.kind === 'avenue' ? [1.0, 1.35, 1.7] : [0.3, 0.6, 0.9];
     for (const [a, b] of segs) {
       for (const off of (s.kind === 'avenue' ? divs : [])) {
         for (const side of [-1, 1]) {
@@ -422,9 +426,9 @@ export function buildCBDGrid(opts = {}) {
     }
     for (const [a, b] of segs) {
       for (const side of [-1, 1]) {
-        const e = s.kind === 'avenue' ? 1.7 : 0.6;
+        const e = s.kind === 'avenue' ? 2.05 : 1.2;
         m.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.012);
-        if (s.kind === 'avenue') m.box('bus', (a + b) / 2, s.z + side * 1.45, b - a, 0.012);
+        if (s.kind === 'avenue') m.box('bus', (a + b) / 2, s.z + side * 1.875, b - a, 0.012);
         else m.box('yellow', (a + b) / 2, s.z + side * 0.01, b - a, 0.01);
       }
     }
@@ -445,20 +449,25 @@ export function buildCBDGrid(opts = {}) {
   // connector's inner legs face a grid street 6.4 away, and a zebra
   // band cannot fit between the connector and that street.
   const allLegs = [];
+  // Stop-line span per kind (the shared defaults in markings.js are
+  // the 3-lane / 2-lane spans for the zones; the grid passes its own):
+  // avenue covers the 3 general lanes 0.7..1.7 (the 1.875 bus lane
+  // gets no stop), street covers all 4 lanes 0.05..1.15.
+  const stopLane = (kind) => kind === 'avenue' ? { len: 1.0, c: 1.2 } : { len: 1.1, c: 0.6 };
   const intersectionMarkings = (cx, cz, hn, he, nsKind, ewKind, connLane, skipLegs = []) => {
     const ave = nsKind === 'avenue' || ewKind === 'avenue';
-    const ewEdge = ewKind === 'avenue' ? 1.7 : 0.6;
-    const nsEdge = connLane ? 3.2 : (nsKind === 'avenue' ? 1.7 : 0.6);
+    const ewEdge = ewKind === 'avenue' ? 2.05 : 1.2;
+    const nsEdge = connLane ? 3.2 : (nsKind === 'avenue' ? 2.05 : 1.2);
     for (const leg of ['W', 'E']) {
       if (skipLegs.includes(leg)) continue;
       const band = zebraApproach(m, cx, cz, leg, he, hn, ewEdge);
-      const stop = stopForApproach(m, band, leg, ewKind);
+      const stop = stopForApproach(m, band, leg, ewKind, stopLane(ewKind));
       allLegs.push({ stop, leg, kind: ewKind });
     }
     for (const leg of ['S', 'N']) {
       if (skipLegs.includes(leg)) continue;
       const band = zebraApproach(m, cx, cz, leg, hn, he, nsEdge);
-      const stop = stopForApproach(m, band, leg, nsKind, connLane);
+      const stop = stopForApproach(m, band, leg, nsKind, connLane || stopLane(nsKind));
       allLegs.push({ stop, leg, kind: nsKind, conn: !!connLane });
     }
     if (ave) boxJunction(m, cx, cz, hn, he);
@@ -476,10 +485,10 @@ export function buildCBDGrid(opts = {}) {
   // their W legs the connectors — the dashes/edges are still gapped
   // at those crossings, above.)
   for (const cx of CONNECTOR_X) {
-    intersectionMarkings(cx, 0, CONNECTOR_HALF, 2.4, 'street', 'avenue', { len: 2.8, c: 1.6 }, cx < 0 ? ['E'] : ['W']);
+    intersectionMarkings(cx, 0, CONNECTOR_HALF, 2.6, 'street', 'avenue', { len: 3.2, c: 1.75 }, cx < 0 ? ['E'] : ['W']);
   }
   for (const { stop, leg, kind, conn } of allLegs) {
-    arrowsForApproach(m, stop, leg, kind, conn ? [{ off: 1.6, ry: leg === 'S' ? Math.PI : 0 }] : undefined);
+    arrowsForApproach(m, stop, leg, kind, conn ? [{ off: 1.75, ry: leg === 'S' ? Math.PI : 0 }] : undefined);
   }
   m.build(g);
 
@@ -488,13 +497,13 @@ export function buildCBDGrid(opts = {}) {
   const bumpParts = [];
   for (const s of CBD_NS) {
     if (s.kind !== 'street') continue;
-    bumpParts.push(colored(xform(new THREE.BoxGeometry(1.4, 0.18, 0.6), s.x, 0.28, -28), 0xffffff));
+    bumpParts.push(colored(xform(new THREE.BoxGeometry(2.4, 0.18, 0.6), s.x, 0.28, -28), 0xffffff));
   }
   for (const s of CBD_EW) {
     if (s.kind !== 'street') continue;
     // Mid-block (x -17, between the -22.4 and -11.2 streets) — never on
     // the N-S avenue crossing at x 0.
-    bumpParts.push(colored(xform(new THREE.BoxGeometry(0.6, 0.18, 1.4), -17, 0.28, s.z), 0xffffff));
+    bumpParts.push(colored(xform(new THREE.BoxGeometry(0.6, 0.18, 2.4), -17, 0.28, s.z), 0xffffff));
   }
   if (bumpParts.length) {
     const bumpMesh = mergedMesh(bumpParts, bumpMat);
@@ -644,13 +653,13 @@ export function buildCBDGrid(opts = {}) {
   }
   g.add(mergedMesh(signPoles, M(0x3a3a3a)));
   // Bus stops: shelter + bench on the boulevard (south sidewalk,
-  // z 2.75) and the N-S avenue (east sidewalk, x 2.75) — the widened
-  // avenue's sidewalk centres (the old 1.5 spots are in the road now).
+  // z 2.95) and the N-S avenue (east sidewalk, x 2.95) — the widened
+  // avenue's sidewalk centres (the old 2.75 spots are in the road now).
   const busMetal = [];
   const busWood = [];
   const busStops = [
-    { x: -20, z: 2.75, ry: 0 }, { x: 20, z: 2.75, ry: 0 },
-    { x: 2.75, z: -28, ry: Math.PI / 2 }, { x: 2.75, z: 5, ry: Math.PI / 2 },
+    { x: -20, z: 2.95, ry: 0 }, { x: 20, z: 2.95, ry: 0 },
+    { x: 2.95, z: -28, ry: Math.PI / 2 }, { x: 2.95, z: 5, ry: Math.PI / 2 },
   ];
   for (const b of busStops) {
     const cos = Math.cos(b.ry), sin = Math.sin(b.ry);
@@ -690,7 +699,7 @@ export function buildCBDGrid(opts = {}) {
   const aveTrees = [];
   // CORSO AZZURRA sidewalks, z -42..9, every 6. Trunks on the OUTER
   // edge (x +/-3.02) with a SMALL canopy (scale 0.5-0.55, reach 0.63):
-  // the canopy ends 0.03 clear of the asphalt (road edge 2.4) and
+  // the canopy ends 0.21 clear of the asphalt (road edge 2.6) and
   // 0.25 short of the shop fronts (towers sit back 0.8+ from the curb).
   for (let z = -42; z <= 9; z += 6) {
     for (const side of [-1, 1]) {
@@ -706,9 +715,9 @@ export function buildCBDGrid(opts = {}) {
     for (const side of [-1, 1]) {
       const z = side * 3.02;
       if (nearBusStop(x, z) || inCrossingEW(x)) continue;
-      // The direction-sign poles stand at (x +/-8, z +/-2.44) —
+      // The direction-sign poles stand at (x +/-8, z +/-2.64) —
       // keep the trees 1.5 clear of them.
-      if (Math.hypot(x - 8, z - 2.44) < 1.5 || Math.hypot(x + 8, z + 2.44) < 1.5) continue;
+      if (Math.hypot(x - 8, z - 2.64) < 1.5 || Math.hypot(x + 8, z + 2.64) < 1.5) continue;
       aveTrees.push({ x, z, s: 0.5 + rnd() * 0.05, rot: rnd() * Math.PI * 2 });
     }
   }
@@ -790,10 +799,10 @@ export function buildCBDGrid(opts = {}) {
     if (s.kind !== 'street') return;
     metalParts.push(colored(xform(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 12), s.x, 0.22, -28 + (i % 2) * 8), 0xffffff));
     // Hydrant on the east sidewalk: its 0.26 base radius must clear the
-    // road edge (1.1), so its centre sits at 1.37 — touching the kerb,
+    // road edge (1.5), so its centre sits at 1.77 — touching the kerb,
     // 0.02 past the sidewalk's outer edge (harmless, next to a wall).
-    hydParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 8), s.x + 1.37, 0.55, -18), 0xffffff));
-    hydParts.push(colored(xform(new THREE.SphereGeometry(0.22, 8, 6), s.x + 1.37, 0.95, -18), 0xffffff));
+    hydParts.push(colored(xform(new THREE.CylinderGeometry(0.22, 0.26, 0.7, 8), s.x + 1.77, 0.55, -18), 0xffffff));
+    hydParts.push(colored(xform(new THREE.SphereGeometry(0.22, 8, 6), s.x + 1.77, 0.95, -18), 0xffffff));
   });
   CBD_EW.forEach((s, i) => {
     if (s.kind !== 'street') return;
@@ -865,14 +874,14 @@ export function buildCBDGrid(opts = {}) {
   // edge) — never in a driving lane — with the straight board below
   // the right-turn board. The boards hang over the approach lanes.
   const dirBoards = [
-    { x: -8, z: 2.44, ry: -Math.PI / 2, dir: 'straight', y: 2.6 },
-    { x: -8, z: 2.44, ry: -Math.PI / 2, dir: 'right', y: 3.7 },
-    { x: 8, z: -2.44, ry: Math.PI / 2, dir: 'straight', y: 2.6 },
-    { x: 8, z: -2.44, ry: Math.PI / 2, dir: 'right', y: 3.7 },
-    { x: 2.44, z: 8, ry: 0, dir: 'straight', y: 2.6 },
-    { x: 2.44, z: 8, ry: 0, dir: 'right', y: 3.7 },
-    { x: -2.44, z: -8, ry: Math.PI, dir: 'straight', y: 2.6 },
-    { x: -2.44, z: -8, ry: Math.PI, dir: 'right', y: 3.7 },
+    { x: -8, z: 2.64, ry: -Math.PI / 2, dir: 'straight', y: 2.6 },
+    { x: -8, z: 2.64, ry: -Math.PI / 2, dir: 'right', y: 3.7 },
+    { x: 8, z: -2.64, ry: Math.PI / 2, dir: 'straight', y: 2.6 },
+    { x: 8, z: -2.64, ry: Math.PI / 2, dir: 'right', y: 3.7 },
+    { x: 2.64, z: 8, ry: 0, dir: 'straight', y: 2.6 },
+    { x: 2.64, z: 8, ry: 0, dir: 'right', y: 3.7 },
+    { x: -2.64, z: -8, ry: Math.PI, dir: 'straight', y: 2.6 },
+    { x: -2.64, z: -8, ry: Math.PI, dir: 'right', y: 3.7 },
   ];
   const boardGeos = { straight: [], right: [] };
   const boardPoles = [];

@@ -247,10 +247,13 @@ export function buildCBD() {
       crownGeos.push(colored(xform(new THREE.BoxGeometry(1.6, 0.5, 0.1), kx, 1.9, kz + 0.75), 0x1e2a32));
       colliders.push({ x0: kx - 0.8, z0: kz - 0.7, x1: kx + 0.8, z1: kz + 0.7, id: 'cbd-kiosk' });
       const parkedCols = [0xd9553a, 0x2e7f8f, 0xe8b93c];
+      // The side cars sit 0.8 north of the centre: on the 7.1-wide
+      // plaza the three cars' corners met (their colliders overlapped
+      // by 0.05) — the shift clears the south car by 0.33.
       const parkedSpots = [
         { x: b.cx, z: b.z1 - 1.0, ry: 0 },
-        { x: b.x1 - 1.0, z: b.cz, ry: Math.PI / 2 },
-        { x: b.x0 + 1.0, z: b.cz, ry: -Math.PI / 2 },
+        { x: b.x1 - 1.0, z: b.cz - 0.8, ry: Math.PI / 2 },
+        { x: b.x0 + 1.0, z: b.cz - 0.8, ry: -Math.PI / 2 },
       ];
       parkedSpots.forEach((s, i) => {
         const col = parkedCols[i % parkedCols.length];
@@ -263,8 +266,10 @@ export function buildCBD() {
           parkedGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.5, 0.3), wwx, 0.25, wwz, s.ry), 0x1a1a1a));
         }
         // The collider is inset 0.3 from the visual car (4.2 long):
-        // on the 7.7-wide plaza the three cars' corners meet, and the
-        // full-size colliders overlapped each other by 0.2 (B).
+        // on the 7.1-wide plaza the three cars' corners met, and the
+        // full-size colliders overlapped each other by 0.2 (B) — the
+        // side cars sit 0.8 north of the centre (above), so the
+        // colliders clear each other and the south car.
         const alongZ = Math.abs(Math.sin(s.ry)) > 0.5;
         colliders.push(alongZ
           ? { x0: s.x - 0.8, z0: s.z - 1.8, x1: s.x + 0.8, z1: s.z + 1.8, id: 'cbd-parked' }
