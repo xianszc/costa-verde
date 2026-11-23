@@ -36,7 +36,15 @@ export function buildCBD() {
   group.name = 'cbd';
   const colliders = [];
   const tickers = [];
-  const FLOOR_H = 2.0; // game units per floor
+  // Round-9 part D (Xian 23 Nov: CBD towers half height): 1.0 unit
+  // per floor (was 2.0) — Azzura Tower 60 floors = 60u tall (was
+  // 120u), the rest 20-60u. Everything downstream follows h and
+  // floors: body height, crowns (positioned at h + ...), windows
+  // (rows = (h-4)/2, spacing 2u — one row per 2 floors now), roof
+  // tint (uses floors 20-60, unchanged). M7/M11 anchors are ground
+  // level (tower_lobby / skyline_plaza) — the "sixty floors" is
+  // dialogue only, no mission reads tower height.
+  const FLOOR_H = 1.0; // game units per floor
 
   const glassGeos = []; // tower bodies (blue-grey glass)
   const concGeos = []; // concrete / stone towers + podiums
