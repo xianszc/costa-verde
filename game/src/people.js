@@ -1,8 +1,13 @@
 // AZZURA — characters.
-// Stylized fashion-illustration proportions: slightly elongated, small heads,
-// confident posture, strong silhouettes. Flat color blocks + one accent color.
-// Limbs are built as pivoted groups (shoulder / hip / elbow) so walk, run,
-// drive, aim, fight and idle animations can drive them later.
+// Part N (23 Nov 2026, Xian 21:09): REALISTIC human proportions.
+// The old build was fashion-illustration (legs 52%H, chest 0.15H
+// wide, head H/8.6) — a stick next to the buildings. Now: legs
+// 48%H, chest 0.22H wide, head H/7.5, thicker limbs, longer arms.
+// Total height UNCHANGED (Elio still 0.58u = 1.73 m at PED_SCALE
+// 0.30); only the shape INSIDE the height changed. Flat color
+// blocks + one accent color. Limbs are built as pivoted groups
+// (shoulder / hip / elbow) so walk, run, drive, aim, fight and
+// idle animations can drive them later.
 import * as THREE from '../vendor/three.module.min.js';
 import { mergedMesh, colored, xform, vertexColorMat } from './world.js';
 
@@ -46,10 +51,10 @@ export function makeFigure(spec) {
   const a = ARCHETYPES[spec.archetype || 'lean'];
   const H = a.h;
   const g = a.girth;
-  const legLen = H * 0.52;
-  const torsoH = H * 0.30;
-  const torsoW = 0.34 * g;
-  const headR = H * 0.058; // small head, fashion-illustration proportions
+  const legLen = H * 0.48; // real: hip height ~48% of stature
+  const torsoH = H * 0.32;
+  const torsoW = 0.48 * g; // real chest width ~0.22H (was 0.34g = 0.15H)
+  const headR = H * 0.067; // real head = H/7.5 (was H/8.6, too small)
   const skin = spec.skin || 0xe8b88a;
   const root = new THREE.Group();
   root.name = 'figure';
@@ -59,9 +64,9 @@ export function makeFigure(spec) {
   for (const side of [-1, 1]) {
     const leg = new THREE.Group();
     leg.position.set(side * torsoW * 0.28, hipY, 0);
-    leg.add(part(new THREE.CylinderGeometry(0.075 * g, 0.06 * g, legLen, 8),
+    leg.add(part(new THREE.CylinderGeometry(0.10 * g, 0.085 * g, legLen, 8),
       spec.bottom || 0x2b2b2b, 0, -legLen / 2, 0));
-    leg.add(part(new THREE.BoxGeometry(0.11 * g, 0.07, 0.24),
+    leg.add(part(new THREE.BoxGeometry(0.13 * g, 0.07, 0.28),
       spec.shoes || 0x2b2b2b, 0, -legLen + 0.035, 0.06));
     root.add(leg);
   }
@@ -70,20 +75,20 @@ export function makeFigure(spec) {
   const torso = new THREE.Group();
   torso.position.set(0, hipY, 0);
   torso.rotation.x = a.stoop;
-  const chest = part(new THREE.BoxGeometry(torsoW, torsoH, 0.20 * g),
+  const chest = part(new THREE.BoxGeometry(torsoW, torsoH, 0.28 * g),
     spec.top || 0xf2f0ea, 0, torsoH / 2, 0);
   torso.add(chest);
   // Accent stripe / shirt front.
   torso.add(part(new THREE.BoxGeometry(torsoW * 0.4, torsoH * 0.82, 0.02),
-    spec.accent || 0xc93a6b, 0, torsoH / 2, 0.11 * g));
+    spec.accent || 0xc93a6b, 0, torsoH / 2, 0.15 * g));
   // Apron (farm crew / shopkeepers).
   if (spec.apron) {
     torso.add(part(new THREE.BoxGeometry(torsoW * 0.7, torsoH * 0.9, 0.03),
-      spec.apron, 0, torsoH / 2 - 0.02, 0.12 * g));
+      spec.apron, 0, torsoH / 2 - 0.02, 0.15 * g));
   }
   // Scarf (accent ring at the neck).
   if (spec.scarf) {
-    const scarf = part(new THREE.TorusGeometry(0.11 * g, 0.035, 8, 14), spec.scarf, 0, torsoH + 0.02, 0);
+    const scarf = part(new THREE.TorusGeometry(0.13 * g, 0.04, 8, 14), spec.scarf, 0, torsoH + 0.02, 0);
     scarf.rotation.x = Math.PI / 2;
     torso.add(scarf);
   }
@@ -96,15 +101,15 @@ export function makeFigure(spec) {
     const arm = new THREE.Group();
     arm.position.set(side * torsoW * 0.58, shoulderY, 0);
     arm.rotation.z = side * 0.14; // relaxed A-pose
-    const upper = part(new THREE.CylinderGeometry(0.055 * g, 0.05 * g, H * 0.16, 8),
-      spec.top || 0xf2f0ea, 0, -H * 0.08, 0);
+    const upper = part(new THREE.CylinderGeometry(0.065 * g, 0.058 * g, H * 0.19, 8),
+      spec.top || 0xf2f0ea, 0, -H * 0.095, 0);
     arm.add(upper);
     const elbow = new THREE.Group();
-    elbow.position.set(0, -H * 0.16, 0);
+    elbow.position.set(0, -H * 0.19, 0);
     elbow.rotation.x = -0.25;
-    elbow.add(part(new THREE.CylinderGeometry(0.048 * g, 0.042 * g, H * 0.15, 8),
-      spec.skinTop || spec.top || 0xf2f0ea, 0, -H * 0.075, 0));
-    elbow.add(part(new THREE.SphereGeometry(0.05 * g, 8, 8), skin, 0, -H * 0.16, 0));
+    elbow.add(part(new THREE.CylinderGeometry(0.058 * g, 0.052 * g, H * 0.18, 8),
+      spec.skinTop || spec.top || 0xf2f0ea, 0, -H * 0.09, 0));
+    elbow.add(part(new THREE.SphereGeometry(0.055 * g, 8, 8), skin, 0, -H * 0.19, 0));
     arm.add(elbow);
     root.add(arm);
     arms[side < 0 ? 'L' : 'R'] = { arm, elbow };
@@ -113,7 +118,7 @@ export function makeFigure(spec) {
   // ---- head (small) ----
   const head = new THREE.Group();
   head.position.set(0, shoulderY + headR * 1.5, 0);
-  head.add(part(new THREE.CylinderGeometry(0.045, 0.05, 0.08, 8), skin, 0, -headR * 0.4, 0));
+  head.add(part(new THREE.CylinderGeometry(0.055, 0.06, 0.08, 8), skin, 0, -headR * 0.4, 0));
   head.add(part(new THREE.SphereGeometry(headR, 14, 12), skin, 0, headR * 0.55, 0));
   // Hair: a flattened half-sphere cap.
   const hair = part(new THREE.SphereGeometry(headR * 1.06, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55),
@@ -157,7 +162,7 @@ export function makeFigure(spec) {
 
   // ---- signature items (right hand unless noted) ----
   const R = arms.R.elbow;
-  const handY = -H * 0.16;
+  const handY = -H * 0.19;
   if (spec.item === 'compass') {
     R.add(part(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 10), 0xe8a33d, 0, handY - 0.05, 0.02, { metalness: 0.4 }));
   } else if (spec.item === 'spoon') {
@@ -169,7 +174,7 @@ export function makeFigure(spec) {
     R.add(part(new THREE.CylinderGeometry(0.02, 0.02, H * 0.5, 8), 0x2b2b2b, 0, handY - H * 0.2, 0));
     R.add(part(new THREE.SphereGeometry(0.05, 8, 8), 0xe8a33d, 0, handY + 0.06, 0, { metalness: 0.5 }));
   } else if (spec.item === 'rope') {
-    const rope = part(new THREE.TorusGeometry(0.16 * g, 0.03, 8, 14), 0xc9a86a, 0, torsoH * 0.6, 0.1 * g);
+    const rope = part(new THREE.TorusGeometry(0.23 * g, 0.035, 8, 14), 0xc9a86a, 0, torsoH * 0.6, 0.1 * g);
     rope.rotation.x = Math.PI / 2.4;
     torso.add(rope);
   } else if (spec.item === 'rake') {
@@ -219,10 +224,10 @@ export function makeWalker(spec) {
   const a = ARCHETYPES[spec.archetype || 'lean'];
   const H = a.h;
   const g = a.girth;
-  const legLen = H * 0.52;
-  const torsoH = H * 0.30;
-  const torsoW = 0.34 * g;
-  const headR = H * 0.058;
+  const legLen = H * 0.48;
+  const torsoH = H * 0.32;
+  const torsoW = 0.48 * g;
+  const headR = H * 0.067;
   const skin = spec.skin || 0xe8b88a;
   const root = new THREE.Group();
   root.name = 'walker';
@@ -230,7 +235,7 @@ export function makeWalker(spec) {
   for (const side of [-1, 1]) {
     const leg = new THREE.Group();
     leg.position.set(side * torsoW * 0.28, hipY, 0);
-    leg.add(part(new THREE.CylinderGeometry(0.075 * g, 0.06 * g, legLen, 8),
+    leg.add(part(new THREE.CylinderGeometry(0.10 * g, 0.085 * g, legLen, 8),
       spec.bottom || 0x2b2b2b, 0, -legLen / 2, 0));
     root.add(leg);
   }
@@ -242,7 +247,7 @@ export function makeWalker(spec) {
   // is invisible to it. Same boxes/spheres, same colors, same
   // root-space positions as the three meshes it replaces.
   const torsoHead = [
-    colored(xform(new THREE.BoxGeometry(torsoW, torsoH, 0.20 * g), 0, hipY + torsoH / 2, 0),
+    colored(xform(new THREE.BoxGeometry(torsoW, torsoH, 0.28 * g), 0, hipY + torsoH / 2, 0),
       spec.top || 0xf2f0ea),
     colored(xform(new THREE.SphereGeometry(headR, 14, 12), 0, shoulderY + headR * 1.5 + headR * 0.55, 0),
       skin),
@@ -256,8 +261,8 @@ export function makeWalker(spec) {
     const arm = new THREE.Group();
     arm.position.set(side * torsoW * 0.58, shoulderY, 0);
     arm.rotation.z = side * 0.14;
-    arm.add(part(new THREE.CylinderGeometry(0.055 * g, 0.05 * g, H * 0.31, 8),
-      spec.top || 0xf2f0ea, 0, -H * 0.155, 0));
+    arm.add(part(new THREE.CylinderGeometry(0.065 * g, 0.058 * g, H * 0.37, 8),
+      spec.top || 0xf2f0ea, 0, -H * 0.185, 0));
     root.add(arm);
     arms[side < 0 ? 'L' : 'R'] = { arm };
   }
