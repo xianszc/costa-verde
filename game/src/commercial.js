@@ -171,9 +171,10 @@ function commercialBuilding(rnd, floors, w, d, color, isCorner) {
     g.add(box(w + 0.4, 0.25, d + 0.4, 0xe8a33d, 0, h + 2.5, 0));
   }
   // Shopfront on the front face (local +z): glass storefront, striped
-  // awning, sign band above the awning.
+  // awning, sign band above the awning. The awning projects 0.6 (set
+  // back, step B — the old 1.0 awning overhung the block edge by 0.8).
   const awn = rnd() < 0.5 ? 0xf7ebd7 : 0xc93a6b;
-  g.add(box(w * 0.9, 0.12, 1.0, awn, 0, 2.6, d / 2 + 0.5));
+  g.add(box(w * 0.9, 0.12, 0.6, awn, 0, 2.6, d / 2 + 0.3));
   g.add(box(w * 0.9, 1.8, 0.1, 0x1e2a32, 0, 1.2, d / 2 + 0.05));
   g.add(box(w * 0.9, 0.5, 0.12, 0x2e4a5e, 0, 2.3, d / 2 + 0.06));
   return { group: g, height: h + (isCorner ? 2.6 : 0.7) };
@@ -233,6 +234,11 @@ export function buildCommercialRing() {
   // overhangs the block edge. Side buildings only fit when the gap
   // between the two rows is >= 4 (bd >= 13) — none of the D blocks
   // are that deep, so nZ is 0 here (kept for future deeper blocks).
+  // SETBACK (step B): buildings sit 1.0 inside the block edge (was
+  // 0.2) and the awning projects 0.6 (was 1.0) — the old 1.0 awning
+  // overhung the block edge by 0.8 and hid the sidewalk. Now the
+  // facade is 1.0 back and the awning stops 0.4 inside the block
+  // edge, so a visible sidewalk runs between facade and asphalt.
   for (const b of BLOCKS) {
     const bw = b.x1 - b.x0;
     const bd = b.z1 - b.z0;
@@ -243,12 +249,12 @@ export function buildCommercialRing() {
     const spots = [];
     const nX = Math.max(1, Math.floor(bw / 3.5));
     const twoRows = bd >= 7.5;
-    const dRow = twoRows ? Math.min(4.4, (bd - 0.4) / 2) : Math.min(5, bd - 0.4);
+    const dRow = twoRows ? Math.min(4.4, (bd - 2.0) / 2) : Math.min(5, bd - 2.0);
     if (twoRows) {
       for (let i = 0; i < nX; i++) {
         const x = b.x0 + (i + 0.5) * (bw / nX);
-        spots.push({ x, z: b.z0 + dRow / 2 + 0.2, ry: Math.PI, edge: 'north' });
-        spots.push({ x, z: b.z1 - dRow / 2 - 0.2, ry: 0, edge: 'south' });
+        spots.push({ x, z: b.z0 + dRow / 2 + 1.0, ry: Math.PI, edge: 'north' });
+        spots.push({ x, z: b.z1 - dRow / 2 - 1.0, ry: 0, edge: 'south' });
       }
     } else {
       const zc = (b.z0 + b.z1) / 2;

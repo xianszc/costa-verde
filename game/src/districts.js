@@ -352,19 +352,42 @@ export function buildOldTown() {
   // streets fit in the gaps) in 5 rows — two north of the main
   // street (z -49, -45), three south (z -35, -31, -27). North rows
   // face south (toward the main street), south rows face north.
-  // The south row (z -27) overhangs the pocket's south edge by 0.5 —
-  // its front sits on the ring road's sidewalk, as a building
-  // fronting the street.
+  // SETBACK (step B): the south row is 3x2 at z -28.5 (see the loop
+  // below) — its old 3x3 plots at z -27 sat ON the ring road (z -26)
+  // and blocked the car route to the old town.
   const houseBuilders = [
     () => arcadeHouse(3, 3, 5.5), () => townhouse(3, 3, 5),
     () => stairHouse(3, 3, 5), () => arcadeHouse(3, 3, 6),
   ];
   const pick = (i) => houseBuilders[(i + Math.floor(rnd() * 2)) % houseBuilders.length];
+  // South-row builders (setback, step B): 3 wide x 2 deep, arcade /
+  // townhouse only — the stairHouse's front steps project 2u and
+  // would clip into the row behind (the rows are flush here).
+  const southBuilders = [
+    () => arcadeHouse(3, 2, 5.5), () => townhouse(3, 2, 5),
+    () => arcadeHouse(3, 2, 6),
+  ];
+  const pickSouth = (i) => southBuilders[(i + Math.floor(rnd() * 2)) % southBuilders.length];
   let hi = 0;
+  let si = 0;
   for (const hz of [-49, -45, -35, -31, -27]) {
     for (let hx = -70; hx <= -35; hx += 5) {
-      if (overlapsReserved(hx, hz, 3, 3)) continue;
-      const builder = pick(hi++);
+      // SETBACK (step B): the south row (hz -27) straddled the ring
+      // road (z -26) — its 3x3 plots sat ON the road centreline (the
+      // phantom road) and left no sidewalk; the car wedged at the
+      // (-44,-25) junction because the house at x -46.5..-43.5,
+      // z -28.5..-25.5 left only a 0.04u slot (routes.mjs 9/10).
+      // The row moves back to z -28.5 as 3x2 houses (south face
+      // -27.5, a 0.5 sidewalk to the road's north edge -27); the -31
+      // row stays, so the rows are flush (attached terrace houses,
+      // authentic for a dense old town). Three 3-deep rows cannot
+      // fit the 8.5u south block with any setback, so the south row
+      // is the one that shrinks.
+      const isSouth = hz === -27;
+      const depth = isSouth ? 2 : 3;
+      const z = isSouth ? -28.5 : hz;
+      if (overlapsReserved(hx, z, 3, depth)) continue;
+      const builder = isSouth ? pickSouth(si++) : pick(hi++);
       // GAME fix (M10 race, 22 Nov ~08:20): the (-35,-45) house stood
       // ON the VIA DEL NORD / ring-avenue junction — its 3x3 plot
       // (x -36.5..-33.5, z -46.5..-43.5) covered the exact corner
@@ -377,7 +400,7 @@ export function buildOldTown() {
       if (hx === -35 && hz === -45) continue;
       // The wall row and the two north rows face the main street
       // (south); the three south rows face it too (north).
-      addPlot(hx, hz, 3, 3, builder, hz < -39 ? 0 : Math.PI);
+      addPlot(hx, z, 3, depth, builder, hz < -39 ? 0 : Math.PI);
     }
   }
   group.add(mergeStatic(buildings, [], { unifyStandard: true }));

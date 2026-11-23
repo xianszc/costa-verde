@@ -15,10 +15,11 @@
 // NEVER restarts from M1. Resume with --from M5 (skips earlier
 // missions; their results stay in the JSON from the previous run).
 //
-// Order: M4-M12 first, then M2 (M1 134 s and M3 61 s already pass
-// human-like — recorded from the prior logs, not re-run). M2 is
-// time-boxed to 30 min: if it does not pass human-like by then it is
-// recorded "fail (open)" with the position trace and the run moves on.
+// Order: M1, M3, M4-M12 first, then M2 (M1 134 s and M3 61 s already pass
+// human-like — recorded from the prior logs, not re-run, unless --only
+// names them). M2 is time-boxed to 30 min: if it does not pass
+// human-like by then it is recorded "fail (open)" with the position
+// trace and the run moves on.
 //
 // RUN THIS AFTER EVERY LAYOUT CHANGE (and before submit): a layout
 // change that moves an anchor, blocks a road, or slows the game can
@@ -75,7 +76,7 @@ import { fileURLToPath } from 'node:url';
 const CODE_BY_ID = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M11', 'M12'];
 const ID_BY_CODE = Object.fromEntries(CODE_BY_ID.map((c, i) => [c, i]));
 const LAST_ID = CODE_BY_ID.length - 1; // 10 = M12
-const ORDER = [0, 3, 4, 5, 6, 7, 8, 9, 10, 1]; // ids: M1, M4..M12, M2 (M1 was missing — --only M1 silently skipped it, 22 Nov)
+const ORDER = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1]; // ids: M1, M3, M4..M12, M2 (M3 was missing — --only M3 silently skipped it, like M1 before 22 Nov; added 23 Nov step B so the old-town rooftop mission is re-runnable after a layout change)
 const PRIOR_PASS = {
   M1: { mission: 'M1', result: 'PASS', how: 'human-like', ms: 134000, attempts: 1, fails: 0, maxStage: 2, evidence: '/tmp/missions-run-20261122-0200.log (HEAD f7a574e), not re-run in this pass' },
   M3: { mission: 'M3', result: 'PASS', how: 'human-like', ms: 61000, attempts: 1, fails: 0, maxStage: 2, evidence: '/tmp/missions-run-20261122-0130.log (HEAD f7a574e), not re-run in this pass' },

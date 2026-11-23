@@ -471,12 +471,15 @@ function fillBlockPerimeter(b, def, rnd, pools, atlas, state) {
   // -0.1 margin: without it, back-to-back rows on an 8-deep block
   // abut EXACTLY (dRow = (bd-0.4)/2 forces d = dRow), and float
   // error turns the shared edge into a false overlap.
-  const dRow = twoRows ? Math.min(4.4, (bd - 0.4) / 2) - 0.1 : Math.min(5, bd - 0.4);
+  // SETBACK (step B): rows sit 1.0 inside the block edge (was 0.2)
+  // and dRow is sized to the 1.0 insets, so the facade is 1.0 back
+  // and the 0.6 awning stops 0.4 inside the block edge.
+  const dRow = twoRows ? Math.min(4.4, (bd - 2.0) / 2) - 0.1 : Math.min(5, bd - 2.0);
   if (twoRows) {
     for (let i = 0; i < nX; i++) {
       const x = b.x0 + (i + 0.5) * (bw / nX);
-      spots.push({ x, z: b.z0 + dRow / 2 + 0.2, ry: Math.PI, edge: 'north', main: true });
-      spots.push({ x, z: b.z1 - dRow / 2 - 0.2, ry: 0, edge: 'south', main: true });
+      spots.push({ x, z: b.z0 + dRow / 2 + 1.0, ry: Math.PI, edge: 'north', main: true });
+      spots.push({ x, z: b.z1 - dRow / 2 - 1.0, ry: 0, edge: 'south', main: true });
     }
   } else {
     const zc = (b.z0 + b.z1) / 2;
@@ -487,14 +490,16 @@ function fillBlockPerimeter(b, def, rnd, pools, atlas, state) {
   }
   // Side buildings fill the block's middle (east/west edges) — but
   // only on blocks wide enough: the two side buildings sit at
-  // x0+2.2 and x1-2.2 with ~4.2 of depth along X when rotated, so on
-  // a block narrower than 9 they overlap each other (the promenade
+  // x0+2.8 and x1-2.8 with ~4.2 of depth along X when rotated, so on
+  // a block narrower than 10 they overlap each other (the promenade
   // sliver, 6 wide, hit this). Narrow blocks keep just the two rows.
-  const nZ = (bd >= 13 && bw >= 9) ? Math.max(1, Math.floor((bd - 8.8) / 5)) : 0;
+  // (Setback, step B: 2.8 not 2.2, so the 0.6 awning stays inside
+  // the block edge.)
+  const nZ = (bd >= 13 && bw >= 10) ? Math.max(1, Math.floor((bd - 8.8) / 5)) : 0;
   for (let i = 0; i < nZ; i++) {
     const z = b.z0 + (i + 1) * (bd / (nZ + 1));
-    spots.push({ x: b.x0 + 2.2, z, ry: -Math.PI / 2, edge: 'west', main: false });
-    spots.push({ x: b.x1 - 2.2, z, ry: Math.PI / 2, edge: 'east', main: false });
+    spots.push({ x: b.x0 + 2.8, z, ry: -Math.PI / 2, edge: 'west', main: false });
+    spots.push({ x: b.x1 - 2.8, z, ry: Math.PI / 2, edge: 'east', main: false });
   }
   for (const [i, s] of spots.entries()) {
     const isCorner = i === 0 || i === 1;

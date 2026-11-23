@@ -101,13 +101,13 @@ const normAngle = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Mat
 // lighthouse + quarry may be off the road network (short off-road hop).
 const ZONES = [
   { id: 'marina', name: 'Marina (harbor)', x: 3, z: 26 },
-  { id: 'oldtown', name: 'Old Town', x: -47, z: -39 },
+  { id: 'oldtown', name: 'Old Town', x: -47, z: -39, driveTo: { x: -47.5, z: -28 }, note: 'gate target; plaza anchor (-47,-39) is pedestrian-only — the bell tower (x -48.4..-45.6, z -37.4..-34.6) blocks the x=-47.5 cross street, the only car entrance to the main street' }, // the old town is a pedestrian zone by design (M3/M4/M5 are on foot); the car drives to the gate, 2u inside the cross street, clear of the bell tower (which starts at z=-34.6)
   { id: 'promenade', name: 'Promenade', x: 35, z: 29 },
   { id: 'cbd', name: 'CBD', x: -5.9, z: -5.9 },
   { id: 'commercial', name: 'Commercial Ring', x: 0, z: -75 },
   { id: 'residential', name: 'Residential Ring', x: 108, z: -40 },
   { id: 'hills', name: 'Hills + Villas (funicular base)', x: 0, z: -105 },
-  { id: 'lighthouse', name: 'Lighthouse', x: -121, z: 42, driveTo: { x: -119.6, z: 33 } }, // anchor is across the bay-water line (z>=35) — pedestrian-only; the car drives to the shore point on the proven hop line (nearest node ~(-119.1,30) -> anchor), 2u clear of the water
+  { id: 'lighthouse', name: 'Lighthouse', x: -121, z: 42, driveTo: { x: -119.6, z: 33 }, note: 'shore target; lighthouse anchor (-121,42) is pedestrian-only across the bay-water line (z>=35)' }, // anchor is across the bay-water line (z>=35) — pedestrian-only; the car drives to the shore point on the proven hop line (nearest node ~(-119.1,30) -> anchor), 2u clear of the water
   { id: 'countryside', name: 'Countryside', x: -124, z: 0 },
   { id: 'quarry', name: 'Quarry', x: 112, z: -96 },
 ];
@@ -441,7 +441,7 @@ for (const zone of ZONES) {
   // instead of via (-44,0), and (-44,-25)->(-47.5,-39) instead of via
   // (-47.5,-26) — driving the car off the road into buildings.
   const thin = waypoints;
-  console.log(`${zone.id}: path ${pathIdx.length} nodes, ${thin.length} waypoints, off-road hop ${offRoad.toFixed(1)}${zone.driveTo ? ' (shore target; anchor is pedestrian-only)' : ''}`);
+  console.log(`${zone.id}: path ${pathIdx.length} nodes, ${thin.length} waypoints, off-road hop ${offRoad.toFixed(1)}${zone.note ? ' (' + zone.note.split(';')[0] + ')' : ''}`);
   // Independent legs: reset the car to the harbor before each zone, so a
   // stuck car (or wanted heat) from the previous leg cannot contaminate
   // this one. The test proves each zone reachable FROM the harbor; the
@@ -463,7 +463,7 @@ for (const zone of ZONES) {
   // The car is at the zone; the reversed path starts there.
   const back = out.reached ? await drivePath(backWaypoints, zone.id + ' back') : { reached: false, ms: 0, pathLen: 0, stuck: 'out leg failed' };
   const ok = out.reached && back.reached;
-  results[zone.id] = { reachable: ok, msOut: out.ms, msBack: back.ms, pathLen: out.pathLen, offRoad, note: zone.driveTo ? 'shore target; lighthouse anchor (-121,42) is pedestrian-only across the bay-water line (z>=35)' : undefined, stuckOut: out.stuck, stuckBack: back.stuck, stuckAtOut: out.diag && out.diag.final, stuckAtBack: back.diag && back.diag.final, traceTailOut: out.diag && out.diag.traceTail, traceTailBack: back.diag && back.diag.traceTail, nearOut: out.diag && { colliders: out.diag.nearColliders, cars: out.diag.nearCars, units: out.diag.units } };
+  results[zone.id] = { reachable: ok, msOut: out.ms, msBack: back.ms, pathLen: out.pathLen, offRoad, note: zone.note, stuckOut: out.stuck, stuckBack: back.stuck, stuckAtOut: out.diag && out.diag.final, stuckAtBack: back.diag && back.diag.final, traceTailOut: out.diag && out.diag.traceTail, traceTailBack: back.diag && back.diag.traceTail, nearOut: out.diag && { colliders: out.diag.nearColliders, cars: out.diag.nearCars, units: out.diag.units } };
   console.log(`${zone.id}: ${ok ? 'REACHABLE' : 'FAILED'} out=${Math.round(out.ms / 1000)}s back=${Math.round(back.ms / 1000)}s len=${Math.round(out.pathLen)} offRoad=${offRoad.toFixed(1)}${out.stuck ? ' stuckOut=' + out.stuck : ''}${back.stuck ? ' stuckBack=' + back.stuck : ''}`);
   if (!ok) {
     const d = out.reached ? back.diag : out.diag;

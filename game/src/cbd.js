@@ -280,16 +280,28 @@ export function buildCBD() {
     if (b.kind === 'twin') {
       // Twin pair on a shared podium: low retail slab with shop
       // fronts, two towers rising from it.
-      const pw = 7.0, pd = 7.0, ph = 5;
+      // SETBACK (step B): the 7.0 podium filled its block (rim 0.05
+      // in the 7.1 centre-column / boulevard-flanking blocks) and its
+      // awnings (0.6 past the skirt) overhung the road by 0.55. Size
+      // the podium to the block with a 1.0 rim on every side (5.1 in
+      // a 7.1 block, 6.2 in an 8.2 block) and scale the two towers +
+      // their spacing to it, so the awning stops 0.4 inside the
+      // block edge. The podium collider follows the new size.
+      const rim = 1.0;
+      const pw = Math.min(7.0, bw - 2 * rim);
+      const pd = Math.min(7.0, bd - 2 * rim);
+      const ph = 5;
+      const tScale = pw / 7.0; // towers + spacing scale with the podium
       concGeos.push(colored(xform(new THREE.BoxGeometry(pw, ph, pd), b.cx, ph / 2, b.cz), 0xffffff));
       concGeos.push(colored(xform(new THREE.BoxGeometry(pw * 1.04, 0.4, pd * 1.04), b.cx, ph + 0.2, b.cz), 0xffffff));
       colliders.push({ x0: b.cx - pw / 2, z0: b.cz - pd / 2, x1: b.cx + pw / 2, z1: b.cz + pd / 2, id: 'cbd-podium' });
       podiumCount++;
-      // Ground-floor shop fronts on the podium base (C): the podium
-      // is 7.0 wide, so the shopfront is called with w/d 6.2 (the
-      // skirt becomes 7.0). The old single glass panel is gone —
-      // addShopfront provides the glass + awnings + signs + door.
-      addShopfront(b.cx, b.cz, 6.2, 6.2, SHOP_NAMES[(towerCount + 3) % SHOP_NAMES.length], AWN_COLORS[(towerCount + 1) % AWN_COLORS.length]);
+      // Ground-floor shop fronts on the podium base (C): the
+      // shopfront is called with w/d = podium - 0.8, so the skirt
+      // (w + 0.8) matches the podium. The old single glass panel is
+      // gone — addShopfront provides the glass + awnings + signs +
+      // door.
+      addShopfront(b.cx, b.cz, pw - 0.8, pd - 0.8, SHOP_NAMES[(towerCount + 3) % SHOP_NAMES.length], AWN_COLORS[(towerCount + 1) % AWN_COLORS.length]);
       // Paved border around the podium (the rim is too narrow for
       // trees or cars — the paving pattern is the fill here).
       const tfw = bw - 0.4, tfd = bd - 0.4;
@@ -297,11 +309,11 @@ export function buildCBD() {
       paveGeos.push(colored(xform(new THREE.BoxGeometry(tfw, 0.2, 0.5), b.cx, 0.1, b.z1 - 0.45), 0xffffff));
       paveGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.2, tfd), b.x0 + 0.45, 0.1, b.cz), 0xffffff));
       paveGeos.push(colored(xform(new THREE.BoxGeometry(0.5, 0.2, tfd), b.x1 - 0.45, 0.1, b.cz), 0xffffff));
-      const tw = 2.8, td = 2.8;
+      const tw = 2.8 * tScale, td = 2.8 * tScale;
       const floors1 = cbdTowerFloors(r, rnd);
       const floors2 = cbdTowerFloors(r, rnd);
-      addTower(b.cx - 1.8, b.cz, tw, td, floors1, pickVariant(b.col, b.row, 3));
-      addTower(b.cx + 1.8, b.cz, tw, td, floors2, pickVariant(b.col, b.row, 4));
+      addTower(b.cx - 1.8 * tScale, b.cz, tw, td, floors1, pickVariant(b.col, b.row, 3));
+      addTower(b.cx + 1.8 * tScale, b.cz, tw, td, floors2, pickVariant(b.col, b.row, 4));
       continue;
     }
     // Single tower (or the Azzura Tower): set back 1.0-1.5 from the
