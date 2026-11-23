@@ -379,9 +379,9 @@ export function buildCBDGrid(opts = {}) {
         m.box('edge', s.x + side * e, (a + b) / 2, 0.012, b - a);
         if (s.kind === 'avenue') {
           m.box('bus', s.x + side * 1.875, (a + b) / 2, 0.012, b - a);
-          // Part G: double-yellow centre line — the median is gone, so
-          // the centre gets the same painted divider the streets have.
-          m.box('yellow', s.x + side * 0.01, (a + b) / 2, 0.01, b - a);
+          // Part H (Xian 18:24): avenue centre yellow lines removed —
+          // they read as yellow bands lying across the middle of the
+          // road in low-cam shots. Streets keep theirs.
         } else m.box('yellow', s.x + side * 0.01, (a + b) / 2, 0.01, b - a);
       }
     }
@@ -416,8 +416,7 @@ export function buildCBDGrid(opts = {}) {
         m.box('edge', (a + b) / 2, s.z + side * e, b - a, 0.012);
         if (s.kind === 'avenue') {
           m.box('bus', (a + b) / 2, s.z + side * 1.875, b - a, 0.012);
-          // Part G: double-yellow centre line (median gone — see above).
-          m.box('yellow', (a + b) / 2, s.z + side * 0.01, b - a, 0.01);
+          // Part H: avenue centre yellow lines removed (see above).
         } else m.box('yellow', (a + b) / 2, s.z + side * 0.01, b - a, 0.01);
       }
     }
