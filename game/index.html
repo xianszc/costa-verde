@@ -12,15 +12,22 @@
 
 <!-- Title screen: the logo + ONE-LINE tagline over the real 3D town.
      The tagline never wraps (white-space: nowrap) and the sun disc sits
-     clear of it; the lighthouse stands below the tagline band. -->
+     clear of it; the lighthouse stands below the tagline band.
+     Menu orbit (23 Nov): the town behind this card is a real-time
+     camera circling the city; MULAI starts play with a fade + camera
+     glide, and the toggle turns the orbit motion off (stored). -->
 <div id="title-card">
   <div class="logo-a">AZZURA</div>
   <div class="logo-b">HEIST</div>
   <div class="rule"></div>
   <p class="tag">A CLIFFSIDE RIVIERA &middot; A HARBOR FULL OF SECRETS &middot; ONE LAST SCORE</p>
   <p class="press">PRESS ENTER</p>
+  <button id="menu-start" type="button">MULAI</button>
+  <button id="menu-orbit-toggle" type="button">Gerak kamera: Hidup</button>
   <p class="controls">WASD MOVE &middot; E ENTER / EXIT CAR &middot; SPACE HANDBRAKE &middot; R RADIO &middot; C CROUCH &middot; TAB LOGBOOK &middot; M MAP &middot; 1-5 WEAPONS &middot; ESC PAUSE</p>
 </div>
+<!-- Fade overlay for the menu -> play transition (game.js beginPlay). -->
+<div id="menu-fade" style="display:none"></div>
 <div id="topbar"><span>PORTO AZZURA</span><span id="clock">18:42 &middot; GOLDEN HOUR</span><span>S 1,250</span></div>
 
 <!-- Live HUD: same design as the mockup, every value wired to the game. -->

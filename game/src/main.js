@@ -185,6 +185,11 @@ if (debugSkip && params.get('at') === 'cbd_center') {
   window.__gameReady = true;
 } else {
   game.run();
+  // ?menu=1 opens the menu with the orbit camera at midday
+  // (screenshot param for the menu-orbit background). ?shot= and
+  // ?debug= above take precedence — this branch only runs on a plain
+  // load, so no staging path is touched.
+  if (params.get('menu') === '1') game.setMenuMode();
   window.__gameReady = true;
 }
 

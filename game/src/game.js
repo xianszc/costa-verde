@@ -26,6 +26,10 @@ import { ANCHORS } from './anchors.js';
 import { createWanted } from './wanted.js';
 import { createCombat, WEAPONS } from './combat.js';
 import { createHub } from './hub.js';
+// Menu orbit camera (23 Nov): cinematic real-time title background.
+import {
+  createMenuOrbit, MENU_LOOP_SECONDS, MENU_CAR_RADIUS2,
+} from './menu-orbit.js';
 
 const STEP = 1 / 60;
 let fastsimFactor = 1; // test-only: ?fastsim=N steps the sim N× faster without rendering (off = 1, normal play identical).
@@ -393,6 +397,23 @@ export function createGame(container) {
     // the pharmacy door, car 3.4u away). 0 = no advance yet.
     lastStageAdvanceAt: 0,
   };
+
+  // --- main-menu orbit camera (23 Nov) ---
+  // The title screen's background is a real-time camera circling the
+  // city on a closed spline (menu-orbit.js) while the sim runs under
+  // it. menuOrbitTime advances only in live title mode; orbitLive is
+  // true only while the frame loop is in title mode — ?shot= staging
+  // never touches the orbit (stageShot clears it) and keeps the old
+  // fixed title framing.
+  const menuOrbit = createMenuOrbit();
+  let menuOrbitOn = true; // default on; localStorage overrides
+  try {
+    if (window.localStorage.getItem('azzura_menu_orbit') === '0') menuOrbitOn = false;
+  } catch (e) { /* storage unavailable — orbit stays on */ }
+  let menuOrbitTime = 0; // seconds into the 75 s loop
+  let menuFading = false; // Start transition in progress — ignore extra input
+  let orbitLive = false;
+
   const keys = {};
   const input = { up: false, down: false, left: false, right: false, handbrake: false };
   let showcase = null; // ?shot=road scene
@@ -820,7 +841,7 @@ export function createGame(container) {
     keys[e.code] = true;
     audio.resume();
     if (e.code === 'KeyJ' && state.mode === 'play' && !state.onFoot) audio.horn();
-    if (e.code === 'Enter' && state.mode === 'title') startPlay();
+    if (e.code === 'Enter' && state.mode === 'title') beginPlay();
     else if (e.code === 'Enter' && (state.busted || state.wasted)) respawnAfterEnd();
     else if (e.code === 'Escape') {
       if (hub.open) hub.setOpen(false);
@@ -876,6 +897,10 @@ export function createGame(container) {
       if (card) card.style.display = 'block';
       const hud = document.getElementById('hud-stage');
       if (hud) hud.style.display = 'none';
+      // Back on the title screen the orbit resumes from its clock
+      // (menuOrbitTime keeps running in title mode) — refresh the
+      // toggle label so it shows the stored setting.
+      updateMenuToggleLabel();
     });
     const vol = document.getElementById('pause-volume');
     if (vol) vol.addEventListener('input', () => {
@@ -907,6 +932,106 @@ export function createGame(container) {
     radio.start();
     showHUD();
     showNextDialogue();
+  }
+
+  // --- main-menu orbit: Start transition + menu-mode sim + controls ---
+  // Start transition (menu -> play): fade to black, switch modes while
+  // hidden, fade back — the camera's existing lerp glides it from the
+  // orbit down to the chase camera, so the cut reads as a smooth
+  // descent instead of a hard jump.
+  function beginPlay() {
+    if (menuFading || state.mode !== 'title') return;
+    menuFading = true;
+    const fade = document.getElementById('menu-fade');
+    if (fade) {
+      fade.style.display = 'block';
+      void fade.offsetWidth; // reflow so the opacity transition runs from 0
+      fade.style.opacity = '1';
+    }
+    setTimeout(() => {
+      startPlay();
+      if (fade) fade.style.opacity = '0';
+      setTimeout(() => {
+        if (fade) fade.style.display = 'none';
+        menuFading = false;
+      }, 600);
+    }, 380);
+  }
+  // Menu-mode simulation: the city stays alive behind the menu —
+  // traffic + pedestrians keep moving, but missions / wanted / combat
+  // / audio stay off (play-only). Visibility is menu-specific: peds
+  // are sub-pixel from 12-25 u up, so they are hidden (they keep
+  // walking); cars stay visible within MENU_CAR_RADIUS of the camera
+  // so the roads read as alive.
+  function stepMenu(dt) {
+    const obstacles = [{ x: car.x, z: car.z }, { x: player.x, z: player.z }];
+    stepTraffic(traffic, dt, [...obstacles, ...cbdTraffic]);
+    stepCbdTraffic(cbdTraffic, dt, [...traffic, ...obstacles]);
+    stepPeds(dt);
+    const cx = camera.position.x, cz = camera.position.z;
+    for (const p of peds) p.mesh.visible = false;
+    for (const t of traffic) {
+      const dx = t.x - cx, dz = t.z - cz;
+      t.mesh.visible = dx * dx + dz * dz <= MENU_CAR_RADIUS2;
+    }
+    for (const c of cbdTraffic) {
+      const dx = c.x - cx, dz = c.z - cz;
+      c.mesh.visible = dx * dx + dz * dz <= MENU_CAR_RADIUS2;
+    }
+  }
+  function updateMenuToggleLabel() {
+    const el = document.getElementById('menu-orbit-toggle');
+    if (el) el.textContent = menuOrbitOn ? 'Gerak kamera: Hidup' : 'Gerak kamera: Mati';
+  }
+  function setMenuOrbit(on, persist = true) {
+    menuOrbitOn = !!on;
+    if (persist) {
+      try { window.localStorage.setItem('azzura_menu_orbit', menuOrbitOn ? '1' : '0'); } catch (e) { /* ignore */ }
+    }
+    updateMenuToggleLabel();
+  }
+  function wireMenuButtons() {
+    const start = document.getElementById('menu-start');
+    if (start) start.addEventListener('click', () => { audio.resume(); beginPlay(); });
+    const tog = document.getElementById('menu-orbit-toggle');
+    if (tog) tog.addEventListener('click', () => { audio.ui('ui_click'); setMenuOrbit(!menuOrbitOn); });
+    updateMenuToggleLabel();
+  }
+  // ?menu=1 (main.js): open the menu with the orbit camera at midday
+  // (screenshot param). Forces the orbit on for this session without
+  // overwriting the stored preference; pins the clock to midday.
+  function setMenuMode() {
+    setMenuOrbit(true, false);
+    state.time = 12;
+    updateLighting();
+    window.__menuReady = true;
+  }
+  // Probe helpers (menu-orbit verification only — no gameplay effect).
+  // probeHeightAt: topmost district height above (x, z) — a downward
+  // raycast from y=200 against district.group (sun/moon discs, traffic,
+  // peds and the hero car are scene-level, not in the group).
+  // probeClearanceAt: { down, lateral } — clearance below the point
+  // and to the nearest wall in 8 horizontal directions.
+  const __probeRay = new THREE.Raycaster();
+  const __probeDown = new THREE.Vector3(0, -1, 0);
+  function probeHeightAt(x, z) {
+    __probeRay.set(new THREE.Vector3(x, 200, z), __probeDown);
+    __probeRay.far = 400;
+    const hits = __probeRay.intersectObject(district.group, true);
+    return hits.length ? hits[0].point.y : null;
+  }
+  function probeClearanceAt(x, y, z) {
+    const top = probeHeightAt(x, z);
+    const origin = new THREE.Vector3(x, y, z);
+    let lateral = Infinity;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      __probeRay.set(origin, new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
+      __probeRay.far = 10;
+      const hits = __probeRay.intersectObject(district.group, true);
+      if (hits.length) lateral = Math.min(lateral, hits[0].distance);
+    }
+    return { down: top === null ? Infinity : y - top, lateral };
   }
   function showHUD() {
     const card = document.getElementById('title-card');
@@ -1016,8 +1141,18 @@ export function createGame(container) {
   function updateCamera(dt) {
     let target, look;
     if (state.mode === 'title') {
-      target = new THREE.Vector3(0, 6, 34);
-      look = new THREE.Vector3(0, 5, -12);
+      if (menuOrbitOn && orbitLive) {
+        // Live title screen: the orbit spline. The lerp below tracks
+        // it with a small constant lag (the camera stays on the curve,
+        // just a fraction behind the spline point) and glides in
+        // smoothly from the spawn view on load.
+        const s = menuOrbit.sample(menuOrbitTime);
+        target = new THREE.Vector3(s.pos.x, s.pos.y, s.pos.z);
+        look = new THREE.Vector3(s.look.x, s.look.y, s.look.z);
+      } else {
+        target = new THREE.Vector3(0, 6, 34);
+        look = new THREE.Vector3(0, 5, -12);
+      }
     } else if (!state.onFoot) {
       const f = { x: Math.cos(car.angle), z: -Math.sin(car.angle) };
       target = new THREE.Vector3(car.x - f.x * 10.5, 4.6, car.z - f.z * 10.5);
@@ -1498,6 +1633,7 @@ export function createGame(container) {
   // --- ?shot staging (the kit's pattern) ---
   function stageShot(name, params = {}) {
     state.mode = 'shot';
+    orbitLive = false; // staged pages never use the orbit camera
     // ?time=H staging (item 4): pin the clock to the requested hour for
     // this shot. The branches below each assign their own default hour
     // (18.7 golden hour, 23.2 night, 17.0/17.5 storm, ...); while pinned,
@@ -2119,7 +2255,16 @@ export function createGame(container) {
     const dtMs = now - last;
     last = now;
     if (state.mode === 'title') {
-      stepClock(dtMs / 1000);
+      orbitLive = true;
+      if (menuOrbitOn) {
+        // Menu orbit: midday, pinned — the clock does not advance here,
+        // and the city simulates underneath (traffic + peds move).
+        state.time = 12;
+        menuOrbitTime += dtMs / 1000;
+        stepMenu(dtMs / 1000);
+      } else {
+        stepClock(dtMs / 1000);
+      }
       updateLighting();
       for (const tk of district.tickers) tk.userData.tick(now / 1000);
       updateCamera(dtMs / 1000);
@@ -2156,6 +2301,7 @@ export function createGame(container) {
   // Sun light target must be in the scene for its matrix to update.
   scene.add(sun.target);
   wirePauseMenu();
+  wireMenuButtons();
   updateLighting();
   updateCamera(1);
   window.__game = {
@@ -2185,5 +2331,24 @@ export function createGame(container) {
       updateLighting();
     },
     run() { requestAnimationFrame(frame); },
+    // Main-menu orbit (?menu=1, title background): toggle (persisted
+    // to localStorage), menu-mode entry, orbit path sampling and the
+    // clearance-probe helpers used by reports/menu-orbit-2026-11-23.md.
+    setMenuOrbit(on) { setMenuOrbit(on); },
+    setMenuMode,
+    sampleOrbitPath(n) { return menuOrbit.samplePath(n); },
+    setMenuOrbitPhase(f) {
+      menuOrbitTime = (((f % 1) + 1) % 1) * MENU_LOOP_SECONDS;
+    },
+    probeHeightAt,
+    probeClearanceAt,
+    menuOrbitStats() {
+      return {
+        on: menuOrbitOn, time: menuOrbitTime,
+        loopSeconds: MENU_LOOP_SECONDS, length: menuOrbit.length,
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      };
+    },
   };
 }

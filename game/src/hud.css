@@ -27,6 +27,10 @@ html, body {
   position: fixed; top: 24%; left: 50%; transform: translate(-50%, -50%);
   text-align: center; color: #f7ebd7; text-shadow: 0 2px 18px rgba(0,0,0,0.55);
   z-index: 6; width: 100%;
+  /* Menu orbit (23 Nov): a thin dark halo behind the text so the logo
+     stays readable over the moving aerial camera. */
+  background: radial-gradient(ellipse at center, rgba(10,18,22,0.55) 0%, rgba(10,18,22,0.28) 55%, rgba(10,18,22,0) 78%);
+  padding: 28px 0 24px;
 }
 #title-card .logo-a { margin: 0; font-size: 84px; letter-spacing: 14px; font-weight: 800;
   color: #f2a541; line-height: 1; }
@@ -39,8 +43,29 @@ html, body {
   white-space: nowrap; }
 #title-card p.press { margin-top: 30px; font-size: 15px; letter-spacing: 3px;
   animation: pulse 1.6s ease-in-out infinite; }
+/* Menu buttons (23 Nov): MULAI starts play (fade + camera glide);
+   the toggle turns the orbit motion off for slow machines (stored). */
+#menu-start {
+  display: block; margin: 18px auto 0; padding: 13px 46px;
+  background: var(--gold); color: var(--ink); border: 0; border-radius: 10px;
+  font-size: 17px; font-weight: 800; letter-spacing: 6px; cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+}
+#menu-start:hover { filter: brightness(1.08); }
+#menu-orbit-toggle {
+  display: block; margin: 12px auto 0; padding: 7px 16px;
+  background: transparent; color: rgba(247,235,215,0.9);
+  border: 1px solid rgba(247,235,215,0.55); border-radius: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: 2px; cursor: pointer;
+}
+#menu-orbit-toggle:hover { background: rgba(247,235,215,0.12); }
 #title-card p.controls { margin-top: 12px; font-size: 11px; letter-spacing: 2px;
   color: rgba(247, 235, 215, 0.75); }
+/* Fade overlay for the menu -> play transition (game.js beginPlay). */
+#menu-fade {
+  position: fixed; inset: 0; background: #0a0f14; opacity: 0;
+  transition: opacity 0.45s ease; pointer-events: none; z-index: 30;
+}
 @keyframes pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 
 /* ---- title top bar + version line ---- */
