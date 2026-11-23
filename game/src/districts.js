@@ -775,15 +775,16 @@ export function buildPromenade() {
 
   // --- palms (fuller makePalmFull, not the starburst classic) along
   // the walkway + the quay + the marina; lamps on both walks. Palms are
-  // kept modest (scale ~2.2) — the earlier ~3.5 scale read as giant
-  // green slabs that blocked the casino in every shot. ---
+  // kept modest (scale ~1.4, was ~2.2) — the ~2.2 scale read as giant
+  // green slabs with 6-8u canopies, 4-6x the street width (round-9
+  // part C, Xian 23 Nov: palms ~0.7x). ---
   // 2b draw-call cut: one InstancedMesh for all 12 palms (static).
   const palmSpots = [
     [10, 28, 1.2], [20, 28, 1.0], [28, 28, 1.3], [44, 28, 1.1], [58, 28, 1.2],
     [12, 34, 1.1], [24, 34, 1.25], [40, 34, 1.0], [56, 34, 1.2],
     [-26, 28, 1.1], [-16, 28, 1.0], [-6, 28, 1.2],
   ];
-  group.add(palmInstanced(palmSpots.map(([px, pz, s]) => ({ x: px, z: pz, s: 1.6 + s * 0.6, rot: rnd() * Math.PI * 2 }))));
+  group.add(palmInstanced(palmSpots.map(([px, pz, s]) => ({ x: px, z: pz, s: 1.1 + s * 0.3, rot: rnd() * Math.PI * 2 }))));
   // 2b draw-call cut: lampRow merges each walk's lamps into 2 meshes.
   group.add(lampRow([12, 24, 36, 48, 58], 27.5));
   group.add(lampRow([-26, -14, -2, 10, 22, 34, 46, 58], 34.5));
