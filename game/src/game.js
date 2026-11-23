@@ -10,7 +10,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { buildDistrict4, windowMat } from './city.js';
 import { groundHeightAt } from './districts.js';
-import { makeFigure, makeWalker, CAST, CIVILIANS } from './people.js';
+import { makeFigure, makeWalker, CAST, CIVILIANS, PED_SCALE } from './people.js';
 import {
   buildStella, buildTrafficCar, createCar, stepCar,
   createTraffic, stepTraffic, collideCircleAABBs, ROAD_Y,
@@ -165,7 +165,10 @@ export function createGame(container) {
     angle: ANCHORS.player_spawn.angle,
     speed: 0,
     walkPhase: 0,
-    radius: 0.5,
+    // Part I: the figure is PED_SCALE now, so the on-foot collision
+    // circle scales with it (0.5 x 0.6 = 0.3) — the body is ~0.18u
+    // wide, the 0.3 circle still covers it with margin.
+    radius: 0.5 * PED_SCALE,
     crouched: false,
   };
 
@@ -1176,19 +1179,21 @@ export function createGame(container) {
   function toggleCar() {
     if (state.onFoot) {
       const d = Math.hypot(car.x - player.x, car.z - player.z);
-      // Part F2: board radius 3 -> 2.7 (the car is 0.35-scale now; the
-      // mission driver boards from 1.5u, so this stays generous).
-      if (d < 2.7) {
+      // Part I: board radius 2.7 -> 3.0 (the car is 0.7-scale now;
+      // the gap from the car's side stays ~2.3u, as at 1.0-scale the
+      // radius was 4.0 for a ~3.05u gap; the mission driver boards
+      // from 1.5u, so this stays generous).
+      if (d < 3.0) {
         state.onFoot = false;
         playerMesh.visible = false;
       }
     } else {
       state.onFoot = true;
       const side = { x: Math.cos(car.angle + Math.PI / 2), z: -Math.sin(car.angle + Math.PI / 2) };
-      // Part F2: exit offset 1.6 -> 1.4 (the player still lands ~1.1u
-      // from the car's side, as before).
-      player.x = car.x + side.x * 1.4;
-      player.z = car.z + side.z * 1.4;
+      // Part I: exit offset 1.4 -> 1.8 (the car is 0.7-scale now;
+      // the player still lands ~1.1u from the car's side, as before).
+      player.x = car.x + side.x * 1.8;
+      player.z = car.z + side.z * 1.8;
       player.angle = car.angle;
       playerMesh.visible = true;
       playerMesh.position.set(player.x, 0, player.z);
@@ -1281,17 +1286,21 @@ export function createGame(container) {
         look = new THREE.Vector3(0, 5, -12);
       }
     } else if (!state.onFoot) {
-      // Part F2: cars are CAR_SCALE (0.35) now — pull the chase camera
-      // in further (7 -> 6 behind, 3.4 -> 3.0 up, look 0.9 -> 0.8) so
-      // the car keeps its framing; the look point stays 5u ahead so
-      // the road visible ahead is unchanged.
+      // Part I: cars are CAR_SCALE 0.7 now — pull the chase camera
+      // back out (6 -> 8.5 behind, 3.0 -> 4.0 up, look 0.8 -> 1.0) so
+      // the bigger car keeps its framing; the look point stays 5u
+      // ahead so the road visible ahead is unchanged. (0.5-scale was
+      // 7 / 3.4, look 0.9; 1.0-scale was 10.5 / 4.6, look 1.2.)
       const f = { x: Math.cos(car.angle), z: -Math.sin(car.angle) };
-      target = new THREE.Vector3(car.x - f.x * 6, 3.0, car.z - f.z * 6);
-      look = new THREE.Vector3(car.x + f.x * 5, 0.8, car.z + f.z * 5);
+      target = new THREE.Vector3(car.x - f.x * 8.5, 4.0, car.z - f.z * 8.5);
+      look = new THREE.Vector3(car.x + f.x * 5, 1.0, car.z + f.z * 5);
     } else {
+      // Part I: the player is PED_SCALE 0.6 now (1.15u tall, was
+      // 1.92u) — lower the on-foot camera (3.0 -> 2.2 up) and the
+      // look point (1.4 -> 0.85, ~chest height) so the framing stays.
       const f = { x: Math.cos(player.angle), z: -Math.sin(player.angle) };
-      target = new THREE.Vector3(player.x - f.x * 5.5, 3.0, player.z - f.z * 5.5);
-      look = new THREE.Vector3(player.x + f.x * 2.5, 1.4, player.z + f.z * 2.5);
+      target = new THREE.Vector3(player.x - f.x * 5.5, 2.2, player.z - f.z * 5.5);
+      look = new THREE.Vector3(player.x + f.x * 2.5, 0.85, player.z + f.z * 2.5);
     }
     const k = Math.min(1, dt * 4);
     camPos.lerp(target, k);

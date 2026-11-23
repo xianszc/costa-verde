@@ -6,6 +6,16 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { mergedMesh, colored, xform, vertexColorMat } from './world.js';
 
+// Part I (23 Nov 2026, Xian 18:48): PED_SCALE 0.6 — paired with
+// CAR_SCALE 0.7 so a person reads ~1.3x a car's height (player Elio
+// 1.92u x 0.6 = 1.15 vs Stella 1.20u x 0.7 = 0.84 -> 1.37x; real
+// 1.7 m vs 1.4 m = 1.21x). At CAR_SCALE 0.35 with peds unscaled the
+// ratio was 4.6x and the car read as a toy next to the player.
+// Applied at the figure root in makeFigure + makeWalker, so the
+// player, all NPCs, all walkers and mission figures share ONE scale.
+// See reports/partI-scale.md for the measurement + trade-offs.
+export const PED_SCALE = 0.6;
+
 export const ARCHETYPES = {
   lean:    { h: 1.92, girth: 0.86, stoop: 0.00 },
   broad:   { h: 1.82, girth: 1.24, stoop: 0.00 },
@@ -187,7 +197,11 @@ export function makeFigure(spec) {
     R.add(part(new THREE.CylinderGeometry(0.04, 0.04, 0.06, 8), 0x9a9a94, 0, handY - 0.06, 0.09, { metalness: 0.4 }));
   }
 
-  root.userData.height = H;
+  // Part I: one PED_SCALE for every figure (see top of file).
+  // userData.height stores the SCALED height so lineup.js nameplates
+  // sit on the visible head instead of floating above it.
+  root.scale.setScalar(PED_SCALE);
+  root.userData.height = H * PED_SCALE;
   root.userData.arms = arms;
   return root;
 }
@@ -245,7 +259,9 @@ export function makeWalker(spec) {
     root.add(arm);
     arms[side < 0 ? 'L' : 'R'] = { arm };
   }
-  root.userData.height = H;
+  // Part I: walkers share the same PED_SCALE as full figures.
+  root.scale.setScalar(PED_SCALE);
+  root.userData.height = H * PED_SCALE;
   root.userData.arms = arms;
   return root;
 }

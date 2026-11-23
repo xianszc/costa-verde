@@ -283,9 +283,11 @@ export function createWanted(scene, opts) {
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       u.car.angle += Math.max(-2.2 * dt, Math.min(2.2 * dt, diff));
-      // Part F2: hold scales with CAR_SCALE (0.35) — on foot 3 x 0.35
-      // = 1.05, in car 4 x 0.35 = 1.4 (was 2 / 2 at 0.5-scale).
-      const holdDist = p.onFoot ? 1.05 : 1.4;
+      // Part I: hold scales with CAR_SCALE (0.7) — on foot 3 x 0.7
+      // = 2.1, in car 4 x 0.7 = 2.8 (was 1.05 / 1.4 at 0.35-scale).
+      // Written as a formula now so the next scale change needs no
+      // literal edit.
+      const holdDist = p.onFoot ? 3 * CAR_SCALE : 4 * CAR_SCALE;
       const targetSpeed = dist > holdDist ? u.car.maxSpeed : (p.onFoot ? 0 : u.car.maxSpeed * 0.4);
       u.car.speed += (targetSpeed - u.car.speed) * Math.min(1, dt * 1.2);
       const nx = u.car.x + Math.cos(u.car.angle) * u.car.speed * dt;
@@ -313,9 +315,9 @@ export function createWanted(scene, opts) {
       if (lb) { const on = Math.floor(now * 3) % 2 === 0; lb[0].visible = on; lb[1].visible = !on; }
       // Ramming: close + fast → push + damage the player's car.
       // Only while the player is driving — never onto a pedestrian.
-      // Part F2: ram trigger 3.2 -> 1.12 (3.2 x CAR_SCALE 0.35).
+      // Part I: ram trigger 3.2 x CAR_SCALE (0.7) = 2.24.
       u.ramCooldown -= dt;
-      if (!p.onFoot && dist < 1.12 && Math.abs(u.car.speed) > 6 && u.ramCooldown <= 0) {
+      if (!p.onFoot && dist < 3.2 * CAR_SCALE && Math.abs(u.car.speed) > 6 && u.ramCooldown <= 0) {
         u.ramCooldown = 2.5;
         if (opts.onRam) opts.onRam(u, dist);
       }
@@ -360,12 +362,12 @@ export function createWanted(scene, opts) {
     // fortress plaza). The bust radius must be INSIDE the hold
     // distance: 1.25 m busts only a unit that closes in past its hold
     // (ramming / walking into the player), never one just holding.
-    // Part F2: hold is now 1.05 / 1.4 m, bust 2.5 -> 0.875 (2.5 x
-    // CAR_SCALE 0.35, still inside hold).
+    // Part I: hold is now 2.1 / 2.8, bust 2.5 x CAR_SCALE (0.7)
+    // = 1.75 (still inside hold).
     if (level > 0 && p.onFoot) {
       let close = false;
       for (const u of units) {
-        if (Math.hypot(u.car.x - px, u.car.z - pz) < 0.875) { close = true; break; }
+        if (Math.hypot(u.car.x - px, u.car.z - pz) < 2.5 * CAR_SCALE) { close = true; break; }
       }
       if (close && p.speed < 1) {
         bustedTimer += dt;

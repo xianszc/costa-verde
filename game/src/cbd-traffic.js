@@ -162,7 +162,7 @@ export function placeCbdCar(car, axis, index, dir, lane, seg, s = 0) {
   car.angle = HEADING[axis][dir];
   car.mesh.position.set(car.x, ROAD_Y, car.z);
   // AUDIT M-1: NO +PI/2 — the traffic-car model is long on X (body
-  // 4.2 x 1.9, Part F renders it at CAR_SCALE 0.5), so rotation.y =
+  // 4.2 x 1.9, Part I renders it at CAR_SCALE 0.7), so rotation.y =
   // angle already points it along its heading (cos a, -sin a), like
   // the hero car and the ring traffic.
   // The old +PI/2 turned every CBD car 90 deg sideways to its lane.

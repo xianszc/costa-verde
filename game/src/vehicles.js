@@ -120,11 +120,16 @@ function mountWheels(g, wheelPos, halfWidth) {
 // at ROAD_Y and their tyres touch the asphalt instead of sinking.
 export const ROAD_Y = 0.2;
 
-// Part F2 (23 Nov): Xian 17:28 WIB "Mobilnya masih kegedean bos" —
-// CAR_SCALE 0.5 (2,7 lajur) masih terlalu besar, jadi 0.35 (1,9
-// lajur). Lihat reports/partF-car-scale.md (F) + partF2 di bawah
-// untuk pengukuran + trade-off: pejalan kaki kini ~4x tinggi mobil.
-export const CAR_SCALE = 0.35;
+// Part I (23 Nov): Xian 18:48 WIB "mobil dan manusianya jauh banget
+// perbedaannya.. benerin lagi harus proporsional keduanya" — CAR_SCALE
+// 0.35 (1,9 lajur) made the car a TOY next to the unscaled 1.92u
+// player (ratio 4.6x). Now 0.7, PAIRED with PED_SCALE 0.6 in
+// people.js: player 1.92x0.6=1.15 vs Stella 1.20x0.7=0.84 -> 1.37x
+// (real 1.7 m vs 1.4 m = 1.21x). Trade-off: car is 55% of a street
+// carriageway (2.4u). See reports/partI-scale.md for the full
+// measurement + the values that scale with this (radius, yield,
+// wanted hold/ram/bust, cameras, board/exit).
+export const CAR_SCALE = 0.7;
 
 // Side glass panels for a cabin block: two thin dark panes on the body
 // sides, so the cabin reads as windows instead of a solid slab.
