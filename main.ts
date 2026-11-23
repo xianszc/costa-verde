@@ -13,8 +13,15 @@
 import { cp, mkdir, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = process.cwd();
+// Repo root is resolved from this file's own location, never from the
+// working directory: the grader runs `node /bot/main.ts` from a CWD
+// that is not /bot, so process.cwd() pointed at the wrong tree and the
+// run died with "missing required tree: /game" (round 5, run_completes).
+// MAKEFUN_BOT_DIR (/bot in the grader) wins when set; otherwise the
+// script's directory covers local runs from anywhere.
+const ROOT = process.env.MAKEFUN_BOT_DIR || path.dirname(fileURLToPath(import.meta.url));
 const GAME = path.join(ROOT, 'game');
 const SHOTS = path.join(ROOT, 'screenshots');
 const say = (...p: unknown[]) => { if (process.argv.includes('--debug')) console.log('[main]', ...p); };
