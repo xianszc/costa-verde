@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-23T08:51:51.950Z",
-  "commit": "1773f0d",
+  "generated": "2026-11-23T09:00:12.167Z",
+  "commit": "a09a7fa",
   "missions": {
     "M1": {
       "mission": "M1",
@@ -22,13 +22,21 @@
     },
     "M3": {
       "mission": "M3",
-      "result": "ERROR",
-      "attempts": 0,
+      "result": "PASS",
+      "attempts": 1,
       "fails": 0,
-      "maxStage": 0,
-      "ms": 0,
-      "error": "TimeoutError: page.waitForFunction: Timeout 30000ms exceeded.",
-      "commit": "1773f0d"
+      "maxStage": 2,
+      "ms": 414909,
+      "money": 3250,
+      "xp": 2633.6767095701857,
+      "stages": {
+        "0": "CLIMB: reached by driving (human-like)",
+        "1": "DELIVER: reached by driving (human-like)",
+        "2": "RETURN: reached by driving (human-like)"
+      },
+      "errors": 0,
+      "how": "human-like",
+      "commit": "a09a7fa"
     },
     "M4": {
       "mission": "M4",
@@ -226,11 +234,11 @@
     }
   },
   "saveLoad": {
-    "saved": false,
-    "loaded": false,
-    "money": -1,
-    "xp": -1,
-    "missionId": -1,
-    "pass": false
+    "saved": true,
+    "loaded": true,
+    "money": 7777,
+    "xp": 1234,
+    "missionId": 4,
+    "pass": true
   }
 }
