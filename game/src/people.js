@@ -7,14 +7,16 @@ import * as THREE from '../vendor/three.module.min.js';
 import { mergedMesh, colored, xform, vertexColorMat } from './world.js';
 
 // Part I (23 Nov 2026, Xian 18:48): PED_SCALE 0.6 — paired with
-// CAR_SCALE 0.7 so a person reads ~1.3x a car's height (player Elio
-// 1.92u x 0.6 = 1.15 vs Stella 1.20u x 0.7 = 0.84 -> 1.37x; real
-// 1.7 m vs 1.4 m = 1.21x). At CAR_SCALE 0.35 with peds unscaled the
-// ratio was 4.6x and the car read as a toy next to the player.
-// Applied at the figure root in makeFigure + makeWalker, so the
-// player, all NPCs, all walkers and mission figures share ONE scale.
-// See reports/partI-scale.md for the measurement + trade-offs.
-export const PED_SCALE = 0.6;
+// Part J (23 Nov 2026, Xian 19:15): PED_SCALE 0.30 — paired with
+// CAR_SCALE 0.33 so people AND cars both live at the world scale
+// (1u = 3 m): player Elio 1.92u x 0.30 = 0.58u (1.73 m) vs Stella
+// 1.20u x 0.33 = 0.40u (1.19 m) -> 1.45x (real 1.7 m vs 1.2 m =
+// 1.42x); person 0.58x one floor (real 0.57x). Part I used 0.6,
+// which made people proportional to cars but both too big vs
+// buildings + roads. Applied at the figure root in makeFigure +
+// makeWalker, so the player, all NPCs, all walkers and mission
+// figures share ONE scale. See reports/partJ-scale.md.
+export const PED_SCALE = 0.30;
 
 export const ARCHETYPES = {
   lean:    { h: 1.92, girth: 0.86, stoop: 0.00 },

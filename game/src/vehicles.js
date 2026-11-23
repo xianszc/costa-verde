@@ -120,16 +120,23 @@ function mountWheels(g, wheelPos, halfWidth) {
 // at ROAD_Y and their tyres touch the asphalt instead of sinking.
 export const ROAD_Y = 0.2;
 
-// Part I (23 Nov): Xian 18:48 WIB "mobil dan manusianya jauh banget
-// perbedaannya.. benerin lagi harus proporsional keduanya" — CAR_SCALE
-// 0.35 (1,9 lajur) made the car a TOY next to the unscaled 1.92u
-// player (ratio 4.6x). Now 0.7, PAIRED with PED_SCALE 0.6 in
-// people.js: player 1.92x0.6=1.15 vs Stella 1.20x0.7=0.84 -> 1.37x
-// (real 1.7 m vs 1.4 m = 1.21x). Trade-off: car is 55% of a street
-// carriageway (2.4u). See reports/partI-scale.md for the full
-// measurement + the values that scale with this (radius, yield,
-// wanted hold/ram/bust, cameras, board/exit).
-export const CAR_SCALE = 0.7;
+// Part J (23 Nov): Xian 19:15 WIB "Gedung, Jalan, mobil dan karakter
+// tidak proporsional semua" — part I (0.7 + PED 0.6) made car and
+// person proportional to EACH OTHER but both too big vs the world:
+// buildings + roads are built at 1u = 3 m (FLOOR_H 1.0u = 3 m;
+// street 2.4u = 7.2 m), while cars + people were built at 1u = 1 m.
+// The fix is to bring cars + people DOWN to the world scale
+// (1u = 3 m), not up. Now 0.33, PAIRED with PED_SCALE 0.30 in
+// people.js: player 1.92x0.30=0.58u (1.73 m) vs Stella
+// 1.20x0.33=0.40u (1.19 m) -> 1.45x (real 1.7 m vs 1.2 m = 1.42x);
+// person 0.58x one floor (real 0.57x); street 4.2x person height
+// (real 4.2x); Stella 1.45u long = 61% of street width (real 61%).
+// Trade-off: cars read small on the wide roads again (as at 0.35),
+// but now EVERYTHING is consistent at 1u = 3 m. See
+// reports/partJ-scale.md for the full measurement + the values that
+// scale with this (radius, yield, wanted hold/ram/bust, cameras,
+// board/exit).
+export const CAR_SCALE = 0.33;
 
 // Side glass panels for a cabin block: two thin dark panes on the body
 // sides, so the cabin reads as windows instead of a solid slab.
