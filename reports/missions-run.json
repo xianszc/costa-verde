@@ -1,6 +1,6 @@
 {
-  "generated": "2026-11-22T21:38:46.483Z",
-  "commit": "e80ff36",
+  "generated": "2026-11-23T08:21:54.240Z",
+  "commit": "e6cb344",
   "missions": {
     "M1": {
       "mission": "M1",
@@ -8,9 +8,9 @@
       "attempts": 1,
       "fails": 0,
       "maxStage": 2,
-      "ms": 294061,
-      "money": 3950,
-      "xp": 3064.9335220220323,
+      "ms": 17880,
+      "money": 2500,
+      "xp": 1656.084127428095,
       "stages": {
         "0": "RECON: reached by driving (human-like)",
         "1": "STEAL: drive 0.0u + walk 0.0u (human-like)",
@@ -18,7 +18,7 @@
       },
       "errors": 0,
       "how": "human-like",
-      "commit": "unknown"
+      "commit": "e6cb344"
     },
     "M3": {
       "mission": "M3",
