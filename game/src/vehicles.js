@@ -120,17 +120,11 @@ function mountWheels(g, wheelPos, halfWidth) {
 // at ROAD_Y and their tyres touch the asphalt instead of sinking.
 export const ROAD_Y = 0.2;
 
-// Part F (23 Nov): ALL cars are built at 1u = 1m while the roads are
-// 1u = 10m and the buildings 1u ~= 3m — the hero car spanned 5.4
-// lanes and 86% of a CBD podium. CAR_SCALE = 0.5 halves every car
-// (see reports/partF-car-scale.md for the measurement + trade-off:
-// peds now read ~2.8x car height instead of the correct 1.2x).
-// The scale is applied to the car GROUP, so every part — body,
-// wheels, light bar, contact shadow — scales together. Physics
-// (speed/accel/turn in u/s) is untouched; only size-dependent
-// constants (collision radius, yield distance, camera, wanted
-// hold/ram/bust) are scaled with it, each at its own site.
-export const CAR_SCALE = 0.5;
+// Part F2 (23 Nov): Xian 17:28 WIB "Mobilnya masih kegedean bos" —
+// CAR_SCALE 0.5 (2,7 lajur) masih terlalu besar, jadi 0.35 (1,9
+// lajur). Lihat reports/partF-car-scale.md (F) + partF2 di bawah
+// untuk pengukuran + trade-off: pejalan kaki kini ~4x tinggi mobil.
+export const CAR_SCALE = 0.35;
 
 // Side glass panels for a cabin block: two thin dark panes on the body
 // sides, so the cabin reads as windows instead of a solid slab.

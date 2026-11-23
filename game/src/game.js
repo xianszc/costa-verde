@@ -1176,19 +1176,19 @@ export function createGame(container) {
   function toggleCar() {
     if (state.onFoot) {
       const d = Math.hypot(car.x - player.x, car.z - player.z);
-      // Part F: board radius 4 -> 3 (the car is half as long now; the
+      // Part F2: board radius 3 -> 2.7 (the car is 0.35-scale now; the
       // mission driver boards from 1.5u, so this stays generous).
-      if (d < 3) {
+      if (d < 2.7) {
         state.onFoot = false;
         playerMesh.visible = false;
       }
     } else {
       state.onFoot = true;
       const side = { x: Math.cos(car.angle + Math.PI / 2), z: -Math.sin(car.angle + Math.PI / 2) };
-      // Part F: exit offset 2.2 -> 1.6 (the player still lands ~1.1u
+      // Part F2: exit offset 1.6 -> 1.4 (the player still lands ~1.1u
       // from the car's side, as before).
-      player.x = car.x + side.x * 1.6;
-      player.z = car.z + side.z * 1.6;
+      player.x = car.x + side.x * 1.4;
+      player.z = car.z + side.z * 1.4;
       player.angle = car.angle;
       playerMesh.visible = true;
       playerMesh.position.set(player.x, 0, player.z);
@@ -1281,13 +1281,13 @@ export function createGame(container) {
         look = new THREE.Vector3(0, 5, -12);
       }
     } else if (!state.onFoot) {
-      // Part F: cars are CAR_SCALE (0.5) now — pull the chase camera
-      // in (10.5 -> 7 behind, 4.6 -> 3.4 up) so the car keeps its
-      // framing; the look point stays 5u ahead so the road visible
-      // ahead is unchanged, look height 1.2 -> 0.9.
+      // Part F2: cars are CAR_SCALE (0.35) now — pull the chase camera
+      // in further (7 -> 6 behind, 3.4 -> 3.0 up, look 0.9 -> 0.8) so
+      // the car keeps its framing; the look point stays 5u ahead so
+      // the road visible ahead is unchanged.
       const f = { x: Math.cos(car.angle), z: -Math.sin(car.angle) };
-      target = new THREE.Vector3(car.x - f.x * 7, 3.4, car.z - f.z * 7);
-      look = new THREE.Vector3(car.x + f.x * 5, 0.9, car.z + f.z * 5);
+      target = new THREE.Vector3(car.x - f.x * 6, 3.0, car.z - f.z * 6);
+      look = new THREE.Vector3(car.x + f.x * 5, 0.8, car.z + f.z * 5);
     } else {
       const f = { x: Math.cos(player.angle), z: -Math.sin(player.angle) };
       target = new THREE.Vector3(player.x - f.x * 5.5, 3.0, player.z - f.z * 5.5);
