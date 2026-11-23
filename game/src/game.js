@@ -1381,6 +1381,11 @@ export function createGame(container) {
     const phaseLabel = { golden: 'GOLDEN HOUR', day: 'MIDDAY', dusk: 'DUSK', night: 'NIGHT', dawn: 'DAWN' }[phase];
     setText('hud-clock', `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
     setText('hud-clock-sub', `${phaseLabel} · DAY ${state.day}`);
+    // Menu orbit (23 Nov): the title topbar clock is static HTML
+    // ("18:42 · GOLDEN HOUR") and is never updated anywhere — during
+    // the pinned-midday orbit it contradicted the scene. Keep it live
+    // from state.time so the menu reads 12:00 · MIDDAY.
+    setText('clock', `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} · ${phaseLabel}`);
     const stars = $('hud-wanted-stars');
     if (stars) {
       stars.innerHTML = '<span class="lit">' + '★'.repeat(wanted.level) + '</span>' +
